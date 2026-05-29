@@ -1,5 +1,5 @@
 // =========================================================================
-// Mindora — Supabase sync layer
+// Heed — Supabase sync layer
 // =========================================================================
 // Optimistic + realtime sync between Zustand stores and Supabase.
 //
@@ -540,7 +540,7 @@ export function subscribeRealtime(): () => void {
   const sb = getSupabase();
 
   const ch: RealtimeChannel = sb
-    .channel("mindora-sync")
+    .channel("heed-sync")
     // ─── tasks ──────────────────────────────────────────────────────
     .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, (p) => {
       const s = useTasksStore.getState();

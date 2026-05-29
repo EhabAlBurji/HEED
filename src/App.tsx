@@ -42,7 +42,7 @@ export default function App() {
     return () => stopMcpBridge();
   }, [checkSession]);
 
-  // Deep link OAuth callback: mindora://auth-callback?code=...
+  // Deep link OAuth callback: heed://auth-callback?code=...
   useEffect(() => {
     const unlisteners: Array<() => void> = [];
     (async () => {
@@ -50,7 +50,7 @@ export default function App() {
         const { onOpenUrl, getCurrent } = await import("@tauri-apps/plugin-deep-link");
         const handle = (urls: string[]) => {
           for (const url of urls) {
-            if (url.startsWith("mindora://auth-callback")) {
+            if (url.startsWith("heed://auth-callback")) {
               void useAuthStore.getState().handleOAuthCallback(url);
             }
           }

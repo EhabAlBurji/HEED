@@ -360,7 +360,7 @@ export const useTasksStore = create<TasksState>()(
       },
     }),
     {
-      name: "mindora:tasks",
+      name: "heed:tasks",
       version: 9,
       migrate: (state: unknown, version: number | undefined) => {
         const s = state as Record<string, unknown>;

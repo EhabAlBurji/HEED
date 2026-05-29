@@ -54,6 +54,6 @@ export const useGoogleCalendarStore = create<GoogleCalendarState>()(
       setLastSync: (count) =>
         set({ lastSyncAt: new Date().toISOString(), syncedCount: count }),
     }),
-    { name: "mindora:google-calendar", version: 1 }
+    { name: "heed:google-calendar", version: 1 }
   )
 );

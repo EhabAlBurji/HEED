@@ -100,7 +100,7 @@ export const useMeetingsStore = create<MeetingsState>()(
       },
     }),
     {
-      name: "mindora:meetings",
+      name: "heed:meetings",
       version: 4,
       migrate: (state: unknown, version: number | undefined) => {
         const s = state as Record<string, unknown>;

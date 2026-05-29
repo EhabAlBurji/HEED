@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Mindora",
+    "name": "Heed",
     "tagline": "Your personal productivity assistant powered by AI"
   },
   "nav": {
@@ -179,7 +179,7 @@
     "googleCalendar": "Google Calendar",
     "googleCalendarDesc": "Import your meetings from Google Calendar and view them in the calendar.",
     "claudeMcp": "Connect Claude via MCP",
-    "claudeMcpDesc": "Open Claude Code (or Claude Desktop) and add Mindora as an MCP Server to control your tasks from Claude directly.",
+    "claudeMcpDesc": "Open Claude Code (or Claude Desktop) and add Heed as an MCP Server to control your tasks from Claude directly.",
     "signOut": "Sign out",
     "categoryName": "Category name",
     "tagName": "Tag name",

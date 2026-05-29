@@ -109,7 +109,7 @@ export function TaskRow({ task, onOpen }: { task: Task; onOpen: (id: string) => 
   };
 
   const handleCopyLink = () => {
-    void navigator.clipboard.writeText(`mindora://task/${task.id}`);
+    void navigator.clipboard.writeText(`heed://task/${task.id}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -236,7 +236,7 @@ export function TaskRow({ task, onOpen }: { task: Task; onOpen: (id: string) => 
                 </div>
                 <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
                   <span className="min-w-0 flex-1 truncate font-micro text-[10px] text-muted-foreground">
-                    mindora://task/{task.id}
+                    heed://task/{task.id}
                   </span>
                   <button
                     onClick={handleCopyLink}

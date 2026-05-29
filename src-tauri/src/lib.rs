@@ -64,7 +64,7 @@ fn hide_to_tray(app: AppHandle) {
 /// `is_running` – true → green indicator, false → red indicator
 #[tauri::command]
 fn update_tray_state(app: AppHandle, title: String, is_running: bool) {
-    if let Some(tray) = app.tray_by_id("mindora-tray") {
+    if let Some(tray) = app.tray_by_id("heed-tray") {
         let indicator = if is_running { "🟢" } else { "🔴" };
         let label = if title.is_empty() {
             "⏱".to_string()
@@ -78,7 +78,7 @@ fn update_tray_state(app: AppHandle, title: String, is_running: bool) {
 /// Legacy – kept so existing callers don't break during transition.
 #[tauri::command]
 fn update_tray_title(app: AppHandle, title: String) {
-    if let Some(tray) = app.tray_by_id("mindora-tray") {
+    if let Some(tray) = app.tray_by_id("heed-tray") {
         let _ = tray.set_title(Some(&title));
     }
 }
@@ -156,11 +156,11 @@ fn start_oauth_listener(app: AppHandle) -> Result<(), String> {
                 });
 
             let html = concat!(
-                "<!DOCTYPE html><html dir='rtl'><head><meta charset='utf-8'><title>Mindora</title></head>",
+                "<!DOCTYPE html><html dir='rtl'><head><meta charset='utf-8'><title>Heed</title></head>",
                 "<body style='font-family:sans-serif;text-align:center;padding:80px;background:#0b0c14;color:#f5f6fa'>",
                 "<div style='max-width:400px;margin:0 auto;background:#111220;padding:40px;border-radius:16px;border:1px solid #2a2b3d'>",
                 "<h2 style='color:#a78bfa;margin-bottom:12px'>&#x2705; تم الربط بنجاح!</h2>",
-                "<p style='color:#8b8ca0;font-size:14px'>يمكنك إغلاق هذه النافذة والعودة إلى Mindora</p>",
+                "<p style='color:#8b8ca0;font-size:14px'>يمكنك إغلاق هذه النافذة والعودة إلى Heed</p>",
                 "</div></body></html>"
             );
             let response = format!(
@@ -203,17 +203,17 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            // Tray context menu: Open Mindora / Resume / Pause / Stop
-            let open_item   = MenuItem::with_id(app, "open_mindora", "🪟  فتح Mindora", true, None::<&str>)?;
+            // Tray context menu: Open Heed / Resume / Pause / Stop
+            let open_item   = MenuItem::with_id(app, "open_heed", "🪟  فتح Heed", true, None::<&str>)?;
             let resume_item = MenuItem::with_id(app, "timer_resume", "▶  استئناف", true, None::<&str>)?;
             let pause_item  = MenuItem::with_id(app, "timer_pause",  "⏸  إيقاف مؤقت", true, None::<&str>)?;
             let stop_item   = MenuItem::with_id(app, "timer_stop",   "⏹  إيقاف", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open_item, &resume_item, &pause_item, &stop_item])?;
 
-            TrayIconBuilder::with_id("mindora-tray")
+            TrayIconBuilder::with_id("heed-tray")
                 // No icon — title-only for a clean menu bar look
                 .title("⏱")
-                .tooltip("Mindora")
+                .tooltip("Heed")
                 .menu(&menu)
                 .show_menu_on_left_click(true) // left or right click → show menu with controls
                 .on_tray_icon_event(|tray, event| {
@@ -227,7 +227,7 @@ pub fn run() {
                                 let _ = w.set_focus();
                                 let _ = app.emit("tray:show", ());
                             }
-                            if let Some(t) = app.tray_by_id("mindora-tray") {
+                            if let Some(t) = app.tray_by_id("heed-tray") {
                                 let _ = t.set_title(Some("⏱"));
                             }
                         }
@@ -238,13 +238,13 @@ pub fn run() {
             // Forward context-menu events to the frontend
             app.on_menu_event(|app, event| {
                 match event.id().as_ref() {
-                    "open_mindora" => {
+                    "open_heed" => {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
                         let _ = app.emit("tray:show", ());
-                        if let Some(t) = app.tray_by_id("mindora-tray") {
+                        if let Some(t) = app.tray_by_id("heed-tray") {
                             let _ = t.set_title(Some("⏱"));
                         }
                     }

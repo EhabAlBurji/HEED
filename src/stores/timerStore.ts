@@ -106,7 +106,7 @@ export const useTimerStore = create<TimerState>()(
       },
     }),
     {
-      name: "mindora:timer",
+      name: "heed:timer",
       partialize: (s) => ({
         mode: s.mode,
         pomodoro: s.pomodoro,

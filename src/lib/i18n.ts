@@ -21,7 +21,7 @@ void i18n
     detection: {
       order: ["localStorage", "navigator"],
       caches: ["localStorage"],
-      lookupLocalStorage: "mindora:lng",
+      lookupLocalStorage: "heed:lng",
     },
     interpolation: { escapeValue: false },
     returnNull: false,

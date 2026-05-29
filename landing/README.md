@@ -1,4 +1,4 @@
-# Mindora — Landing Page
+# Heed — Landing Page
 
 Single-file static landing page. RTL Arabic + brand-matched purple gradient.
 
@@ -24,7 +24,7 @@ wrangler login
 
 # نشر
 cd landing
-wrangler pages deploy . --project-name mindora-landing
+wrangler pages deploy . --project-name heed-landing
 ```
 
 أول مرة بيسأل تختار branch + git integration؛ ممكن تتخطى.
@@ -48,7 +48,7 @@ vercel deploy --prod
 ## قبل النشر للـ Production
 
 ### استبدل الـ placeholders
-- `MINDORA_OWNER` في كل الـ download links → اسم حسابك على GitHub
+- `HEED_OWNER` في كل الـ download links → اسم حسابك على GitHub
 - `<meta property="og:image">` → URL صورة Open Graph (1200×630)
 
 ### استبدل Tailwind CDN بـ build محلي
@@ -67,7 +67,7 @@ npx @tailwindcss/cli -i input.css -o style.css --minify
 ```
 
 ### Open Graph image
-صورة 1200×630 بشعار Mindora + tagline. ممكن تعملها في Canva في 5 دقايق.
+صورة 1200×630 بشعار Heed + tagline. ممكن تعملها في Canva في 5 دقايق.
 احفظها كـ `landing/og.png`.
 
 ### Screenshots
@@ -79,13 +79,13 @@ npx @tailwindcss/cli -i input.css -o style.css --minify
 
 ```html
 <!-- Mac -->
-href="https://github.com/USER/REPO/releases/latest/download/Mindora_universal.dmg"
+href="https://github.com/USER/REPO/releases/latest/download/Heed_universal.dmg"
 
 <!-- Windows -->
-href="https://github.com/USER/REPO/releases/latest/download/Mindora_x64.msi"
+href="https://github.com/USER/REPO/releases/latest/download/Heed_x64.msi"
 
 <!-- Linux -->
-href="https://github.com/USER/REPO/releases/latest/download/Mindora_amd64.AppImage"
+href="https://github.com/USER/REPO/releases/latest/download/Heed_amd64.AppImage"
 ```
 
 اسم الملف لازم يبقى ثابت في كل release عشان الـ link يفضل شغال.

@@ -109,7 +109,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
     }),
     {
-      name: "mindora:workspaces",
+      name: "heed:workspaces",
       // Migrate old workspaces that don't have members array
       merge: (persisted: unknown, current) => {
         const p = persisted as Partial<WorkspaceState>;

@@ -38,7 +38,7 @@ export const useUIStore = create<UIState>()(
         set({ todayPanelWidth: Math.max(240, Math.min(720, todayPanelWidth)) }),
     }),
     {
-      name: "mindora:ui",
+      name: "heed:ui",
       partialize: (s) => ({
         fontSize: s.fontSize,
         theme: s.theme,

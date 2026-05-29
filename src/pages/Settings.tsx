@@ -659,8 +659,8 @@ function GoogleCalendarContent() {
           {status === "waiting" && (
             <p className="text-center font-micro text-xs text-muted-foreground/60">
               {isAr
-                ? "سيفتح المتصفح — وافق على الصلاحيات ثم عد لـ Mindora تلقائياً"
-                : "Your browser will open — approve permissions then return to Mindora automatically"}
+                ? "سيفتح المتصفح — وافق على الصلاحيات ثم عد لـ Heed تلقائياً"
+                : "Your browser will open — approve permissions then return to Heed automatically"}
             </p>
           )}
           {status === "error" && (
@@ -681,7 +681,7 @@ function McpContent() {
   const configSnippet = JSON.stringify(
     {
       mcpServers: {
-        mindora: {
+        heed: {
           command: "node",
           args: ["<مسار المشروع>/mcp/server.mjs"],
         },
@@ -745,8 +745,8 @@ function McpContent() {
           </span>
           <span>
             {isAr
-              ? <>استبدل <code className="rounded bg-secondary/40 px-1 font-mono text-xs">&lt;مسار المشروع&gt;</code> بالمسار الكامل لمجلد Mindora على جهازك.</>
-              : <>Replace <code className="rounded bg-secondary/40 px-1 font-mono text-xs">&lt;مسار المشروع&gt;</code> with the full path to your Mindora folder.</>}
+              ? <>استبدل <code className="rounded bg-secondary/40 px-1 font-mono text-xs">&lt;مسار المشروع&gt;</code> بالمسار الكامل لمجلد Heed على جهازك.</>
+              : <>Replace <code className="rounded bg-secondary/40 px-1 font-mono text-xs">&lt;مسار المشروع&gt;</code> with the full path to your Heed folder.</>}
           </span>
         </li>
         <li className="flex gap-3">
@@ -755,8 +755,8 @@ function McpContent() {
           </span>
           <span>
             {isAr
-              ? "أعد تشغيل Claude Desktop — ستجد أدوات Mindora في قائمة الأدوات المتاحة."
-              : "Restart Claude Desktop — you'll find Mindora tools in the available tools list."}
+              ? "أعد تشغيل Claude Desktop — ستجد أدوات Heed في قائمة الأدوات المتاحة."
+              : "Restart Claude Desktop — you'll find Heed tools in the available tools list."}
           </span>
         </li>
         <li className="flex gap-3">
@@ -766,7 +766,7 @@ function McpContent() {
           <span>
             {isAr ? "للاستخدام مع Claude Code CLI، شغّل:" : "For Claude Code CLI, run:"}
             <code className="mt-1 block rounded bg-secondary/40 px-2 py-1 font-mono text-xs">
-              claude mcp add mindora node &lt;path&gt;/mcp/server.mjs
+              claude mcp add heed node &lt;path&gt;/mcp/server.mjs
             </code>
           </span>
         </li>

@@ -237,7 +237,7 @@ export default function LoginPage() {
                 className="btn-cta flex w-full items-center justify-center gap-2 rounded-2xl py-3 font-semibold"
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
-                  <span>{tr("ابدأ استخدام Mindora", "Start using Mindora")}</span>
+                  <span>{tr("ابدأ استخدام Heed", "Start using Heed")}</span>
                   <ArrowLeft className="h-4 w-4" />
                 </>}
               </button>
@@ -400,7 +400,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-8 font-micro text-[11px] text-muted-foreground/50">
-          {new Date().getFullYear()} © Mindora
+          {new Date().getFullYear()} © Heed
         </p>
       </div>
     </div>

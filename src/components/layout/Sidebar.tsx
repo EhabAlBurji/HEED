@@ -115,7 +115,7 @@ export function Sidebar() {
             <Sparkles className="h-4.5 w-4.5 text-white" />
           </div>
           <span className="font-display text-lg font-bold tracking-tight text-foreground">
-            Mindora
+            Heed
           </span>
         </div>
       </div>
@@ -138,7 +138,7 @@ export function Sidebar() {
           </div>
           <div className="min-w-0 flex-1 text-start">
             <p className="truncate text-xs font-medium leading-none">
-              {activeWs?.name ?? "Mindora"}
+              {activeWs?.name ?? "Heed"}
             </p>
             <p className="mt-0.5 font-micro text-[9px] text-muted-foreground/70">
               {activeWs?.type === "team" ? `${activeWs.memberCount} أعضاء` : "شخصي"}

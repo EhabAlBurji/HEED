@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Mindora",
+  "productName": "Heed",
   "version": "0.1.0",
-  "identifier": "app.mindora",
+  "identifier": "app.heed",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Mindora",
+        "title": "Heed",
         "width": 1200,
         "height": 800,
         "minWidth": 260,
@@ -35,8 +35,8 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "category": "Productivity",
-    "shortDescription": "Your personal productivity assistant powered by AI",
-    "longDescription": "Mindora turns thoughts into plans. Task management, focus timer, Pomodoro, productivity reports, and AI brain dump.",
+    "shortDescription": "Focus on what matters",
+    "longDescription": "Heed turns thoughts into plans. Task management, focus timer, Pomodoro, productivity reports, and AI brain dump.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -48,12 +48,12 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["mindora"]
+        "schemes": ["heed"]
       }
     },
     "updater": {
       "endpoints": [
-        "https://github.com/EhabAlBurji/Mindora/releases/latest/download/latest.json"
+        "https://github.com/EhabAlBurji/Heed/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEyNDhFQjIxQzVDNjNDQjEKUldTeFBNYkZJZXRJb3VtYlpmbktOM0Z4bzR3THdPTXNsYzBJaUhBZTk3N1hBaEl5UHJxTVBVSUEK"
     }

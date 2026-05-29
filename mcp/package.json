@@ -1,8 +1,8 @@
 {
-  "name": "mindora-mcp",
+  "name": "heed-mcp",
   "version": "1.0.0",
   "type": "module",
-  "description": "MCP server for Mindora – connects Claude to your tasks and publish schedule",
+  "description": "MCP server for Heed – connects Claude to your tasks and publish schedule",
   "main": "server.mjs",
   "scripts": {
     "start": "node server.mjs"

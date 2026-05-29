@@ -9,7 +9,7 @@ import { join } from "path";
 import { homedir } from "os";
 
 // ── File paths ──────────────────────────────────────────────────────────────
-const DATA_DIR = join(homedir(), "Library", "Application Support", "app.mindora");
+const DATA_DIR = join(homedir(), "Library", "Application Support", "app.heed");
 const DATA_FILE = join(DATA_DIR, "mcp-data.json");
 const COMMANDS_FILE = join(DATA_DIR, "mcp-commands.json");
 
@@ -39,7 +39,7 @@ function queueCommand(type, payload) {
 const TOOLS = [
   {
     name: "get_tasks",
-    description: "Get tasks from Mindora. Optionally filter by status or priority.",
+    description: "Get tasks from Heed. Optionally filter by status or priority.",
     inputSchema: {
       type: "object",
       properties: {
@@ -62,7 +62,7 @@ const TOOLS = [
   },
   {
     name: "create_task",
-    description: "Create a new task in Mindora.",
+    description: "Create a new task in Heed.",
     inputSchema: {
       type: "object",
       required: ["title"],
@@ -109,7 +109,7 @@ const TOOLS = [
   },
   {
     name: "get_schedule",
-    description: "Get the publish schedule from Mindora.",
+    description: "Get the publish schedule from Heed.",
     inputSchema: {
       type: "object",
       properties: {
@@ -184,7 +184,7 @@ function handleTool(name, args) {
         deadline: args.deadline ?? null,
         notes: args.notes ?? "",
       });
-      return { queued: true, message: `Task "${args.title}" queued for creation. It will appear in Mindora within a few seconds.` };
+      return { queued: true, message: `Task "${args.title}" queued for creation. It will appear in Heed within a few seconds.` };
     }
 
     case "complete_task": {
@@ -256,7 +256,7 @@ function handleTool(name, args) {
 
 // ── Server setup ─────────────────────────────────────────────────────────────
 const server = new Server(
-  { name: "mindora", version: "1.0.0" },
+  { name: "heed", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 

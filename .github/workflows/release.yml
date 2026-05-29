@@ -1,5 +1,5 @@
 # =====================================================================
-# Mindora — automated multi-platform release
+# Heed — automated multi-platform release
 # =====================================================================
 # Triggered by pushing a tag like `v0.1.0` (semver). Builds the Tauri app
 # for macOS (universal: Intel + Apple Silicon), Windows, and Linux, signs
@@ -8,7 +8,7 @@
 # updater picks up the new version automatically.
 #
 # Required GitHub secrets (Settings → Secrets and variables → Actions):
-#   TAURI_SIGNING_PRIVATE_KEY            content of ~/.tauri/mindora.key
+#   TAURI_SIGNING_PRIVATE_KEY            content of ~/.tauri/heed.key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   password set when generating the key
 #
 # Optional (for notarized macOS builds — silences the "unidentified developer" warning):
@@ -97,7 +97,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Mindora ${{ github.ref_name }}"
+          releaseName: "Heed ${{ github.ref_name }}"
           releaseBody: |
             ## ما الجديد
 
@@ -108,7 +108,7 @@ jobs:
             - **Windows**: الـ `.msi` بالأسفل
             - **Linux**: الـ `.AppImage` بالأسفل
 
-            > 💡 لو عندك Mindora منصّب فعلاً، التحديث هيتركّب تلقائياً عند فتح التطبيق.
+            > 💡 لو عندك Heed منصّب فعلاً، التحديث هيتركّب تلقائياً عند فتح التطبيق.
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

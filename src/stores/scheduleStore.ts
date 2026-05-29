@@ -82,7 +82,7 @@ export const useScheduleStore = create<ScheduleState>()(
       },
     }),
     {
-      name: "mindora:schedule",
+      name: "heed:schedule",
       version: 5,
       migrate: (state: unknown, version: number | undefined) => {
         const s = state as Record<string, unknown>;

@@ -1,6 +1,6 @@
-# Mindora — Launch Roadmap
+# Heed — Launch Roadmap
 
-دليل إطلاق Mindora على Supabase + توزيع الأبلكيشن للناس.
+دليل إطلاق Heed على Supabase + توزيع الأبلكيشن للناس.
 كل خطوة عليها مسؤول واضح (👤 المستخدم / 🤖 Claude) ومدة تقريبية.
 
 ---
@@ -11,7 +11,7 @@
 1. روح [supabase.com/dashboard](https://supabase.com/dashboard) وسجّل دخول
 2. اضغط **New project**
 3. اختار:
-   - **Name**: `mindora-prod`
+   - **Name**: `heed-prod`
    - **Database password**: ولّد كلمة سر قوية واحفظها في password manager
    - **Region**: `Frankfurt (eu-central-1)` (أقرب للناس في الشرق الأوسط) أو `London`
    - **Pricing plan**: Free للبداية
@@ -90,16 +90,16 @@ Login → useInitialSync() pulls all data → Zustand stores populated
 
 **اتنفّذ كاملاً:**
 - ✅ `tauri-plugin-deep-link` 2.x مضاف في Cargo.toml + lib.rs
-- ✅ scheme `mindora` مسجّل في `tauri.conf.json` تحت `plugins.deep-link.desktop.schemes`
+- ✅ scheme `heed` مسجّل في `tauri.conf.json` تحت `plugins.deep-link.desktop.schemes`
 - ✅ permission `deep-link:default` في `src-tauri/capabilities/default.json`
 - ✅ npm package `@tauri-apps/plugin-deep-link` متثبّت
-- ✅ `authStore.signInWithGoogle` يستخدم `redirectTo: "mindora://auth-callback"`
+- ✅ `authStore.signInWithGoogle` يستخدم `redirectTo: "heed://auth-callback"`
 - ✅ `authStore.handleOAuthCallback(url)` بيعمل `exchangeCodeForSession` (PKCE) أو `setSession` (hash tokens)
 - ✅ `App.tsx` يـ listen عبر `onOpenUrl` + `getCurrent` (cold/warm starts)
 
 **خطوة manual باقية في Supabase Dashboard:** 👤
 1. Authentication → URL Configuration → **Redirect URLs**
-2. ضيف `mindora://auth-callback`
+2. ضيف `heed://auth-callback`
 3. (احتياطي) ممكن تضيف `http://localhost:1420` للـ dev من المتصفح
 
 **خطوة manual في Google Cloud Console:** 👤
@@ -137,18 +137,18 @@ Login → useInitialSync() pulls all data → Zustand stores populated
 
 ```bash
 # توليد keypair (هيسألك password)
-npm run tauri signer generate -- -w ~/.tauri/mindora.key
+npm run tauri signer generate -- -w ~/.tauri/heed.key
 
 # Output: private key path + public key string
 ```
 
 دلوقتي:
 1. **خد الـ public key** اللي طلع → افتح `src-tauri/tauri.conf.json` → استبدل `REPLACE_WITH_PUBLIC_KEY_FROM_TAURI_SIGNER_GENERATE` بيه
-2. **احفظ الـ private key** (في `~/.tauri/mindora.key`) في password manager. لو ضاع، مش هتقدر تطلع تحديثات تاني والمستخدمين هيـ stuck على الإصدار الحالي
+2. **احفظ الـ private key** (في `~/.tauri/heed.key`) في password manager. لو ضاع، مش هتقدر تطلع تحديثات تاني والمستخدمين هيـ stuck على الإصدار الحالي
 3. **احفظ الـ password** بتاع المفتاح في password manager
 4. ضيف environment variables في الـ shell الـ rc بتاعك:
    ```bash
-   export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/mindora.key)"
+   export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/heed.key)"
    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<the-password-you-set>"
    ```
 
@@ -156,9 +156,9 @@ npm run tauri signer generate -- -w ~/.tauri/mindora.key
 
 في `tauri.conf.json` → `plugins.updater.endpoints`:
 ```json
-"https://github.com/MINDORA_OWNER/mindora/releases/latest/download/latest.json"
+"https://github.com/HEED_OWNER/heed/releases/latest/download/latest.json"
 ```
-استبدل `MINDORA_OWNER` بـ GitHub username/org. (لو هتستخدم Cloudflare R2 أو موقع آخر، حط الـ URL مباشرة).
+استبدل `HEED_OWNER` بـ GitHub username/org. (لو هتستخدم Cloudflare R2 أو موقع آخر، حط الـ URL مباشرة).
 
 #### الخطوة 5.3 — Build commands
 
@@ -174,9 +174,9 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 ```
 
 Outputs في `src-tauri/target/<target>/release/bundle/`:
-- Mac: `dmg/Mindora_X.X.X_universal.dmg` + `macos/Mindora.app.tar.gz` + `.sig`
-- Windows: `msi/Mindora_X.X.X_x64_en-US.msi` + `.sig`
-- Linux: `appimage/mindora_X.X.X_amd64.AppImage` + `.sig`
+- Mac: `dmg/Heed_X.X.X_universal.dmg` + `macos/Heed.app.tar.gz` + `.sig`
+- Windows: `msi/Heed_X.X.X_x64_en-US.msi` + `.sig`
+- Linux: `appimage/heed_X.X.X_amd64.AppImage` + `.sig`
 
 #### الخطوة 5.4 — GitHub Release + latest.json
 
@@ -192,7 +192,7 @@ Outputs في `src-tauri/target/<target>/release/bundle/`:
   "platforms": {
     "darwin-x86_64": {
       "signature": "<contents of .sig file>",
-      "url": "https://github.com/.../Mindora_0.1.0_universal.app.tar.gz"
+      "url": "https://github.com/.../Heed_0.1.0_universal.app.tar.gz"
     },
     "darwin-aarch64": {
       "signature": "<same>",
@@ -200,11 +200,11 @@ Outputs في `src-tauri/target/<target>/release/bundle/`:
     },
     "windows-x86_64": {
       "signature": "<contents of .sig>",
-      "url": "https://github.com/.../Mindora_0.1.0_x64_en-US.msi.zip"
+      "url": "https://github.com/.../Heed_0.1.0_x64_en-US.msi.zip"
     },
     "linux-x86_64": {
       "signature": "<contents of .sig>",
-      "url": "https://github.com/.../mindora_0.1.0_amd64.AppImage.tar.gz"
+      "url": "https://github.com/.../heed_0.1.0_amd64.AppImage.tar.gz"
     }
   }
 }
@@ -216,11 +216,11 @@ Outputs في `src-tauri/target/<target>/release/bundle/`:
 
 **خطوة لمرة واحدة قبل أول tag** 👤:
 
-1. اعمل الـ GitHub repo (مثلاً `ehabalburji/mindora`) و push الكود
+1. اعمل الـ GitHub repo (مثلاً `ehabalburji/heed`) و push الكود
 2. Settings → Secrets and variables → Actions → New repository secret:
-   - **`TAURI_SIGNING_PRIVATE_KEY`** = محتوى `~/.tauri/mindora.key` (الـ private key كله)
+   - **`TAURI_SIGNING_PRIVATE_KEY`** = محتوى `~/.tauri/heed.key` (الـ private key كله)
      ```bash
-     cat ~/.tauri/mindora.key | pbcopy   # ينسخ للـ clipboard
+     cat ~/.tauri/heed.key | pbcopy   # ينسخ للـ clipboard
      ```
    - **`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`** = الـ password اللي حطيته أثناء التوليد
 3. (اختياري بعدين) لو اشتركت في Apple Developer Program، ضيف الـ Apple secrets المذكورة في تعليق الـ workflow
@@ -244,11 +244,11 @@ git push origin v0.1.0
 موقع static في `landing/index.html` (Tailwind CDN)، RTL Arabic، نفس البراندنج، مع:
 - Hero مع 4 floating mockup cards animated
 - Features grid (6 cards)
-- Download CTAs (Mac/Windows/Linux) — حالياً تشاور على `MINDORA_OWNER/mindora` (placeholder)
+- Download CTAs (Mac/Windows/Linux) — حالياً تشاور على `HEED_OWNER/heed` (placeholder)
 - Favicon + Open Graph meta
 
 **Deploy options** (موثّقين في `landing/README.md`):
-- Cloudflare Pages (recommended): `wrangler pages deploy landing --project-name mindora-landing`
+- Cloudflare Pages (recommended): `wrangler pages deploy landing --project-name heed-landing`
 - Vercel: `cd landing && vercel deploy --prod`
 - GitHub Pages: source folder = `/landing`
 
@@ -271,12 +271,12 @@ git push origin v0.1.0
 ## آخر خطوات قبل أول release 👤
 
 1. **خلّص `~/.zshrc`** — استبدل `REPLACE_ME_WITH_THE_PASSWORD_YOU_SET` بالـ password بتاع الـ signing key
-2. **اعمل GitHub repo** — مثلاً `ehabalburji/mindora`
+2. **اعمل GitHub repo** — مثلاً `ehabalburji/heed`
 3. **استبدل الـ placeholders:**
-   - `tauri.conf.json` → `MINDORA_OWNER` بتاعك في الـ updater endpoint
-   - `landing/index.html` → `MINDORA_OWNER` (4 أماكن)
+   - `tauri.conf.json` → `HEED_OWNER` بتاعك في الـ updater endpoint
+   - `landing/index.html` → `HEED_OWNER` (4 أماكن)
 4. **Push الكود + ضيف الـ GitHub secrets:**
-   - `TAURI_SIGNING_PRIVATE_KEY` = `cat ~/.tauri/mindora.key`
+   - `TAURI_SIGNING_PRIVATE_KEY` = `cat ~/.tauri/heed.key`
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = الـ password
 5. **Deploy الـ Supabase Dashboard manual steps** (email template + Google OAuth + redirect URLs)
 6. **أول tag:**
@@ -287,7 +287,7 @@ git push origin v0.1.0
    روح Actions tab واستنى ~20 دقيقة.
 7. **Deploy الـ landing:**
    ```bash
-   cd landing && wrangler pages deploy . --project-name mindora-landing
+   cd landing && wrangler pages deploy . --project-name heed-landing
    ```
 
 🎉 **بعد كده المنتج online ومنتشر.**

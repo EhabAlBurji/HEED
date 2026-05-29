@@ -484,13 +484,24 @@ export default function Projects() {
       <ProjectsGreeting isAr={isAr} />
 
       {/* Section label row */}
-      <div className="flex items-end justify-between pb-1">
-        <h2 className="font-display text-xl font-bold tracking-tight">
-          {isAr ? "قوائمك" : "Your Lists"}
-        </h2>
-        <p className="font-micro text-xs text-muted-foreground">
-          {isAr ? "قوائم بمهامك القادمة" : "Lists with your upcoming tasks"}
-        </p>
+      <div className="flex items-end justify-between gap-3 pb-1">
+        <div className="min-w-0">
+          <h2 className="font-display text-xl font-bold tracking-tight">
+            {isAr ? "قوائمك" : "Your Lists"}
+          </h2>
+          <p className="font-micro text-xs text-muted-foreground">
+            {isAr ? "قوائم بمهامك القادمة" : "Lists with your upcoming tasks"}
+          </p>
+        </div>
+        {!creating && (
+          <button
+            onClick={() => setCreating(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {isAr ? "مشروع جديد" : "New project"}
+          </button>
+        )}
       </div>
 
       {/* Create form */}
@@ -598,9 +609,16 @@ export default function Projects() {
 
       {/* Projects grid */}
       {projects.length === 0 && !creating ? (
-        <div className="flex flex-col items-center gap-3 py-24 text-muted-foreground">
+        <div className="flex flex-col items-center gap-4 py-24 text-muted-foreground">
           <FolderOpen className="h-14 w-14 opacity-20" />
           <p className="text-sm">{isAr ? "مفيش مشاريع لسه — ابدأ بإنشاء الأول" : t("projects.empty")}</p>
+          <button
+            onClick={() => setCreating(true)}
+            className="btn-cta flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            {isAr ? "إنشاء مشروع جديد" : t("projects.new")}
+          </button>
         </div>
       ) : (
         <ProjectsGrid

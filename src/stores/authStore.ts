@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase";
 import { resetAllStores } from "../lib/resetStores";
 
-const LAST_USER_KEY = "mindora:last_identity";
+const LAST_USER_KEY = "heed:last_identity";
 
 // Wipe local stores whenever identity changes (different user, guest→auth,
 // or auth→none). Same-identity rehydration is a no-op so authenticated users
@@ -65,12 +65,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = getSupabase();
           if (isTauri()) {
-            // Desktop: open in system browser, callback via mindora:// deep link
+            // Desktop: open in system browser, callback via heed:// deep link
             const { data, error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
                 skipBrowserRedirect: true,
-                redirectTo: "mindora://auth-callback",
+                redirectTo: "heed://auth-callback",
                 queryParams: { access_type: "offline", prompt: "consent" },
               },
             });
@@ -98,8 +98,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       // Handle the deep-link callback from the OAuth provider.
-      // The URL looks like: mindora://auth-callback?code=XXX  (PKCE flow)
-      // or                   mindora://auth-callback#access_token=...  (implicit)
+      // The URL looks like: heed://auth-callback?code=XXX  (PKCE flow)
+      // or                   heed://auth-callback#access_token=...  (implicit)
       handleOAuthCallback: async (url) => {
         set({ isLoading: true, error: null });
         try {
@@ -267,7 +267,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: "mindora:auth",
+      name: "heed:auth",
       partialize: (s) => ({ user: s.user }),
     }
   )
