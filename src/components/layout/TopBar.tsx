@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from "react";
 import { Pause, Play, Square, Timer, LogOut, Bell, Settings as SettingsIcon, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTimerStore } from "../../stores/timerStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useNow } from "../../hooks/useNow";
 import { formatHMS } from "../../lib/utils";
@@ -20,7 +19,7 @@ async function toggleMaximize() {
 }
 
 export function TopBar() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   useNow(1000);
 
   const activeTask     = useTimerStore((s) => s.activeTask);
@@ -29,8 +28,12 @@ export function TopBar() {
   const estimated      = activeTask?.estimatedMinutes ?? null;
   const resume         = useTimerStore((s) => s.resume);
 
-  const { workspaces, activeWorkspaceId } = useWorkspaceStore();
-  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
+  const user = useAuthStore((s) => s.user);
+
+  const isAr = i18n.language === "ar";
+  const monthName = new Date().toLocaleString(isAr ? "ar-EG" : "en-US", { month: "long" });
+  const displayName =
+    user?.name ?? (user?.id === "guest" ? (isAr ? "زائر" : "Guest") : user?.email?.split("@")[0] ?? "");
 
   const overTime = estimated !== null && elapsedSeconds > estimated * 60;
 
@@ -42,18 +45,18 @@ export function TopBar() {
         "select-none",
       )}
     >
-      {/* Left: workspace chip (the brand logo lives in the sidebar) */}
-      <div className="flex items-center gap-3 ps-16">
-        {activeWs && (
-          <div className="flex items-center gap-2 rounded-full bg-secondary/60 px-3 py-1">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: activeWs.color }}
-            />
-            <span className="font-micro text-xs font-medium text-foreground/80">
-              {activeWs.name}
+      {/* Left: month + user name (brand logo lives in the sidebar) */}
+      <div className="flex items-baseline gap-2 ps-16">
+        <span className="font-display text-sm font-semibold tracking-tight text-foreground">
+          {monthName}
+        </span>
+        {displayName && (
+          <>
+            <span className="text-muted-foreground/50">·</span>
+            <span className="font-micro text-xs font-medium text-muted-foreground">
+              {displayName}
             </span>
-          </div>
+          </>
         )}
       </div>
 

@@ -166,8 +166,8 @@ export default function Dashboard() {
   return (
     <div className="flex items-start">
     {/* ── Main scrollable content ─── */}
-    <div className="min-w-0 flex-1 px-8 py-8">
-    <div className="mx-auto max-w-3xl space-y-7">
+    <div className="min-w-0 flex-1 px-8 pt-4 pb-8">
+    <div className="mx-auto max-w-3xl space-y-5">
       {/* Header */}
       <header className="space-y-0.5">
         <h1 className="font-display text-3xl font-semibold">

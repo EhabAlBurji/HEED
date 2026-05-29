@@ -19,9 +19,9 @@ import {
   Crown,
   ZoomIn,
   ZoomOut,
-  Sparkles,
   AlertTriangle,
 } from "lucide-react";
+import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
 import { useUIStore, type FontSize } from "../../stores/uiStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -111,9 +111,7 @@ export function Sidebar() {
       {/* ── Brand logo at top (ryswift style) ──────────── */}
       <div className="px-5 pt-5 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-[0_4px_12px_rgba(103,53,225,0.25)]">
-            <Sparkles className="h-4.5 w-4.5 text-white" />
-          </div>
+          <HeedLogo className="h-9 w-9 text-primary drop-shadow-[0_4px_12px_rgba(103,53,225,0.25)]" />
           <span className="font-display text-lg font-bold tracking-tight text-foreground">
             Heed
           </span>

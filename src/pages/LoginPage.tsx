@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Mail, ArrowLeft, Loader2, Sparkles, ArrowRight, ShieldCheck, User, RefreshCw } from "lucide-react";
+import { Mail, ArrowLeft, Loader2, ArrowRight, ShieldCheck, User, RefreshCw } from "lucide-react";
 import { useAuthStore } from "../stores/authStore";
 import { isSupabaseConfigured } from "../lib/supabase";
+import { HeedLogo } from "../components/HeedLogo";
 import { cn } from "../lib/utils";
 
 type Step = "email" | "otp" | "name";
@@ -156,8 +157,8 @@ export default function LoginPage() {
       {/* ── Centered hero ── */}
       <div className="relative z-10 flex w-full max-w-[640px] flex-col items-center text-center">
         {/* Logo tile */}
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-card shadow-[0_8px_32px_rgba(103,53,225,0.18)] ring-1 ring-border">
-          <Sparkles className="h-8 w-8 text-primary" />
+        <div className="mb-6 shadow-[0_8px_32px_rgba(103,53,225,0.18)] rounded-2xl">
+          <HeedLogo className="h-16 w-16 text-primary" />
         </div>
 
         {/* Big title */}
