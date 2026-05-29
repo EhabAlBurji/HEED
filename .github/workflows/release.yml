@@ -1,0 +1,143 @@
+# =====================================================================
+# Mindora — automated multi-platform release
+# =====================================================================
+# Triggered by pushing a tag like `v0.1.0` (semver). Builds the Tauri app
+# for macOS (universal: Intel + Apple Silicon), Windows, and Linux, signs
+# every binary with the updater private key, creates a GitHub Release
+# with all artifacts attached, and uploads `latest.json` so the in-app
+# updater picks up the new version automatically.
+#
+# Required GitHub secrets (Settings → Secrets and variables → Actions):
+#   TAURI_SIGNING_PRIVATE_KEY            content of ~/.tauri/mindora.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   password set when generating the key
+#
+# Optional (for notarized macOS builds — silences the "unidentified developer" warning):
+#   APPLE_CERTIFICATE                    base64 of the .p12 Developer ID cert
+#   APPLE_CERTIFICATE_PASSWORD           password for the .p12
+#   APPLE_SIGNING_IDENTITY               "Developer ID Application: Your Name (TEAMID)"
+#   APPLE_ID                             Apple ID email
+#   APPLE_PASSWORD                       app-specific password
+#   APPLE_TEAM_ID                        10-char team ID
+# =====================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: # allow manual trigger from the Actions tab
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target universal-apple-darwin"
+          - platform: "ubuntu-22.04"
+            args: ""
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux deps (webkit2gtk + AppImage tools)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            build-essential \
+            curl \
+            wget \
+            file
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # macOS universal needs both x86_64 + aarch64 targets
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build + Release (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # ↓ optional Apple notarization — only used if the secrets are set
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Mindora ${{ github.ref_name }}"
+          releaseBody: |
+            ## ما الجديد
+
+            راجع [الـ commits](https://github.com/${{ github.repository }}/compare/...${{ github.ref_name }}) من آخر إصدار.
+
+            ### تحميل
+            - **Mac** (Intel + Apple Silicon): الـ `.dmg` بالأسفل
+            - **Windows**: الـ `.msi` بالأسفل
+            - **Linux**: الـ `.AppImage` بالأسفل
+
+            > 💡 لو عندك Mindora منصّب فعلاً، التحديث هيتركّب تلقائياً عند فتح التطبيق.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: false
+          args: ${{ matrix.args }}
+
+  # After all platforms upload artifacts, flip the release from draft to published.
+  # tauri-action keeps the release in draft state while builds run so users don't
+  # see a half-uploaded release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const release = releases.find(r => r.tag_name === context.ref.replace('refs/tags/', ''));
+            if (release && release.draft) {
+              await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+                draft: false,
+              });
+              core.info(`Published release ${release.tag_name}`);
+            }

@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Graphik Arabic — ضع ملفات الخطوط في public/fonts/
+   الأوزان: Thin(100) ExtraLight(200) Light(300) Regular(400)
+            Medium(500) Semibold(600) Bold(700) Black(900)
+
+   ملاحظة: استبدل أسماء الملفات أدناه بالأسماء الفعلية
+   عندك مثلاً: GraphikArabic-Regular.otf أو GraphikArabic-Medium.woff2
+   ============================================================ */
+
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-ExtraLight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphik Arabic";
+  src: url("/fonts/GraphikArabic-Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Forma DJR kept as fallback in case Graphik files not yet present */
+@font-face {
+  font-family: "Forma DJR Banner";
+  src: url("/fonts/FormaDJRArabicBanner-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Deck";
+  src: url("/fonts/FormaDJRArabicDeck-ExtraLight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Deck";
+  src: url("/fonts/FormaDJRArabicDeck-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Deck";
+  src: url("/fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Deck";
+  src: url("/fonts/FormaDJRArabicDeck-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Deck";
+  src: url("/fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Forma DJR Micro";
+  src: url("/fonts/FormaDJRArabicMicro-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   Theme tokens — ryswift Edition (clean logistics dashboard)
+   Light (default): off-white #F4F4F6 + vivid purple #6735E1
+                    ink navy #172935 + yellow accent #FFCF27
+   Dark: deep midnight + same vivid purple
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* Light theme — default (neutral off-white, not lavender) */
+    --background:          240 8%   96%;    /* #F4F4F6 cool off-white */
+    --foreground:          210 38%  15%;    /* #172935 deep navy ink */
+    --card:                0   0%   100%;
+    --card-foreground:     210 38%  15%;
+    --popover:             0   0%   100%;
+    --popover-foreground:  210 38%  15%;
+    --primary:             257 76%  54%;    /* #6735E1 vivid violet */
+    --primary-foreground:  0   0%   100%;
+    --secondary:           240 8%   92%;    /* #E8E8EC neutral chip */
+    --secondary-foreground: 210 38%  20%;
+    --muted:               240 8%   92%;
+    --muted-foreground:    210 8%   48%;    /* slate-ish muted */
+    --accent:              257 90%  94%;    /* #ECE4FD soft violet wash */
+    --accent-foreground:   257 76%  44%;
+    --destructive:         0   75%   58%;
+    --destructive-foreground: 0 0% 100%;
+    --border:              240 8%   88%;    /* #DDDDE1 visible separator */
+    --input:               240 8%   88%;
+    --ring:                257 76%  54%;
+    --radius:              1.25rem;
+  }
+
+  .dark {
+    /* Deep navy midnight inspired by ryswift's #172935 ink */
+    --background:          210 38%   9%;    /* #0F1B26 base */
+    --foreground:          210 16%  92%;    /* off-white, eye-friendly */
+    --card:                210 32%  13%;    /* #172935 elevated card */
+    --card-foreground:     210 16%  92%;
+    --popover:             210 30%  15%;
+    --popover-foreground:  210 16%  92%;
+    --primary:             257 80%  66%;    /* brighter vivid violet on dark */
+    --primary-foreground:  0   0%   100%;
+    --secondary:           210 24%  17%;    /* second-tier surface */
+    --secondary-foreground: 210 14%  85%;
+    --muted:               210 24%  17%;
+    --muted-foreground:    210 10%  68%;
+    --accent:              257 40%  26%;    /* deep purple chip */
+    --accent-foreground:   257 90%  88%;
+    --destructive:         0   72%  62%;
+    --destructive-foreground: 0 0% 98%;
+    --border:              210 20%  22%;    /* visible separators */
+    --input:               210 20%  22%;
+    --ring:                257 80%  66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body, #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* Graphik Arabic first, Forma DJR as fallback */
+    font-family: "Graphik Arabic", "Forma DJR Deck", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    overflow: hidden;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  input, textarea, select, button, a, [contenteditable="true"], [role="button"] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  html[dir="rtl"] body {
+    font-family: "Graphik Arabic", "Forma DJR Deck", "Forma DJR Banner", system-ui, sans-serif;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+}
+
+@layer utilities {
+  /* Display heading */
+  .font-display {
+    font-family: "Graphik Arabic", "Forma DJR Banner", sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  /* Micro/label text */
+  .font-micro {
+    font-family: "Graphik Arabic", "Forma DJR Micro", "Forma DJR Deck", sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  /* ryswift brand gradient — vivid violet → light violet */
+  .text-gradient-brand {
+    background-image: linear-gradient(135deg, #6735E1 0%, #8B6BEC 50%, #C4B5FD 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Glassmorphism card */
+  .glass {
+    background: hsl(var(--card) / 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.7);
+  }
+
+  /* Soft elevation for white cards */
+  .card-soft {
+    background: hsl(var(--card));
+    box-shadow: 0 1px 2px rgba(23, 41, 53, 0.04), 0 4px 16px rgba(23, 41, 53, 0.05);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  /* Subtle gradient surface for dense rows — gives depth on dark theme */
+  .row-surface {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .dark .row-surface {
+    background: linear-gradient(180deg, hsl(210 32% 14%) 0%, hsl(210 34% 12%) 100%);
+    border-color: hsl(210 20% 22%);
+  }
+  .row-surface:hover {
+    border-color: hsl(var(--primary) / 0.35);
+  }
+  .dark .row-surface:hover {
+    background: linear-gradient(180deg, hsl(210 32% 16%) 0%, hsl(210 34% 14%) 100%);
+  }
+
+  /* Glowing purple button/element */
+  .glow-purple {
+    box-shadow: 0 4px 16px rgba(103, 53, 225, 0.25), 0 0 32px rgba(103, 53, 225, 0.15);
+  }
+  .glow-purple:hover {
+    box-shadow: 0 6px 24px rgba(103, 53, 225, 0.35), 0 0 48px rgba(103, 53, 225, 0.22);
+  }
+
+  /* Premium CTA — vertical gradient with inset highlights + outer glow
+     (Linear / Cursor / Stripe-style depth) */
+  .btn-cta {
+    background: linear-gradient(180deg, #8155EB 0%, #6735E1 55%, #5024B8 100%);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.20) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.15) inset,
+      0 0 0 1px rgba(103, 53, 225, 0.45),
+      0 8px 24px rgba(103, 53, 225, 0.38);
+    color: white;
+    transition: box-shadow 200ms ease, transform 80ms ease, filter 200ms ease;
+  }
+  .btn-cta:hover {
+    filter: brightness(1.05);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.24) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.15) inset,
+      0 0 0 1px rgba(103, 53, 225, 0.55),
+      0 10px 32px rgba(103, 53, 225, 0.50);
+  }
+  .btn-cta:active {
+    transform: translateY(1px);
+    filter: brightness(0.98);
+  }
+  .btn-cta:disabled {
+    opacity: 0.55;
+    filter: saturate(0.8);
+    cursor: not-allowed;
+  }
+
+  /* Ambient radial glow behind key elements */
+  .bg-glow-purple {
+    position: relative;
+  }
+  .bg-glow-purple::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(103,53,225,0.10) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "app": {
+    "name": "Mindora",
+    "tagline": "مساعدك الشخصي للإنتاجية مدعوم بالذكاء الاصطناعي"
+  },
+  "nav": {
+    "dashboard": "الرئيسية",
+    "todo": "تودو",
+    "tasks": "تودو",
+    "projects": "المشاريع",
+    "focus": "التركيز",
+    "reports": "التقارير",
+    "settings": "الإعدادات",
+    "integrations": "التكاملات",
+    "schedule": "خطة النشر",
+    "calendar": "التقويم"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "email": "الإيميل",
+    "password": "الباسورد",
+    "name": "اسمك الكامل",
+    "noAccount": "لسه ماعندكش حساب؟",
+    "haveAccount": "عندك حساب بالفعل؟",
+    "continueGuest": "تابع بدون حساب",
+    "signInBtn": "دخول",
+    "signUpBtn": "إنشاء الحساب"
+  },
+  "workspace": {
+    "personal": "شخصي",
+    "team": "فريق",
+    "new": "مساحة عمل جديدة",
+    "create": "إنشاء",
+    "members": "أعضاء",
+    "switchTo": "التبديل إلى",
+    "invite": "دعوة عضو جديد",
+    "noMembers": "لا يوجد أعضاء بعد"
+  },
+  "tasks": {
+    "newTask": "مهمة جديدة",
+    "title": "عنوان المهمة",
+    "notes": "ملاحظات",
+    "estimated": "الوقت المتوقع",
+    "actual": "الوقت الفعلي",
+    "priority": "الأولوية",
+    "category": "التصنيف",
+    "list": "القائمة",
+    "subtasks": "مهام فرعية",
+    "checklist": "تشيك ليست",
+    "links": "روابط مرجعية",
+    "addLink": "+ إضافة رابط",
+    "linkUrl": "الرابط",
+    "linkLabel": "التسمية (اختياري)",
+    "deadline": "موعد التسليم",
+    "share": "مشاركة",
+    "shareTitle": "مشاركة المهمة",
+    "shareDesc": "شارك هذه المهمة مع أعضاء الفريق",
+    "copyLink": "نسخ الرابط",
+    "copied": "تم النسخ",
+    "shareProject": "مشاركة المشروع",
+    "moveToWorkspace": "نقل إلى مساحة عمل",
+    "status": {
+      "todo": "للعمل",
+      "in_progress": "بشتغل عليها",
+      "done": "خلصت",
+      "cancelled": "اتلغت"
+    },
+    "priorities": {
+      "low": "منخفضة",
+      "medium": "متوسطة",
+      "high": "عالية",
+      "urgent": "عاجلة"
+    },
+    "video": {
+      "stage": "مرحلة الفيديو",
+      "idea": "فكرة",
+      "script": "سكريبت",
+      "filming": "تصوير",
+      "editing": "مونتاج",
+      "scheduled": "مجدول",
+      "published": "اتنشر"
+    }
+  },
+  "projects": {
+    "title": "المشاريع",
+    "new": "مشروع جديد",
+    "create": "إنشاء",
+    "empty": "مفيش مشاريع لسه — ابدأ بإنشاء الأول",
+    "general": "عام",
+    "video": "فيديو",
+    "design": "تصميم",
+    "name": "اسم المشروع",
+    "color": "اللون",
+    "type": "النوع",
+    "notFound": "المشروع مش موجود",
+    "backToProjects": "رجوع للمشاريع"
+  },
+  "kanban": {
+    "backlog": "تراكمي",
+    "this_week": "الأسبوع ده",
+    "today": "النهارده",
+    "done": "خلصت"
+  },
+  "timer": {
+    "start": "ابدأ",
+    "pause": "وقف",
+    "stop": "أنهي",
+    "noActiveTask": "مفيش مهمة شغالة",
+    "elapsed": "الوقت اللي عدّى",
+    "remaining": "الوقت الباقي",
+    "overtime": "وقت زيادة"
+  },
+  "focus": {
+    "title": "وضع التركيز",
+    "enter": "ادخل التركيز",
+    "exit": "اخرج من التركيز",
+    "pomodoro": "بومودورو",
+    "break": "استراحة",
+    "workSprint": "جلسة شغل",
+    "longBreak": "استراحة طويلة"
+  },
+  "reports": {
+    "overview": "ملخص التقارير",
+    "subtitle": "نظرة شاملة على سلوكك وإنتاجيتك",
+    "tasksDone": "مهام خلصت",
+    "tasksPerDay": "مهام / يوم",
+    "hoursPerDay": "ساعات / يوم",
+    "minsPerTask": "دقايق / مهمة",
+    "dayStreak": "أيام متواصلة",
+    "mostProductiveHour": "أكتر ساعة منتج",
+    "mostProductiveDay": "أكتر يوم منتج",
+    "mostProductiveMonth": "أكتر شهر منتج",
+    "exportPdf": "تصدير PDF",
+    "timeByList": "الوقت حسب القائمة"
+  },
+  "ai": {
+    "brainDump": "حوّل أفكارك لخطة",
+    "placeholder": "اكتب كل اللي في دماغك من مهام بأي لغة...",
+    "generate": "ولّد مهام",
+    "thinking": "بفكر…",
+    "preview": "راجع قبل ما تحفظ"
+  },
+  "common": {
+    "save": "احفظ",
+    "cancel": "إلغاء",
+    "delete": "احذف",
+    "edit": "عدّل",
+    "add": "إضافة",
+    "back": "رجوع",
+    "next": "التالي",
+    "loading": "بحمّل…",
+    "search": "بحث",
+    "language": "اللغة",
+    "theme": "الثيم",
+    "dark": "داكن",
+    "light": "فاتح",
+    "fontSize": "حجم الخط"
+  }
+}
