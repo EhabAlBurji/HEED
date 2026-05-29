@@ -53,7 +53,7 @@
     },
     "updater": {
       "endpoints": [
-        "https://github.com/ehabalburji/Mindora/releases/latest/download/latest.json"
+        "https://github.com/EhabAlBurji/Mindora/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEyNDhFQjIxQzVDNjNDQjEKUldTeFBNYkZJZXRJb3VtYlpmbktOM0Z4bzR3THdPTXNsYzBJaUhBZTk3N1hBaEl5UHJxTVBVSUEK"
     }
