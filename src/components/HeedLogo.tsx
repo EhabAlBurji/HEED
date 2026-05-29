@@ -1,19 +1,24 @@
-// Heed brand logo — stylized "H" letter on a rounded square.
-// The square color uses `currentColor` so the parent can tint it (e.g. text-primary).
-// Pass `className` to control sizing.
+// Heed brand logo — the official "H on rounded square" icon.
+// PNG source lives in public/heed-icon.png. Pass `className` to size it.
 export function HeedLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 100 100"
-      xmlns="http://www.w3.org/2000/svg"
+    <img
+      src="/heed-icon.png"
+      alt="Heed"
       className={className}
-      aria-hidden="true"
-    >
-      <rect width="100" height="100" rx="22" fill="currentColor" />
-      <path
-        d="M 14 90 L 14 22 L 30 8 L 30 44 L 70 44 L 70 8 L 86 22 L 86 90 L 70 90 L 70 56 L 30 56 L 30 90 Z"
-        fill="white"
-      />
-    </svg>
+      draggable={false}
+    />
+  );
+}
+
+// Full wordmark version (icon + "HEED" text). Use on landing / login etc.
+export function HeedLogoFull({ className = "h-8" }: { className?: string }) {
+  return (
+    <img
+      src="/heed-logo-full.png"
+      alt="Heed"
+      className={className}
+      draggable={false}
+    />
   );
 }
