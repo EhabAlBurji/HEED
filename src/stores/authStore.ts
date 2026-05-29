@@ -1,6 +1,24 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase";
+import { resetAllStores } from "../lib/resetStores";
+
+const LAST_USER_KEY = "mindora:last_identity";
+
+// Wipe local stores whenever identity changes (different user, guest→auth,
+// or auth→none). Same-identity rehydration is a no-op so authenticated users
+// who refresh the app keep their cached data until pullAll() refreshes it.
+function ensureFreshFor(newId: string | null) {
+  const prev = (typeof localStorage !== "undefined" && localStorage.getItem(LAST_USER_KEY)) || "";
+  const curr = newId ?? "";
+  if (prev !== curr) {
+    resetAllStores();
+    if (typeof localStorage !== "undefined") {
+      if (curr) localStorage.setItem(LAST_USER_KEY, curr);
+      else localStorage.removeItem(LAST_USER_KEY);
+    }
+  }
+}
 
 // Tauri injects `__TAURI_INTERNALS__` on window. In the browser (vite dev), it's absent.
 const isTauri = () =>
@@ -94,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
             if (error) throw error;
             const usr = data.user;
             if (!usr) throw new Error("No user returned");
+            ensureFreshFor(usr.id);
             set({
               user: {
                 id: usr.id,
@@ -115,6 +134,7 @@ export const useAuthStore = create<AuthState>()(
             if (error) throw error;
             const usr = data.user;
             if (!usr) throw new Error("No user returned");
+            ensureFreshFor(usr.id);
             set({
               user: {
                 id: usr.id,
@@ -160,6 +180,7 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
           const u = data.user;
           if (!u) throw new Error("فشل التحقق");
+          ensureFreshFor(u.id);
           set({
             user: {
               id: u.id,
@@ -201,7 +222,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: () => {
-        // Clear user immediately so UI reacts at once
+        // Wipe local cache so the next user doesn't inherit this one's data
+        ensureFreshFor(null);
         set({ user: null, error: null });
         // Fire-and-forget Supabase signout in background
         if (isSupabaseConfigured()) {
@@ -222,6 +244,7 @@ export const useAuthStore = create<AuthState>()(
             const u = data.session.user;
             // Keep local avatarUrl if already set (base64 from profile)
             const existing = get().user;
+            ensureFreshFor(u.id);
             set({
               user: {
                 id: u.id,
@@ -237,6 +260,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       continueAsGuest: () => {
+        ensureFreshFor("guest");
         set({
           user: { id: "guest", email: "", name: null, avatarUrl: null },
         });
