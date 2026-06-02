@@ -39,6 +39,9 @@
   </script>
 
   <style>
+    /* Smooth anchor scrolling + breathing room so sections don't jam the top. */
+    html { scroll-behavior: smooth; }
+    [id] { scroll-margin-top: 80px; }
     body {
       background:
         radial-gradient(ellipse 80% 60% at 50% 0%, rgba(103,53,225,0.10) 0%, transparent 60%),
@@ -82,6 +85,7 @@
     @keyframes ctaGlow { 0%,100% { box-shadow: 0 8px 24px rgba(103,53,225,0.32); } 50% { box-shadow: 0 10px 30px rgba(103,53,225,0.48); } }
     .hero-cta { animation: ctaGlow 3.2s ease-in-out infinite; }
     @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
       .reveal, .hero-in, .gradient-text, .hero-cta, .float-a, .float-b, .float-c, .float-d { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
     }
   </style>
@@ -92,7 +96,7 @@
   <!-- ── Nav ─────────────────────────────────────────────────────── -->
   <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
     <!-- Official full logo (icon + HEED wordmark) from the design source -->
-    <a href="#" class="shrink-0"><img src="heed-logo-full.png" alt="HEED" class="h-8 w-auto" /></a>
+    <a href="#" class="shrink-0"><img src="heed-logo-full.png" alt="HEED" width="124" height="32" class="h-8 w-auto" /></a>
     <div class="flex items-center gap-2">
       <a href="#features" class="hidden sm:inline rounded-lg px-3 py-1.5 text-sm text-[#172935]/70 hover:text-[#172935] transition" data-en="Features" data-ar="المميزات">Features</a>
       <a href="#login" class="hidden sm:inline rounded-lg px-3 py-1.5 text-sm text-[#172935]/70 hover:text-[#172935] transition" data-en="Sign in" data-ar="دخول">Sign in</a>
