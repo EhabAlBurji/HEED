@@ -3,8 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+// Tray + menu are desktop-only; imported inside the `#[cfg(desktop)]` setup block.
 
 // ── Double-click detection ────────────────────────────────────────────────────
 fn last_click() -> &'static Mutex<Option<Instant>> {
@@ -53,7 +52,9 @@ fn get_data_dir(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+#[allow(unused_variables)]
 fn hide_to_tray(app: AppHandle) {
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
@@ -63,7 +64,9 @@ fn hide_to_tray(app: AppHandle) {
 /// `title`      – timer text, e.g. "01:23 اسم المهمة"
 /// `is_running` – true → green indicator, false → red indicator
 #[tauri::command]
+#[allow(unused_variables)]
 fn update_tray_state(app: AppHandle, title: String, is_running: bool) {
+    #[cfg(desktop)]
     if let Some(tray) = app.tray_by_id("heed-tray") {
         let indicator = if is_running { "🟢" } else { "🔴" };
         let label = if title.is_empty() {
@@ -77,7 +80,9 @@ fn update_tray_state(app: AppHandle, title: String, is_running: bool) {
 
 /// Legacy – kept so existing callers don't break during transition.
 #[tauri::command]
+#[allow(unused_variables)]
 fn update_tray_title(app: AppHandle, title: String) {
+    #[cfg(desktop)]
     if let Some(tray) = app.tray_by_id("heed-tray") {
         let _ = tray.set_title(Some(&title));
     }
@@ -184,7 +189,9 @@ fn start_oauth_listener(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[allow(unused_variables)]
 fn toggle_maximize(app: AppHandle) {
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         if window.is_maximized().unwrap_or(false) {
             let _ = window.unmaximize();
@@ -203,6 +210,11 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // Desktop-only: system-tray menu-bar timer. Mobile has no tray.
+            #[cfg(desktop)]
+            {
+            use tauri::menu::{Menu, MenuItem};
+            use tauri::tray::{TrayIconBuilder, TrayIconEvent};
             // Tray context menu: Open Heed / Resume / Pause / Stop
             let open_item   = MenuItem::with_id(app, "open_heed", "🪟  فتح Heed", true, None::<&str>)?;
             let resume_item = MenuItem::with_id(app, "timer_resume", "▶  استئناف", true, None::<&str>)?;
@@ -254,6 +266,7 @@ pub fn run() {
                     _ => {}
                 }
             });
+            } // end #[cfg(desktop)]
 
             Ok(())
         })
