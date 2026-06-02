@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { safeJSONStorage } from "../lib/safeStorage";
 import {
   pushTask, deleteTask as syncDeleteTask,
   pushProject, deleteProject as syncDeleteProject,
@@ -403,6 +404,7 @@ export const useTasksStore = create<TasksState>()(
     {
       name: "heed:tasks",
       version: 9,
+      storage: safeJSONStorage(),
       migrate: (state: unknown, version: number | undefined) => {
         const s = state as Record<string, unknown>;
         const v = version ?? 0;

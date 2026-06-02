@@ -5,6 +5,8 @@ import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useSyncStatusStore } from "../stores/syncStatusStore";
 import { useCanvasStore } from "../stores/canvasStore";
 import { useNotificationsStore } from "../stores/notificationsStore";
+import { useTimerStore } from "../stores/timerStore";
+import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
 
 // Wipes every persisted data store back to its initial empty state.
 // Used when switching identity (sign-in / sign-out / different user)
@@ -40,5 +42,23 @@ export function resetAllStores() {
     pending: 0,
     lastSyncedAt: null,
     lastError: null,
+  });
+  // Timer: never carry an active task/run across identities (it leaks the task
+  // title into the tray + UI for the next user).
+  useTimerStore.setState({
+    activeTask: null,
+    startedAt: null,
+    accumulatedSeconds: 0,
+    isRunning: false,
+    sessionId: null,
+  });
+  // Google Calendar holds per-user OAuth tokens — wipe them on identity change.
+  useGoogleCalendarStore.setState({
+    accessToken: null,
+    refreshToken: null,
+    tokenExpiry: null,
+    isConnected: false,
+    lastSyncAt: null,
+    syncedCount: 0,
   });
 }

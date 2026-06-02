@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { safeJSONStorage } from "../lib/safeStorage";
 import { useWorkspaceStore } from "./workspaceStore";
 import {
   pushBoard,
@@ -188,7 +189,9 @@ export const useCanvasStore = create<CanvasState>()(
           const count = get().boards.filter((b) => b.workspace_id === activeWs()).length;
           const board: Board = {
             id: uid(),
-            name: name?.trim() || `بورد ${count + 1}`,
+            name:
+              name?.trim() ||
+              `${typeof localStorage !== "undefined" && localStorage.getItem("i18nextLng")?.startsWith("ar") ? "بورد" : "Board"} ${count + 1}`,
             project_id: projectId,
             workspace_id: activeWs(),
             shared_workspace_ids: [],
@@ -361,6 +364,7 @@ export const useCanvasStore = create<CanvasState>()(
     {
       name: "heed:canvas",
       version: 3,
+      storage: safeJSONStorage(),
       // Persist document data only — never the in-memory undo history.
       partialize: (s) => ({
         nodes: s.nodes,

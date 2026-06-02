@@ -51,12 +51,18 @@ export default function App() {
 
   // Cross-user notifications + shared boards: pull + realtime while signed in.
   useEffect(() => {
+    let cancelled = false;
     if (user && user.id !== "guest") {
       void useAuthStore.getState().fetchAccessStatus();
-      void startNotifications();
-      void startCanvasSync();
+      void (async () => {
+        await startNotifications();
+        if (cancelled) { stopNotifications(); return; }
+        await startCanvasSync();
+        if (cancelled) stopCanvasSync();
+      })();
     }
     return () => {
+      cancelled = true;
       stopNotifications();
       stopCanvasSync();
     };

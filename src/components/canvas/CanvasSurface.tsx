@@ -178,7 +178,8 @@ export function CanvasSurface({
   }, [selectedIds, selectedEdgeId, removeEdge, removeNode, undo, redo]);
 
   const toWorld = (clientX: number, clientY: number): Point => {
-    const rect = containerRef.current!.getBoundingClientRect();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: clientX, y: clientY };
     return screenToWorld({ x: clientX - rect.left, y: clientY - rect.top }, vpRef.current);
   };
 
@@ -345,7 +346,8 @@ export function CanvasSurface({
   };
 
   const handleAdd = (type: CanvasNodeType, data?: CanvasNode["data"]) => {
-    const rect = containerRef.current!.getBoundingClientRect();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
     addAt(type, screenToWorld({ x: rect.width / 2, y: rect.height / 2 }, vpRef.current), data);
   };
 

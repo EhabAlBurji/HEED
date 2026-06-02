@@ -176,7 +176,7 @@ export function TaskDetailDrawer({
             onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
             rows={4}
             className="mt-1 w-full resize-y rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-            placeholder="اكتب تفاصيل أو ملاحظات…"
+            placeholder={isAr ? "اكتب تفاصيل أو ملاحظات…" : "Add details or notes…"}
           />
         </div>
 
@@ -308,7 +308,7 @@ export function TaskDetailDrawer({
             <Label>تاريخ النشر</Label>
             <div className="mt-2 flex items-center gap-2 text-sm font-medium text-emerald-400">
               <CalendarDays className="h-4 w-4" />
-              <span>{formatScheduleDate(scheduledPost.scheduledDate, scheduledPost.scheduledTime) || "بدون تاريخ محدد"}</span>
+              <span>{formatScheduleDate(scheduledPost.scheduledDate, scheduledPost.scheduledTime) || (isAr ? "بدون تاريخ محدد" : "No date set")}</span>
             </div>
 
             {(scheduledPost.platforms.length > 0 || scheduledPost.notes || scheduledPost.links.length > 0) && (
@@ -404,7 +404,7 @@ export function TaskDetailDrawer({
                   type="text"
                   value={link.label}
                   onChange={(e) => updateLink(i, "label", e.target.value)}
-                  placeholder="تسمية"
+                  placeholder={isAr ? "تسمية" : "Label"}
                   className="w-20 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 font-micro text-xs outline-none focus:border-primary/50"
                 />
                 {link.url && (
