@@ -35,14 +35,16 @@ export function TopBar() {
 
   return (
     <header
+      data-tauri-drag-region
       onDoubleClick={toggleMaximize}
       className={cn(
         "drag-region flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-5",
         "select-none",
       )}
     >
-      {/* Left: empty drag region (logo lives in the sidebar) */}
-      <div className="ps-16" />
+      {/* Left: empty drag region (logo lives in the sidebar). data-tauri-drag-region
+          is the reliable macOS drag handle (CSS app-region is flaky in WKWebView). */}
+      <div data-tauri-drag-region className="h-full flex-1 ps-16" />
 
       {/* Right: timer + settings/notif/user */}
       <div className="no-drag flex items-center gap-2">

@@ -36,3 +36,27 @@ export const PRIORITY_STRIPE: Record<Priority, string> = {
   medium: "bg-primary",
   low: "bg-muted-foreground/40",
 };
+
+// ── Workflow statuses (Wrike-style) ──────────────────────────────────────────
+// The named, colored status workflow shown in the task detail Status dropdown.
+export type WorkflowStatus = {
+  id: string;
+  label: string;
+  color: string; // hex
+};
+
+export const WORKFLOW_STATUSES: WorkflowStatus[] = [
+  { id: "incoming",     label: "In-Coming",        color: "#3B82F6" },
+  { id: "deadline",     label: "Deadline",         color: "#F59E0B" },
+  { id: "not_started",  label: "Not-Started",      color: "#38BDF8" },
+  { id: "in_progress",  label: "In Progress",      color: "#22C55E" },
+  { id: "under_review", label: "Under-Review",     color: "#A855F7" },
+  { id: "delivered",    label: "Delivered-AFB",    color: "#F59E0B" },
+  { id: "changes",      label: "Changes Required", color: "#D946EF" },
+  { id: "completed",    label: "Completed",        color: "#EF4444" },
+  { id: "on_hold",      label: "On Hold",          color: "#F59E0B" },
+  { id: "cancelled",    label: "Cancelled",        color: "#94A3B8" },
+];
+
+export const workflowStatusById = (id?: string | null): WorkflowStatus =>
+  WORKFLOW_STATUSES.find((s) => s.id === id) ?? WORKFLOW_STATUSES[0];

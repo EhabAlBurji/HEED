@@ -7,10 +7,12 @@ import {
   type VideoStage,
 } from "../../stores/tasksStore";
 import { useScheduleStore } from "../../stores/scheduleStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useAuthStore } from "../../stores/authStore";
 import { cn } from "../../lib/utils";
 import { formatScheduleDate } from "../../lib/scheduleDates";
 import { QUICK_ESTIMATED_MINUTES, quickTaskDates } from "../../lib/taskDateShortcuts";
-import { PRIORITIES as priorities, PRIORITY_SOLID as priorityBg } from "../../lib/taskMeta";
+import { PRIORITIES as priorities, PRIORITY_SOLID as priorityBg, WORKFLOW_STATUSES, workflowStatusById } from "../../lib/taskMeta";
 import { TaskComments } from "./TaskComments";
 
 const videoStages: VideoStage[] = [
@@ -38,6 +40,8 @@ export function TaskDetailDrawer({
   const updateTask = useTasksStore((s) => s.updateTask);
   const deleteTask = useTasksStore((s) => s.deleteTask);
   const scheduledPosts = useScheduleStore((s) => s.posts);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const user = useAuthStore((s) => s.user);
 
   const task = tasks.find((x) => x.id === taskId) ?? null;
   const scheduledPost = scheduledPosts.find((p) => p.taskId === taskId) ?? null;
@@ -70,6 +74,9 @@ export function TaskDetailDrawer({
   const selectedCategory = categories.find((c) => c.id === draft.category_id);
   const isVideoCategory = selectedCategory?.type === "video";
   const quickDates = quickTaskDates();
+  const isAr = i18n.language === "ar";
+  const members = workspaces.find((w) => w.id === draft.workspace_id)?.members ?? [];
+  const assignee = members.find((m) => m.id === draft.assignee_id);
 
   const addLink = () =>
     setDraft({ ...draft, links: [...draft.links, { label: "", url: "" }] });
@@ -111,21 +118,43 @@ export function TaskDetailDrawer({
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
-        {/* Priority color banner */}
-        <div
-          className={cn(
-            "rounded-xl px-3 py-1.5 font-micro text-xs font-medium",
-            priorityBg[draft.priority]
-          )}
-        >
-          {t(`tasks.priorities.${draft.priority}`)} ·{" "}
-          {draft.column === "today"
-            ? "النهارده"
-            : draft.column === "this_week"
-            ? "الأسبوع ده"
-            : draft.column === "done"
-            ? "خلصت"
-            : "تراكمي"}
+        {/* ── Wrike-style cards: Status / Assignee / Date ── */}
+        <div className="grid grid-cols-3 gap-2">
+          <StatusSelect
+            value={draft.workflow_status}
+            onChange={(id) => setDraft({ ...draft, workflow_status: id })}
+          />
+          <FieldCard label={isAr ? "المسؤول" : "Assignee"}>
+            <AssigneePicker
+              members={members}
+              onChange={(id) => setDraft({ ...draft, assignee_id: id })}
+              assigneeName={assignee?.name}
+              emptyLabel={isAr ? "فارغ" : "Empty"}
+            />
+          </FieldCard>
+          <FieldCard label={isAr ? "التاريخ" : "Date"}>
+            <input
+              type="date"
+              value={draft.deadline ?? ""}
+              onChange={(e) => setDraft({ ...draft, deadline: e.target.value || null })}
+              className="w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]"
+            />
+          </FieldCard>
+        </div>
+
+        {/* ── Info fields ── */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 rounded-xl border border-border/50 bg-background/30 p-4">
+          <InfoRow label={isAr ? "الأهمية" : "Importance"}>
+            <span className={cn("rounded-md px-2 py-0.5 text-xs font-medium", priorityBg[draft.priority])}>
+              {t(`tasks.priorities.${draft.priority}`)}
+            </span>
+          </InfoRow>
+          <InfoRow label={isAr ? "المُنشئ" : "Author"}>{user?.name || user?.email || "—"}</InfoRow>
+          <InfoRow label={isAr ? "تاريخ الإنشاء" : "Created date"}>
+            {new Date(draft.created_at).toLocaleDateString()}
+          </InfoRow>
+          <InfoRow label={isAr ? "النوع" : "Item type"}>{isAr ? "مهمة" : "Task"}</InfoRow>
+          <InfoRow label="ID"><span className="font-micro text-xs tabular-nums">{draft.id}</span></InfoRow>
         </div>
 
         {/* Title */}
@@ -538,6 +567,134 @@ function Label({ children }: { children: React.ReactNode }) {
     <p className="font-micro text-[11px] uppercase tracking-widest text-muted-foreground">
       {children}
     </p>
+  );
+}
+
+// ── Wrike-style field card ───────────────────────────────────────────────────
+function FieldCard({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+      <p className="mb-0.5 font-micro text-[10px] uppercase tracking-wider text-muted-foreground/70">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate text-sm font-medium">{children}</span>
+    </div>
+  );
+}
+
+// ── Status workflow dropdown (the colored Wrike workflow) ─────────────────────
+function StatusSelect({ value, onChange }: { value?: string | null; onChange: (id: string) => void }) {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = workflowStatusById(value);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="relative rounded-xl border border-border/60 bg-background/40 px-3 py-2"
+      style={{ borderInlineStartWidth: 3, borderInlineStartColor: current.color }}
+    >
+      <p className="mb-0.5 font-micro text-[10px] uppercase tracking-wider text-muted-foreground/70">
+        {isAr ? "الحالة" : "Status"}
+      </p>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-1.5">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: current.color }} />
+        <span className="min-w-0 flex-1 truncate text-start text-sm font-medium">{current.label}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute start-0 top-full z-30 mt-1 max-h-72 w-56 overflow-y-auto rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
+          <p className="px-2 py-1 font-micro text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            {isAr ? "سير العمل" : "Default Workflow"}
+          </p>
+          {WORKFLOW_STATUSES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => { onChange(s.id); setOpen(false); }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary",
+                s.id === current.id && "bg-secondary"
+              )}
+            >
+              <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Assignee picker (workspace members) ──────────────────────────────────────
+function AssigneePicker({
+  members,
+  onChange,
+  assigneeName,
+  emptyLabel,
+}: {
+  members: Array<{ id: string; name: string }>;
+  onChange: (id: string | null) => void;
+  assigneeName?: string;
+  emptyLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-1.5 text-sm">
+        {assigneeName ? (
+          <>
+            <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+              {assigneeName[0]?.toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-start font-medium">{assigneeName}</span>
+          </>
+        ) : (
+          <span className="flex-1 text-start text-muted-foreground/60">{emptyLabel}</span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute start-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
+          <button
+            onClick={() => { onChange(null); setOpen(false); }}
+            className="w-full rounded-md px-2 py-1.5 text-start text-sm text-muted-foreground hover:bg-secondary"
+          >
+            {emptyLabel}
+          </button>
+          {members.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => { onChange(m.id); setOpen(false); }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary"
+            >
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                {m.name[0]?.toUpperCase()}
+              </span>
+              {m.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

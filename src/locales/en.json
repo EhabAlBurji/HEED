@@ -270,7 +270,8 @@
     "expand": "View fullscreen (double-click)",
     "dragToMove": "Drag to move",
     "groupName": "Group",
-    "close": "Close (Esc)"
+    "close": "Close (Esc)",
+    "addElement": "Add element"
   },
   "boards": {
     "title": "Boards",

@@ -69,8 +69,17 @@ export function CanvasToolbar({ projectId, onAdd }: { projectId: string | null; 
         <button
           key={i}
           onClick={() => onAdd(b.type, b.data)}
+          draggable
+          onDragStart={(e) => {
+            // Drag a node type onto the canvas to drop it at that spot.
+            e.dataTransfer.setData(
+              "application/x-heed-node",
+              JSON.stringify({ type: b.type, data: b.data })
+            );
+            e.dataTransfer.effectAllowed = "copy";
+          }}
           title={t(b.labelKey)}
-          className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          className="grid h-8 w-8 cursor-grab place-items-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground active:cursor-grabbing"
         >
           {b.icon}
         </button>

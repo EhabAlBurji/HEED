@@ -207,7 +207,8 @@
     "expand": "عرض بملء الشاشة (Double-click)",
     "dragToMove": "اسحب للتحريك",
     "groupName": "مجموعة",
-    "close": "إغلاق (Esc)"
+    "close": "إغلاق (Esc)",
+    "addElement": "أضف عنصر"
   },
   "boards": {
     "title": "Boards",

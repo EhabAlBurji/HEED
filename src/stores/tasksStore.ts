@@ -57,6 +57,8 @@ export type Task = {
   tag_ids: string[];
   priority: Priority;
   status: Status;
+  workflow_status?: string; // Wrike-style workflow status id (see WORKFLOW_STATUSES)
+  assignee_id?: string | null;
   column: KanbanColumn;
   position: number;
   estimated_minutes: number | null;

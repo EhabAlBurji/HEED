@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
@@ -22,6 +23,19 @@ import { CanvasEdges } from "./CanvasEdges";
 import { CanvasNodeView } from "./CanvasNodeView";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasLightbox, type LightboxContent } from "./CanvasLightbox";
+
+// Node types offered in the right-click menu + draggable from the toolbar.
+const NODE_ITEMS: { type: CanvasNodeType; labelKey: string; data?: CanvasNode["data"] }[] = [
+  { type: "text", labelKey: "canvas.nText" },
+  { type: "sticky", labelKey: "canvas.nSticky" },
+  { type: "image", labelKey: "canvas.nImage" },
+  { type: "video", labelKey: "canvas.nVideo" },
+  { type: "voice", labelKey: "canvas.nVoice" },
+  { type: "link", labelKey: "canvas.nLink" },
+  { type: "frame", labelKey: "canvas.nFrame" },
+  { type: "shape", labelKey: "canvas.nRect", data: { shape: "rect" } },
+  { type: "shape", labelKey: "canvas.nCircle", data: { shape: "ellipse" } },
+];
 
 // The reusable infinite-canvas surface. Renders/edits the nodes & edges that
 // belong to one `spaceId` (a project Space OR a standalone Board). `projectId`
@@ -79,6 +93,7 @@ export function CanvasSurface({
   const [dropActive, setDropActive] = useState(false);
   const [tool, setTool] = useState<"hand" | "select">("hand");
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; world: Point } | null>(null);
 
   const selectOne = (id: string) => setSelectedIds(new Set([id]));
   const clearSelection = () => setSelectedIds(new Set());
@@ -150,6 +165,12 @@ export function CanvasSurface({
         e.preventDefault();
         groupSelection();
       }
+      // Zoom shortcuts: + / = zoom in, - zoom out, 0 reset.
+      if (!typing && !mod) {
+        if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomBy(1.2); }
+        else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomBy(1 / 1.2); }
+        else if (e.key === "0") { e.preventDefault(); resetView(); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -162,6 +183,7 @@ export function CanvasSurface({
   };
 
   const onBgPointerDown = (e: ReactPointerEvent) => {
+    setCtxMenu(null);
     if (e.button !== 0) return;
     clearSelection();
     setSelectedEdgeId(null);
@@ -262,14 +284,28 @@ export function CanvasSurface({
 
   // Drag & drop media files from the OS.
   const onDragOverFiles = (e: ReactDragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
+    const types = Array.from(e.dataTransfer.types);
+    if (!types.includes("Files") && !types.includes("application/x-heed-node")) return;
     e.preventDefault();
-    setDropActive(true);
+    if (types.includes("Files")) setDropActive(true);
   };
   const onDragLeaveFiles = (e: ReactDragEvent) => {
     if (e.currentTarget === e.target) setDropActive(false);
   };
   const onDropFiles = (e: ReactDragEvent) => {
+    // A node type dragged from the toolbar → drop it at the cursor.
+    const dragged = e.dataTransfer.getData("application/x-heed-node");
+    if (dragged) {
+      e.preventDefault();
+      setDropActive(false);
+      try {
+        const { type, data } = JSON.parse(dragged) as { type: CanvasNodeType; data?: CanvasNode["data"] };
+        addAt(type, toWorld(e.clientX, e.clientY), data);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     if (!Array.from(e.dataTransfer.types).includes("Files")) return;
     e.preventDefault();
     setDropActive(false);
@@ -301,19 +337,24 @@ export function CanvasSurface({
     });
   };
 
+  // Add a node centered on a given world point.
+  const addAt = (type: CanvasNodeType, world: Point, data?: CanvasNode["data"]) => {
+    const node = addNode({ project_id: projectId ?? "", space_id: spaceId, type, x: world.x, y: world.y, data });
+    updateNode(node.id, { x: world.x - node.width / 2, y: world.y - node.height / 2 });
+    selectOne(node.id);
+  };
+
   const handleAdd = (type: CanvasNodeType, data?: CanvasNode["data"]) => {
     const rect = containerRef.current!.getBoundingClientRect();
-    const center = screenToWorld({ x: rect.width / 2, y: rect.height / 2 }, vpRef.current);
-    const node = addNode({
-      project_id: projectId ?? "",
-      space_id: spaceId,
-      type,
-      x: center.x,
-      y: center.y,
-      data,
-    });
-    updateNode(node.id, { x: center.x - node.width / 2, y: center.y - node.height / 2 });
-    selectOne(node.id);
+    addAt(type, screenToWorld({ x: rect.width / 2, y: rect.height / 2 }, vpRef.current), data);
+  };
+
+  // Right-click on the canvas → text menu of node types, added at the cursor.
+  const onContextMenu = (e: ReactMouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-nodrag],[data-canvas-ui]")) return;
+    e.preventDefault();
+    const rect = containerRef.current!.getBoundingClientRect();
+    setCtxMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, world: toWorld(e.clientX, e.clientY) });
   };
 
   const zoomBy = (factor: number) => {
@@ -345,6 +386,7 @@ export function CanvasSurface({
       onPointerDown={onBgPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onContextMenu={onContextMenu}
       onDragOver={onDragOverFiles}
       onDragLeave={onDragLeaveFiles}
       onDrop={onDropFiles}
@@ -480,6 +522,29 @@ export function CanvasSurface({
           <p className="rounded-lg bg-primary/90 px-3 py-1.5 text-sm font-medium text-primary-foreground">
             {t("canvas.dropMedia")}
           </p>
+        </div>
+      )}
+
+      {/* Right-click menu: text list of node types, added at the cursor. */}
+      {ctxMenu && (
+        <div
+          data-canvas-ui
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute z-40 w-44 overflow-hidden rounded-xl border border-border/60 bg-card/95 p-1 shadow-2xl backdrop-blur"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+        >
+          <p className="px-2 py-1 font-micro text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            {t("canvas.addElement")}
+          </p>
+          {NODE_ITEMS.map((it, i) => (
+            <button
+              key={i}
+              onClick={() => { addAt(it.type, ctxMenu.world, it.data); setCtxMenu(null); }}
+              className="block w-full rounded-md px-2.5 py-1.5 text-start text-sm text-foreground transition hover:bg-secondary"
+            >
+              {t(it.labelKey)}
+            </button>
+          ))}
         </div>
       )}
 
