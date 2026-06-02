@@ -25,6 +25,7 @@ export type Database = {
           email: string | null;
           name: string | null;
           avatar_url: string | null;
+          access_status: "early_access" | "approved";
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +34,7 @@ export type Database = {
           email?: string | null;
           name?: string | null;
           avatar_url?: string | null;
+          access_status?: "early_access" | "approved";
           created_at?: string;
           updated_at?: string;
         };

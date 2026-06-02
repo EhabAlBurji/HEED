@@ -12,6 +12,8 @@ import { useInitialSync } from "./hooks/useInitialSync";
 import { UpdateChecker } from "./components/UpdateChecker";
 import { startNotifications, stopNotifications } from "./lib/teamSync";
 import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
+import { EarlyAccessGate } from "./components/auth/EarlyAccessGate";
+import { isAdmin } from "./lib/admin";
 
 const Dashboard    = lazy(() => import("./pages/Dashboard"));
 const Projects     = lazy(() => import("./pages/Projects"));
@@ -29,6 +31,7 @@ export default function App() {
   const isTray    = useUIStore((s) => s.isTray);
   const setIsTray = useUIStore((s) => s.setIsTray);
   const user      = useAuthStore((s) => s.user);
+  const accessStatus = useAuthStore((s) => s.accessStatus);
   const checkSession = useAuthStore((s) => s.checkSession);
   useInitialSync();
 
@@ -50,6 +53,7 @@ export default function App() {
   // Cross-user notifications + shared boards: pull + realtime while signed in.
   useEffect(() => {
     if (user && user.id !== "guest") {
+      void useAuthStore.getState().fetchAccessStatus();
       void startNotifications();
       void startCanvasSync();
     }
@@ -127,6 +131,16 @@ export default function App() {
         <Suspense fallback={<AppLoader />}>
           <LoginPage />
         </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  // Early-access gate: signed-in, non-admin, non-guest users await approval.
+  // "unknown" (offline/unconfigured) fails open so the app is never bricked.
+  if (user.id !== "guest" && !isAdmin(user.email) && accessStatus === "early_access") {
+    return (
+      <ErrorBoundary>
+        <EarlyAccessGate />
       </ErrorBoundary>
     );
   }

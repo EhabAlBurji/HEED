@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getSupabase, isSupabaseConfigured } from "../lib/supabase";
 import { resetAllStores } from "../lib/resetStores";
+import { isAdmin } from "../lib/admin";
+
+// Early-access gate. New signups default to "early_access" in the `profiles`
+// table; an admin approves them (→ "approved") via the Admin dashboard.
+// "unknown" = couldn't determine (offline / not configured) → fail-open so the
+// desktop app is never bricked without a connection.
+export type AccessStatus = "early_access" | "approved" | "unknown";
 
 const LAST_USER_KEY = "heed:last_identity";
 
@@ -35,6 +42,7 @@ type AuthState = {
   user: AuthUser | null;
   isLoading: boolean;
   error: string | null;
+  accessStatus: AccessStatus;
 
   // Auth methods
   signInWithGoogle: () => Promise<void>;
@@ -49,6 +57,9 @@ type AuthState = {
   checkSession: () => Promise<void>;
   continueAsGuest: () => void;
   clearError: () => void;
+
+  // Early access
+  fetchAccessStatus: () => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -57,8 +68,33 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isLoading: false,
       error: null,
+      accessStatus: "unknown",
 
       clearError: () => set({ error: null }),
+
+      // Read the signed-in user's early-access status from `profiles`. Admins
+      // and guests are always "approved"; offline/unconfigured → "unknown"
+      // (fail-open). Called after sign-in and polled while the gate is shown.
+      fetchAccessStatus: async () => {
+        const { user } = get();
+        if (!user || user.id === "guest" || isAdmin(user.email) || !isSupabaseConfigured()) {
+          set({ accessStatus: "approved" });
+          return;
+        }
+        try {
+          const supabase = getSupabase();
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("access_status")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (error) { set({ accessStatus: "unknown" }); return; }
+          const status = (data?.access_status as AccessStatus) ?? "early_access";
+          set({ accessStatus: status === "approved" ? "approved" : "early_access" });
+        } catch {
+          set({ accessStatus: "unknown" });
+        }
+      },
 
       signInWithGoogle: async () => {
         set({ isLoading: true, error: null });

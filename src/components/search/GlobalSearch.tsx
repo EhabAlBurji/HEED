@@ -10,23 +10,54 @@ type Result =
   | { kind: "task"; id: string; title: string; sub: string; projectId: string | null; score: number }
   | { kind: "project"; id: string; title: string; sub: string; score: number };
 
-// Lightweight "smart" relevance: token overlap + substring + prefix bonuses.
-// (A true semantic/AI rank would call an LLM — see notes; this is local + instant.)
+// Normalize for matching: lowercase, strip Arabic diacritics & tatweel, and
+// unify alef/hamza/yaa/taa-marbuta variants so search is forgiving of how
+// Arabic is actually typed (e.g. "علي" ≈ "على", "مشروع" with/without harakat).
+function norm(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[ً-ْٰـ]/g, "") // harakat + tatweel
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Order-preserving subsequence match (typo/gap tolerant): do all chars of q
+// appear in t in order? Rewards longer contiguous runs. Returns 0 or 12..40.
+function subseqScore(q: string, t: string): number {
+  if (!q) return 0;
+  let qi = 0, run = 0, best = 0, hits = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) { qi++; hits++; run++; if (run > best) best = run; }
+    else run = 0;
+  }
+  if (qi < q.length) return 0; // not all query chars matched in order
+  return Math.min(40, 12 + hits * 1.5 + best * 2);
+}
+
+// Lightweight "smart" relevance: exact/prefix/substring + token overlap, with a
+// normalized + fuzzy-subsequence fallback so near-misses and typos still rank.
 function score(query: string, text: string): number {
-  const q = query.toLowerCase().trim();
-  const t = text.toLowerCase();
+  const q = norm(query);
+  const t = norm(text);
   if (!q) return 0;
   if (t === q) return 100;
-  if (t.startsWith(q)) return 80;
-  if (t.includes(q)) return 60;
-  const qTokens = q.split(/\s+/).filter(Boolean);
-  const tTokens = new Set(t.split(/\s+/));
+  if (t.startsWith(q)) return 85;
+  if (t.includes(q)) return 65;
+  const qTokens = q.split(" ").filter(Boolean);
+  const tTokens = new Set(t.split(" "));
   let overlap = 0;
   for (const tok of qTokens) {
-    if (tTokens.has(tok)) overlap += 12;
-    else if (t.includes(tok)) overlap += 6;
+    if (tTokens.has(tok)) overlap += 14;
+    else if (t.includes(tok)) overlap += 7;
+    else overlap += subseqScore(tok, t) * 0.4;
   }
-  return overlap;
+  // Whole-query subsequence fallback (scattered letters / typos).
+  return Math.max(overlap, subseqScore(q.replace(/ /g, ""), t.replace(/ /g, "")));
 }
 
 export function GlobalSearch() {
