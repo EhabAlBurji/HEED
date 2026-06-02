@@ -70,6 +70,17 @@ export type Task = {
   workspace_id: string;
 };
 
+export type TaskComment = {
+  id: string;
+  task_id: string;
+  workspace_id: string;
+  author_id: string;
+  author_name: string;
+  author_avatar?: string | null;
+  body: string;
+  created_at: string;
+};
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 const nowIso = () => new Date().toISOString();
 
@@ -85,6 +96,11 @@ type TasksState = {
   categories: Category[];
   projects: Project[];
   tags: Tag[];
+  comments: TaskComment[];
+
+  addComment: (input: Omit<TaskComment, "id" | "created_at">) => TaskComment;
+  deleteComment: (id: string) => void;
+  upsertComment: (comment: TaskComment) => void;
 
   addTask: (input: Partial<Task> & { title: string }) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -117,6 +133,22 @@ export const useTasksStore = create<TasksState>()(
       categories: seedCategories,
       projects: seedProjects,
       tags: seedTags,
+      comments: [],
+
+      addComment: (input) => {
+        const comment: TaskComment = { ...input, id: uid(), created_at: nowIso() };
+        set((s) => ({ comments: [...s.comments, comment] }));
+        return comment;
+      },
+      deleteComment: (id) =>
+        set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
+      // Merge a comment from the server (realtime/pull) without duplicating.
+      upsertComment: (comment) =>
+        set((s) => ({
+          comments: s.comments.some((c) => c.id === comment.id)
+            ? s.comments.map((c) => (c.id === comment.id ? comment : c))
+            : [...s.comments, comment],
+        })),
 
       addTask: (input) => {
         const task: Task = {

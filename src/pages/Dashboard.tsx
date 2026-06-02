@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarClock, Clock, RefreshCw, Video, Users, Plus, X, ExternalLink } from "lucide-react";
 import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
@@ -8,33 +8,11 @@ import { useAuthStore } from "../stores/authStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useMeetingsStore } from "../stores/meetingsStore";
 import { cn } from "../lib/utils";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { PRIORITY_HEX as PRIORITY_COLORS } from "../lib/taskMeta";
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#EF4444",
-  high:   "#F97316",
-  medium: "#6735E1",
-  low:    "#858585",
-};
-
-const TOOLTIP_STYLE = {
-  background: "hsl(0 0% 100%)",
-  border: "1px solid hsl(240 8% 88%)",
-  borderRadius: 12,
-  fontSize: 12,
-  color: "hsl(210 38% 15%)",
-  boxShadow: "0 4px 16px rgba(23,41,53,0.10)",
-};
+// recharts is heavy → load it only when the Dashboard actually paints charts.
+const WeeklyBar = lazy(() => import("../components/dashboard/Charts").then((m) => ({ default: m.WeeklyBar })));
+const PriorityPie = lazy(() => import("../components/dashboard/Charts").then((m) => ({ default: m.PriorityPie })));
 
 function isoDateStr(d: Date) {
   return isoDate(d);
@@ -120,7 +98,7 @@ export default function Dashboard() {
       .map(([key, value]) => ({
         name:  t(`tasks.priorities.${key}`),
         value,
-        color: PRIORITY_COLORS[key] ?? "#94A3B8",
+        color: PRIORITY_COLORS[key as keyof typeof PRIORITY_COLORS] ?? "#94A3B8",
       }));
   }, [doneTasks, t]);
 
@@ -190,7 +168,7 @@ export default function Dashboard() {
       />
 
       {/* Stat cards — ryswift pattern: round dark icon + label + huge number + spark */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-c5 sm:grid-cols-3 lg:grid-cols-5">
         {[
           { label: t("reports.tasksDone"),    value: stats.tasksDone  || "—", emoji: "✓" },
           { label: t("reports.tasksPerDay"),  value: stats.tasksPerDay,       emoji: "📊" },
@@ -235,27 +213,9 @@ export default function Dashboard() {
             <p className="mb-5 font-micro text-[11px] uppercase tracking-widest text-muted-foreground/70">
               {isAr ? "مهام مكتملة — آخر 8 أسابيع" : "Completed tasks — last 8 weeks"}
             </p>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={weeklyData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: "hsl(220 14% 55%)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 10, fill: "hsl(220 14% 55%)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  cursor={{ fill: "rgba(103,53,225,0.08)" }}
-                />
-                <Bar dataKey="count" fill="#6735E1" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="h-[180px]" />}>
+              <WeeklyBar data={weeklyData} />
+            </Suspense>
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -266,22 +226,9 @@ export default function Dashboard() {
                   {isAr ? "توزيع الأولويات" : "Priority distribution"}
                 </p>
                 <div className="flex items-center gap-6">
-                  <PieChart width={130} height={130}>
-                    <Pie
-                      data={priorityData}
-                      cx={60}
-                      cy={60}
-                      innerRadius={36}
-                      outerRadius={60}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {priorityData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  </PieChart>
+                  <Suspense fallback={<div className="h-[130px] w-[130px]" />}>
+                    <PriorityPie data={priorityData} />
+                  </Suspense>
                   <div className="flex-1 space-y-2.5">
                     {priorityData.map((item) => (
                       <div key={item.name} className="flex items-center gap-2 text-sm">

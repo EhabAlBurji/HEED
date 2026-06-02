@@ -1086,6 +1086,28 @@ export default function Settings() {
         <McpContent />
       </CollapsibleSection>
 
+      {/* Clear local cache — re-pulls everything from the cloud */}
+      <div className="rounded-xl border border-border/40 bg-background/20 p-4">
+        <p className="text-sm font-medium">{isAr ? "مسح الكاش المحلي" : "Clear local cache"}</p>
+        <p className="mt-1 font-micro text-xs text-muted-foreground">
+          {isAr
+            ? "بيمسح النسخة المحلية ويعيد التحميل من السحابة. بياناتك أونلاين فمش بتضيع."
+            : "Wipes the on-device copy and reloads from the cloud. Your data is online, so nothing is lost."}
+        </p>
+        <button
+          onClick={() => {
+            ["heed:tasks", "heed:canvas", "heed:schedule", "heed:meetings", "heed:workspaces", "heed:notifications"].forEach(
+              (k) => localStorage.removeItem(k)
+            );
+            location.reload();
+          }}
+          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          {isAr ? "مسح وإعادة التحميل" : "Clear & reload"}
+        </button>
+      </div>
+
       {/* Sign out — always at the bottom */}
       <div className="pb-4">
         <button

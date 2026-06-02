@@ -1,9 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect } from "react";
-import { Pause, Play, Square, Timer, LogOut, Bell, Settings as SettingsIcon, ChevronDown } from "lucide-react";
+import { Pause, Play, Square, Timer, LogOut, Bell, Check, X, Settings as SettingsIcon, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTimerStore } from "../../stores/timerStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useNotificationsStore } from "../../stores/notificationsStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { acceptInviteServer, removeNotificationServer } from "../../lib/teamSync";
 import { useNow } from "../../hooks/useNow";
 import { formatHMS } from "../../lib/utils";
 import { cn } from "../../lib/utils";
@@ -19,7 +22,7 @@ async function toggleMaximize() {
 }
 
 export function TopBar() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   useNow(1000);
 
   const activeTask     = useTimerStore((s) => s.activeTask);
@@ -27,13 +30,6 @@ export function TopBar() {
   const elapsedSeconds = useTimerStore((s) => s.getElapsedSeconds());
   const estimated      = activeTask?.estimatedMinutes ?? null;
   const resume         = useTimerStore((s) => s.resume);
-
-  const user = useAuthStore((s) => s.user);
-
-  const isAr = i18n.language === "ar";
-  const monthName = new Date().toLocaleString(isAr ? "ar-EG" : "en-US", { month: "long" });
-  const displayName =
-    user?.name ?? (user?.id === "guest" ? (isAr ? "زائر" : "Guest") : user?.email?.split("@")[0] ?? "");
 
   const overTime = estimated !== null && elapsedSeconds > estimated * 60;
 
@@ -45,20 +41,8 @@ export function TopBar() {
         "select-none",
       )}
     >
-      {/* Left: month + user name (brand logo lives in the sidebar) */}
-      <div className="flex items-baseline gap-2 ps-16">
-        <span className="font-display text-sm font-semibold tracking-tight text-foreground">
-          {monthName}
-        </span>
-        {displayName && (
-          <>
-            <span className="text-muted-foreground/50">·</span>
-            <span className="font-micro text-xs font-medium text-muted-foreground">
-              {displayName}
-            </span>
-          </>
-        )}
-      </div>
+      {/* Left: empty drag region (logo lives in the sidebar) */}
+      <div className="ps-16" />
 
       {/* Right: timer + settings/notif/user */}
       <div className="no-drag flex items-center gap-2">
@@ -97,9 +81,7 @@ export function TopBar() {
         <RoundButton title={t("nav.settings")} pathOnClick="/settings">
           <SettingsIcon className="h-4 w-4" />
         </RoundButton>
-        <RoundButton title="إشعارات" hasDot>
-          <Bell className="h-4 w-4" />
-        </RoundButton>
+        <NotificationBell />
 
         {/* User chip with name + avatar + dropdown */}
         <UserChip />
@@ -131,6 +113,106 @@ function RoundButton({
         <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-card" />
       )}
     </button>
+  );
+}
+
+function NotificationBell() {
+  const { t } = useTranslation();
+  const notifications = useNotificationsStore((s) => s.notifications);
+  const markAllRead = useNotificationsStore((s) => s.markAllRead);
+  const remove = useNotificationsStore((s) => s.remove);
+  const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const unread = notifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const acceptInvite = (id: string, ws: { id: string; name: string; color: string }) => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.some((w) => w.id === ws.id)
+        ? s.workspaces
+        : [...s.workspaces, { id: ws.id, name: ws.name, type: "team", color: ws.color, memberCount: 1, members: [] }],
+    }));
+    setActiveWorkspace(ws.id);
+    void acceptInviteServer(ws.id); // join the workspace server-side (grants RLS access)
+    void removeNotificationServer(id);
+    remove(id);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => {
+          setOpen((v) => !v);
+          if (!open) markAllRead();
+        }}
+        title={t("notifications.bell")}
+        className="relative grid h-9 w-9 place-items-center rounded-full bg-background border border-border text-foreground/70 transition hover:bg-secondary hover:text-foreground"
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span className="absolute -end-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 font-micro text-[9px] font-bold text-white ring-2 ring-card">
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute end-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-popover shadow-xl">
+          <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
+            <span className="text-sm font-semibold">{t("notifications.title")}</span>
+            <span className="font-micro text-[10px] text-muted-foreground">{notifications.length}</span>
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {notifications.length === 0 && (
+              <p className="px-4 py-8 text-center font-micro text-xs text-muted-foreground/50">{t("notifications.none")}</p>
+            )}
+            {notifications.map((n) => (
+              <div key={n.id} className="border-b border-border/30 px-4 py-3 last:border-0">
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: n.read ? "transparent" : "var(--tw-prose-bullets, #6735E1)" }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{n.title}</p>
+                    {n.body && <p className="mt-0.5 font-micro text-xs text-muted-foreground">{n.body}</p>}
+                    {n.type === "workspace_invite" && n.workspace && (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => acceptInvite(n.id, n.workspace!)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 font-micro text-[11px] font-medium text-primary-foreground hover:opacity-90"
+                        >
+                          <Check className="h-3 w-3" /> {t("notifications.accept")}
+                        </button>
+                        <button
+                          onClick={() => { void removeNotificationServer(n.id); remove(n.id); }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 font-micro text-[11px] text-muted-foreground hover:bg-secondary/70"
+                        >
+                          <X className="h-3 w-3" /> {t("notifications.reject")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {n.type !== "workspace_invite" && (
+                    <button onClick={() => { void removeNotificationServer(n.id); remove(n.id); }} className="text-muted-foreground/50 hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

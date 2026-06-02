@@ -366,15 +366,6 @@ export default function LoginPage() {
                       </>}
                     </button>
                   </form>
-
-                  {/* Guest option */}
-                  <button
-                    type="button"
-                    onClick={continueAsGuest}
-                    className="w-full rounded-2xl border border-border bg-transparent py-2.5 text-sm text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
-                  >
-                    {tr("تابع بدون حساب", "Continue without an account")}
-                  </button>
                 </>
               ) : (
                 <div className="rounded-3xl border border-primary/30 bg-primary/8 p-5 text-center space-y-3">

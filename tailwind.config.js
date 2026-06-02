@@ -5,6 +5,13 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // 2x Grid (IBM Carbon-style): the <Column> primitive builds span classes
+  // dynamically, so safelist the 16-column spans + their md/lg variants.
+  safelist: [
+    "grid-cols-16",
+    { pattern: /^col-span-(1[0-6]|[1-9])$/, variants: ["md", "lg"] },
+    { pattern: /^col-start-(1[0-6]|[1-9])$/, variants: ["md", "lg"] },
+  ],
   theme: {
     container: {
       center: true,
@@ -12,6 +19,34 @@ export default {
       screens: { "2xl": "1400px" },
     },
     extend: {
+      // Carbon 2x spacing scale (8px base + sub-steps). Use as p-c5, gap-c7…
+      spacing: {
+        c1: "2px",
+        c2: "4px",
+        c3: "8px",
+        c4: "12px",
+        c5: "16px",
+        c6: "24px",
+        c7: "32px",
+        c8: "40px",
+        c9: "48px",
+        c10: "64px",
+        c11: "80px",
+        c12: "96px",
+        c13: "160px",
+      },
+      maxWidth: {
+        carbon: "1584px",
+      },
+      gridTemplateColumns: {
+        16: "repeat(16, minmax(0, 1fr))",
+      },
+      gridColumn: {
+        "span-13": "span 13 / span 13",
+        "span-14": "span 14 / span 14",
+        "span-15": "span 15 / span 15",
+        "span-16": "span 16 / span 16",
+      },
       fontFamily: {
         sans: ["Graphik Arabic", "Forma DJR Deck", "system-ui", "sans-serif"],
         display: ["Graphik Arabic", "Forma DJR Deck", "sans-serif"],

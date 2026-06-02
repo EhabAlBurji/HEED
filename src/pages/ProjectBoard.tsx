@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeft, CheckCircle2, Clock4, ListChecks, Settings2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock4, ListChecks, Settings2, Workflow } from "lucide-react";
 import {
   useTasksStore,
   type KanbanColumn,
@@ -23,6 +23,7 @@ import {
 import { KanbanColumn as KanbanCol } from "../components/projects/KanbanColumn";
 import { KanbanCardOverlay } from "../components/projects/KanbanCard";
 import { TaskDetailDrawer } from "../components/tasks/TaskDetailDrawer";
+import { useCanvasStore } from "../stores/canvasStore";
 import { EditProjectModal } from "./Projects";
 
 const COLUMNS: KanbanColumn[] = ["backlog", "this_week", "today", "done"];
@@ -43,6 +44,7 @@ export default function ProjectBoard() {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const ensureProjectBoard = useCanvasStore((s) => s.ensureProjectBoard);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -95,10 +97,17 @@ export default function ProjectBoard() {
   const isColumn = (val: string): val is KanbanColumn =>
     COLUMNS.includes(val as KanbanColumn);
 
+  // The column an `over` target belongs to: the column itself, or the
+  // column of the task being hovered over. Falls back to `fallback`.
+  const columnOf = (overId: string, fallback: KanbanColumn): KanbanColumn =>
+    isColumn(overId) ? overId : findTask(overId)?.column ?? fallback;
+
   const handleDragStart = ({ active }: DragStartEvent) => {
     setDraggingTask(findTask(active.id as string) ?? null);
   };
 
+  // While dragging across columns, move the task into the destination column
+  // live. Same-column reordering is finalized in handleDragEnd.
   const handleDragOver = ({ active, over }: DragOverEvent) => {
     if (!over) return;
     const activeId = active.id as string;
@@ -108,17 +117,17 @@ export default function ProjectBoard() {
     const activeTask = findTask(activeId);
     if (!activeTask) return;
 
-    // Dropped directly onto a column
-    if (isColumn(overId) && activeTask.column !== overId) {
-      moveTask(activeId, overId, tasksByColumn[overId].length * 100);
-      return;
-    }
+    const destColumn = columnOf(overId, activeTask.column);
+    if (destColumn === activeTask.column) return; // same column → handled on drag end
 
-    // Dropped onto a task in a different column
-    const overTask = findTask(overId);
-    if (overTask && overTask.column !== activeTask.column) {
-      moveTask(activeId, overTask.column, overTask.position - 1);
-    }
+    // Insert just before the hovered task, or append to the end of the column.
+    const overTask = isColumn(overId) ? null : findTask(overId);
+    const destTasks = tasksByColumn[destColumn];
+    const newPos = overTask
+      ? overTask.position - 0.5
+      : (destTasks[destTasks.length - 1]?.position ?? 0) + 100;
+
+    moveTask(activeId, destColumn, newPos);
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -127,19 +136,23 @@ export default function ProjectBoard() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
-    if (activeId === overId) return;
 
     const activeTask = findTask(activeId);
-    const overTask = findTask(overId);
-    if (!activeTask || !overTask) return;
-    if (activeTask.column !== overTask.column) return;
+    if (!activeTask) return;
 
-    // Re-order within the same column
-    const colTasks = [...tasksByColumn[activeTask.column]];
+    // After handleDragOver, the task already sits in its destination column.
+    const destColumn = columnOf(overId, activeTask.column);
+    const colTasks = [...tasksByColumn[destColumn]];
+
     const fromIdx = colTasks.findIndex((t) => t.id === activeId);
-    const toIdx = colTasks.findIndex((t) => t.id === overId);
-    if (fromIdx === -1 || toIdx === -1) return;
+    if (fromIdx === -1) return; // not in this column (shouldn't happen)
 
+    let toIdx = isColumn(overId)
+      ? colTasks.length - 1
+      : colTasks.findIndex((t) => t.id === overId);
+    if (toIdx === -1) toIdx = colTasks.length - 1;
+
+    // Normalize positions to clean 0,100,200… within the final column order.
     const reordered = arrayMove(colTasks, fromIdx, toIdx);
     reordered.forEach((t, i) => {
       if (t.position !== i * 100) {
@@ -191,7 +204,21 @@ export default function ProjectBoard() {
           · {projectTasks.filter((t) => t.column !== "done").length}{" "}
           {isAr ? "مهمة متبقية" : "remaining"}
         </span>
-        <div className="ms-auto">
+
+        {/* Open the project's visual board (single visual planning surface) */}
+        <button
+          onClick={() => {
+            const board = ensureProjectBoard(project.id);
+            navigate(`/boards/${board.id}`);
+          }}
+          className="ms-auto flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 px-2.5 py-1.5 font-micro text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          title={isAr ? "افتح بورد المشروع" : "Open project board"}
+        >
+          <Workflow className="h-3.5 w-3.5" />
+          {isAr ? "البورد" : "Board"}
+        </button>
+
+        <div>
           <button
             onClick={() => setEditOpen(true)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"

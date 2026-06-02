@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft, CalendarDays, ChevronDown, ExternalLink, FolderKanban, Link2, Plus, Trash2, X } from "lucide-react";
 import {
   useTasksStore,
-  type Priority,
   type Task,
   type VideoStage,
 } from "../../stores/tasksStore";
@@ -11,8 +10,9 @@ import { useScheduleStore } from "../../stores/scheduleStore";
 import { cn } from "../../lib/utils";
 import { formatScheduleDate } from "../../lib/scheduleDates";
 import { QUICK_ESTIMATED_MINUTES, quickTaskDates } from "../../lib/taskDateShortcuts";
+import { PRIORITIES as priorities, PRIORITY_SOLID as priorityBg } from "../../lib/taskMeta";
+import { TaskComments } from "./TaskComments";
 
-const priorities: Priority[] = ["low", "medium", "high", "urgent"];
 const videoStages: VideoStage[] = [
   "idea",
   "script",
@@ -21,13 +21,6 @@ const videoStages: VideoStage[] = [
   "scheduled",
   "published",
 ];
-
-const priorityBg: Record<Priority, string> = {
-  urgent: "bg-red-500 text-white",
-  high: "bg-orange-500 text-white",
-  medium: "bg-amber-500 text-white",
-  low: "bg-sky-500 text-white",
-};
 
 export function TaskDetailDrawer({
   taskId,
@@ -414,6 +407,11 @@ export function TaskDetailDrawer({
                 : `${draft.estimated_minutes - draft.actual_minutes}m ${t("timer.remaining")}`}
             </p>
           )}
+        </div>
+
+        {/* Comments & activity */}
+        <div className="border-t border-border/40 pt-5">
+          <TaskComments taskId={draft.id} workspaceId={draft.workspace_id} />
         </div>
       </div>
     </Backdrop>

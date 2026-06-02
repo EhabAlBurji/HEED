@@ -67,6 +67,142 @@ export type Database = {
       };
 
       // ─── workspace_members ─────────────────────────────────────────
+      notifications: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          type: "workspace_invite" | "mention" | "assignment" | "info";
+          title: string;
+          body: string | null;
+          workspace_id: string | null;
+          workspace_name: string | null;
+          workspace_color: string | null;
+          task_id: string | null;
+          read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          recipient_id: string;
+          type: "workspace_invite" | "mention" | "assignment" | "info";
+          title: string;
+          body?: string | null;
+          workspace_id?: string | null;
+          workspace_name?: string | null;
+          workspace_color?: string | null;
+          task_id?: string | null;
+          read?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
+        Relationships: [];
+      };
+      task_comments: {
+        Row: {
+          id: string;
+          task_id: string;
+          workspace_id: string;
+          author_id: string | null;
+          author_name: string;
+          author_avatar: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          task_id: string;
+          workspace_id: string;
+          author_id?: string | null;
+          author_name: string;
+          author_avatar?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["task_comments"]["Insert"]>;
+        Relationships: [];
+      };
+      boards: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          project_id: string | null;
+          name: string;
+          cover: string | null;
+          shared_workspace_ids: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          workspace_id: string;
+          project_id?: string | null;
+          name: string;
+          cover?: string | null;
+          shared_workspace_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["boards"]["Insert"]>;
+        Relationships: [];
+      };
+      canvas_nodes: {
+        Row: {
+          id: string;
+          space_id: string;
+          project_id: string | null;
+          workspace_id: string;
+          type: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          z: number;
+          data: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          space_id: string;
+          project_id?: string | null;
+          workspace_id: string;
+          type: string;
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          z?: number;
+          data?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["canvas_nodes"]["Insert"]>;
+        Relationships: [];
+      };
+      canvas_edges: {
+        Row: {
+          id: string;
+          space_id: string;
+          project_id: string | null;
+          workspace_id: string;
+          source: string;
+          target: string;
+          label: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          space_id: string;
+          project_id?: string | null;
+          workspace_id: string;
+          source: string;
+          target: string;
+          label?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["canvas_edges"]["Insert"]>;
+        Relationships: [];
+      };
       workspace_members: {
         Row: {
           id: string;

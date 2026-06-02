@@ -6,6 +6,7 @@ import {
   Settings as SettingsIcon,
   Globe,
   FolderKanban,
+  Workflow,
   Moon,
   Sun,
   CalendarDays,
@@ -27,11 +28,14 @@ import { useUIStore, type FontSize } from "../../stores/uiStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useTasksStore, isoDate } from "../../stores/tasksStore";
+import { inviteMember } from "../../lib/teamSync";
+import { isAdmin } from "../../lib/admin";
 
 const navItems = [
   { to: "/",         icon: LayoutDashboard, key: "nav.dashboard",  end: true },
-  { to: "/projects", icon: FolderKanban,     key: "nav.projects" },
-  { to: "/schedule", icon: CalendarDays,     key: "nav.schedule" },
+  { to: "/projects", icon: FolderKanban,     key: "nav.projects",  end: false },
+  { to: "/boards",   icon: Workflow,         key: "nav.boards",    end: false },
+  { to: "/schedule", icon: CalendarDays,     key: "nav.schedule",  end: false },
 ];
 
 const workspaceColors = [
@@ -94,11 +98,17 @@ export function Sidebar() {
 
   const handleInviteMember = () => {
     if (!inviteName.trim() && !inviteEmail.trim()) return;
-    addMember(activeWorkspaceId, {
-      name: inviteName.trim() || inviteEmail.split("@")[0],
-      email: inviteEmail.trim(),
-      role: "member",
-    });
+    const name = inviteName.trim() || inviteEmail.split("@")[0];
+    addMember(activeWorkspaceId, { name, email: inviteEmail.trim(), role: "member" });
+    // Deliver the invite to the invitee via the backend (Edge Function looks
+    // them up by email + sends an in-app notification + email). No-op offline.
+    if (activeWs && inviteEmail.trim()) {
+      void inviteMember(
+        inviteEmail.trim(),
+        { id: activeWs.id, name: activeWs.name, color: activeWs.color },
+        user?.name ?? user?.email ?? "A teammate"
+      );
+    }
     setInviteName("");
     setInviteEmail("");
   };
@@ -308,7 +318,10 @@ export function Sidebar() {
       {/* ── Navigation (ryswift Main / Other sections) ─── */}
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3 scrollbar-none">
         <NavSection label="Main">
-          {navItems.map(({ to, icon: Icon, key, end }) => (
+          {(isAdmin(user?.email)
+            ? [...navItems, { to: "/admin", icon: Users, key: "nav.admin", end: false }]
+            : navItems
+          ).map(({ to, icon: Icon, key, end }) => (
             <NavLink
               key={to}
               to={to}

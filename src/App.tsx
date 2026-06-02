@@ -10,12 +10,17 @@ import { startMcpBridge, stopMcpBridge } from "./lib/mcpBridge";
 import { pauseAndCommit, stopTimerAndCommit } from "./lib/timerActions";
 import { useInitialSync } from "./hooks/useInitialSync";
 import { UpdateChecker } from "./components/UpdateChecker";
+import { startNotifications, stopNotifications } from "./lib/teamSync";
+import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
 
 const Dashboard    = lazy(() => import("./pages/Dashboard"));
 const Projects     = lazy(() => import("./pages/Projects"));
 const ProjectBoard = lazy(() => import("./pages/ProjectBoard"));
+const Boards       = lazy(() => import("./pages/Boards"));
+const BoardView    = lazy(() => import("./pages/BoardView"));
 const Settings     = lazy(() => import("./pages/Settings"));
 const Schedule     = lazy(() => import("./pages/Schedule"));
+const AdminUsers   = lazy(() => import("./pages/AdminUsers"));
 const LoginPage    = lazy(() => import("./pages/LoginPage"));
 
 export default function App() {
@@ -41,6 +46,18 @@ export default function App() {
     startMcpBridge();
     return () => stopMcpBridge();
   }, [checkSession]);
+
+  // Cross-user notifications + shared boards: pull + realtime while signed in.
+  useEffect(() => {
+    if (user && user.id !== "guest") {
+      void startNotifications();
+      void startCanvasSync();
+    }
+    return () => {
+      stopNotifications();
+      stopCanvasSync();
+    };
+  }, [user]);
 
   // Deep link OAuth callback: heed://auth-callback?code=...
   useEffect(() => {
@@ -122,8 +139,11 @@ export default function App() {
             <Route path="/"             element={<Dashboard />} />
             <Route path="/projects"     element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectBoard />} />
+            <Route path="/boards"       element={<Boards />} />
+            <Route path="/boards/:id"   element={<BoardView />} />
             <Route path="/settings"     element={<Settings />} />
             <Route path="/schedule"     element={<Schedule />} />
+            <Route path="/admin"        element={<AdminUsers />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>

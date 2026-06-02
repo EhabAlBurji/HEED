@@ -16,6 +16,20 @@ export default defineConfig(async () => ({
     include: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
   },
 
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy libs into their own chunks so the main bundle is smaller
+        // and charts/vendor load on demand.
+        manualChunks: {
+          recharts: ["recharts"],
+          dndkit: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
+          vendor: ["react", "react-dom", "react-router-dom"],
+        },
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

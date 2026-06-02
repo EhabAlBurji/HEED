@@ -1,13 +1,11 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
 import type { KanbanColumn as KanbanColType, Task } from "../../stores/tasksStore";
-import { useTasksStore } from "../../stores/tasksStore";
 import { KanbanCard } from "./KanbanCard";
 import { cn } from "../../lib/utils";
 import { quickTaskDates } from "../../lib/taskDateShortcuts";
+import { AddTaskInput } from "../tasks/AddTaskInput";
 
 const colConfig: Record<
   KanbanColType,
@@ -53,27 +51,9 @@ export function KanbanColumn({
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const { setNodeRef, isOver } = useDroppable({ id: column });
-  const addTask = useTasksStore((s) => s.addTask);
-  const [newTitle, setNewTitle] = useState("");
-  const [deadline, setDeadline] = useState<string | null>(
-    column === "today" ? quickTaskDates()[0].value : null
-  );
 
   const cfg = colConfig[column];
-
-  const handleAdd = () => {
-    const t = newTitle.trim();
-    if (!t) return;
-    addTask({
-      title: t,
-      project_id: projectId,
-      column,
-      deadline,
-      position: tasks.length * 100,
-    });
-    setNewTitle("");
-    setDeadline(column === "today" ? quickTaskDates()[0].value : null);
-  };
+  const defaultDeadline = column === "today" ? quickTaskDates()[0].value : null;
 
   return (
     <div className="flex w-72 shrink-0 flex-col">
@@ -117,47 +97,15 @@ export function KanbanColumn({
           </div>
         )}
 
-        {/* Add task — inline at bottom of column */}
+        {/* Add task — full settings inline at bottom of column */}
         {column !== "done" && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center gap-1.5 rounded-lg border border-transparent bg-card/40 px-2 py-1.5 transition-all focus-within:border-primary/30 focus-within:bg-card hover:border-border">
-              <Plus className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-              <input
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                placeholder={isAr ? "مهمة جديدة" : "New task"}
-                className="min-w-0 flex-1 bg-transparent font-micro text-xs outline-none placeholder:text-muted-foreground/40"
-              />
-            </div>
-            {newTitle.trim() && (
-              <div className="flex flex-wrap gap-1 px-1">
-                {quickTaskDates().map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setDeadline(option.value)}
-                    className={cn(
-                      "rounded-full border px-1.5 py-0.5 font-micro text-[10px] transition",
-                      deadline === option.value
-                        ? "border-primary/45 bg-primary/15 text-primary"
-                        : "border-border/40 bg-card/60 text-muted-foreground hover:border-primary/30",
-                    )}
-                  >
-                    {isAr ? option.labelAr : option.labelEn}
-                  </button>
-                ))}
-                {deadline && (
-                  <button
-                    type="button"
-                    onClick={() => setDeadline(null)}
-                    className="rounded-full border border-border/40 bg-card/60 px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground hover:bg-secondary"
-                  >
-                    {isAr ? "بدون تاريخ" : "No date"}
-                  </button>
-                )}
-              </div>
-            )}
+          <div className="pt-1">
+            <AddTaskInput
+              defaultDeadline={defaultDeadline}
+              defaultProjectId={projectId}
+              defaultColumn={column}
+              lockProject
+            />
           </div>
         )}
       </div>
