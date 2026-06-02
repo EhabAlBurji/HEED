@@ -101,12 +101,14 @@ export const useAuthStore = create<AuthState>()(
         try {
           const supabase = getSupabase();
           if (isTauri()) {
-            // Desktop: open in system browser, callback via heed:// deep link
+            // Desktop: open in system browser. Google → Supabase → our branded
+            // callback page, which forwards the code to the app via the heed://
+            // deep link and shows a clean "you can close this tab" screen.
             const { data, error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
                 skipBrowserRedirect: true,
-                redirectTo: "heed://auth-callback",
+                redirectTo: "https://ehabalburji.github.io/HEED/auth.html",
                 queryParams: { access_type: "offline", prompt: "consent" },
               },
             });
