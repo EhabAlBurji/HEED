@@ -100,6 +100,7 @@
     <div class="flex items-center gap-2">
       <a href="#features" class="hidden sm:inline rounded-lg px-3 py-1.5 text-sm text-[#172935]/70 hover:text-[#172935] transition" data-en="Features" data-ar="المميزات">Features</a>
       <a href="#download" class="rounded-xl bg-[#172935] px-4 py-2 text-sm font-medium text-white hover:bg-[#172935]/85 transition" data-en="Download free" data-ar="حمّل مجاناً">Download free</a>
+      <a href="#login" id="nav-signin" class="hidden sm:inline rounded-lg px-3 py-1.5 text-sm text-[#172935]/70 hover:text-[#172935] transition" data-en="Sign in" data-ar="دخول">Sign in</a>
       <!-- Language switcher -->
       <button id="lang-toggle" type="button" class="rounded-xl border border-[#172935]/15 bg-white px-3 py-2 text-sm font-semibold hover:bg-[#172935]/5 transition">العربية</button>
     </div>
@@ -260,6 +261,41 @@
     </div>
   </section>
 
+  <!-- ── Web sign-up (early access) ─────────────── -->
+  <section id="login" class="reveal mx-auto max-w-md px-6 py-20">
+    <div class="rounded-3xl border border-black/5 bg-white p-8 shadow-xl">
+      <div class="text-center">
+        <img src="heed-logo-full.png" alt="HEED" width="120" height="32" class="mx-auto mb-4 h-8 w-auto" />
+        <h2 class="text-2xl font-bold tracking-tight" data-en="Get early access" data-ar="احجز وصولك المبكر">Get early access</h2>
+        <p class="mt-1.5 text-sm text-[#172935]/60" data-en="Sign up to join the waitlist — we’ll email you when your spot opens." data-ar="سجّل لتدخل قائمة الانتظار — هنبعتلك إيميل أول ما دورك ييجي.">Sign up to join the waitlist — we’ll email you when your spot opens.</p>
+      </div>
+
+      <div id="login-form" class="mt-6 space-y-3">
+        <button id="g-btn" type="button" class="btn-cta flex w-full items-center justify-center gap-3 rounded-2xl py-3.5 text-sm font-semibold">
+          <span class="grid place-items-center rounded-md bg-white/15 p-1">
+            <svg width="16" height="16" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.68-3.88 2.68-6.62Z" fill="#fff"/><path d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.91-2.26c-.8.54-1.84.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18Z" fill="#fff" opacity=".9"/><path d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33Z" fill="#fff" opacity=".7"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58Z" fill="#fff" opacity=".85"/></svg>
+          </span>
+          <span data-en="Continue with Google" data-ar="ابدأ بـ Google">Continue with Google</span>
+        </button>
+        <div class="flex items-center gap-3 py-1">
+          <div class="h-px flex-1 bg-[#172935]/10"></div>
+          <span class="text-xs text-[#172935]/45" data-en="or with email" data-ar="أو بالبريد">or with email</span>
+          <div class="h-px flex-1 bg-[#172935]/10"></div>
+        </div>
+        <input id="email" type="email" dir="ltr" placeholder="example@gmail.com" class="w-full rounded-2xl border border-[#172935]/12 bg-[#F4F4F6] px-4 py-3 text-sm outline-none focus:border-brand-violet focus:ring-2 focus:ring-brand-violet/15" />
+        <button id="email-btn" type="button" class="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand-violet/30 bg-brand-violet/8 py-3 text-sm font-medium text-brand-violet transition hover:bg-brand-violet/15" data-en="Email me a magic link" data-ar="ابعتلي رابط دخول">Email me a magic link</button>
+        <p id="login-msg" class="min-h-[18px] text-center text-xs text-[#172935]/60"></p>
+      </div>
+
+      <div id="login-done" class="mt-6 hidden text-center">
+        <div class="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 text-2xl">✓</div>
+        <p class="text-sm font-medium" data-en="You’re on the early-access waitlist!" data-ar="أنت في قائمة الوصول المبكر!">You’re on the early-access waitlist!</p>
+        <p class="mt-1 text-xs text-[#172935]/60" data-en="We’ll email you when it’s ready. Meanwhile you can download the app." data-ar="هنبعتلك إيميل أول ما يتفعّل. وتقدر تحمّل التطبيق دلوقتي.">We’ll email you when it’s ready. Meanwhile you can download the app.</p>
+        <a href="#download" class="btn-cta mt-4 inline-block rounded-2xl px-6 py-2.5 text-sm font-semibold" data-en="Download the app" data-ar="حمّل التطبيق">Download the app</a>
+      </div>
+    </div>
+  </section>
+
   <!-- ── Footer ──────────────────────────────────────────────────── -->
   <footer class="mx-auto max-w-6xl px-6 py-10 text-center text-xs text-[#172935]/50">
     <p><span>© <span id="year"></span> </span><span data-en="Heed — made with ❤︎ for productivity" data-ar="Heed — صُنع بـ ❤︎ للإنتاجية">Heed — made with ❤︎ for productivity</span></p>
@@ -340,6 +376,40 @@
         });
       })
       .catch(function () { /* keep static v0.1.3 fallback links */ });
+  </script>
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    const SB_URL = "https://fojakeyxfvdrahxcrdoj.supabase.co";
+    const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvamFrZXl4ZnZkcmFoeGNyZG9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNTQyODUsImV4cCI6MjA5NTYzMDI4NX0.wBZjwfHLgRVZq_8pEFwiy3EVVJYPujMNJwggtaZ_YDg";
+    const sb = createClient(SB_URL, SB_ANON, { auth: { detectSessionInUrl: true, persistSession: true, flowType: "pkce" } });
+    const $ = (id) => document.getElementById(id);
+    const redirect = location.origin + location.pathname;
+    const isAr = () => document.documentElement.lang === "ar";
+
+    async function refresh() {
+      try {
+        const { data } = await sb.auth.getSession();
+        if (data && data.session) {
+          $("login-form").classList.add("hidden");
+          $("login-done").classList.remove("hidden");
+        }
+      } catch (e) {}
+    }
+    refresh();
+    sb.auth.onAuthStateChange(() => refresh());
+
+    $("g-btn") && $("g-btn").addEventListener("click", async () => {
+      $("login-msg").textContent = "…";
+      const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirect } });
+      if (error) $("login-msg").textContent = error.message;
+    });
+    $("email-btn") && $("email-btn").addEventListener("click", async () => {
+      const email = ($("email").value || "").trim();
+      if (!email) return;
+      $("login-msg").textContent = "…";
+      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } });
+      $("login-msg").textContent = error ? error.message : (isAr() ? "بعتنالك رابط على إيميلك ✓" : "Check your email for the sign-in link ✓");
+    });
   </script>
 </body>
 </html>
