@@ -70,6 +70,12 @@ export type Task = {
   workspace_id: string;
 };
 
+export type CommentAttachment = {
+  kind: "image" | "video" | "voice" | "file";
+  src: string; // base64 data URL or remote URL
+  name?: string;
+};
+
 export type TaskComment = {
   id: string;
   task_id: string;
@@ -78,6 +84,7 @@ export type TaskComment = {
   author_name: string;
   author_avatar?: string | null;
   body: string;
+  attachments?: CommentAttachment[];
   created_at: string;
 };
 

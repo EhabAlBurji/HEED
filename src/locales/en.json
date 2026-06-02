@@ -306,7 +306,12 @@
     "sendHint": "⌘↵ to send",
     "send": "Send",
     "delete": "Delete",
-    "mentionedIn": "You were mentioned in"
+    "mentionedIn": "You were mentioned in",
+    "attachImage": "Image",
+    "attachVideo": "Video",
+    "attachFile": "File",
+    "recordVoice": "Voice note",
+    "stopRec": "Stop"
   },
   "notifications": {
     "title": "Notifications",

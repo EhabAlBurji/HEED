@@ -25,9 +25,11 @@ const videoStages: VideoStage[] = [
 export function TaskDetailDrawer({
   taskId,
   onClose,
+  embedded = false,
 }: {
   taskId: string | null;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const tasks = useTasksStore((s) => s.tasks);
@@ -59,7 +61,7 @@ export function TaskDetailDrawer({
 
   if (!task || !draft) {
     return (
-      <Backdrop onClose={onClose}>
+      <Backdrop onClose={onClose} embedded={embedded}>
         <p className="p-8 text-sm text-muted-foreground">Task not found.</p>
       </Backdrop>
     );
@@ -83,15 +85,19 @@ export function TaskDetailDrawer({
     setDraft({ ...draft, links: draft.links.filter((_, idx) => idx !== i) });
 
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop onClose={onClose} embedded={embedded}>
       <header className="flex items-center justify-between border-b border-border/60 px-5 py-4">
-        <button
-          onClick={onClose}
-          className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("common.back")}
-        </button>
+        {embedded ? (
+          <span className="max-w-[60%] truncate text-sm font-semibold">{draft.title}</span>
+        ) : (
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t("common.back")}
+          </button>
+        )}
         <button
           onClick={() => {
             deleteTask(task.id);
@@ -538,10 +544,16 @@ function Label({ children }: { children: React.ReactNode }) {
 function Backdrop({
   children,
   onClose,
+  embedded,
 }: {
   children: React.ReactNode;
   onClose: () => void;
+  embedded?: boolean;
 }) {
+  // Inline (master-detail) mode: fill the parent column, no overlay/backdrop.
+  if (embedded) {
+    return <div className="flex h-full w-full flex-col bg-card">{children}</div>;
+  }
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm"

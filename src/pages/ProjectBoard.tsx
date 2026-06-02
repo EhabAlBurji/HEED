@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeft, CheckCircle2, Clock4, ListChecks, Settings2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock4, Columns3, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
 import {
   useTasksStore,
   type KanbanColumn,
@@ -24,6 +24,8 @@ import { KanbanColumn as KanbanCol } from "../components/projects/KanbanColumn";
 import { KanbanCardOverlay } from "../components/projects/KanbanCard";
 import { TaskDetailDrawer } from "../components/tasks/TaskDetailDrawer";
 import { EditProjectModal } from "./Projects";
+import { PRIORITY_STRIPE } from "../lib/taskMeta";
+import { cn } from "../lib/utils";
 
 const COLUMNS: KanbanColumn[] = ["backlog", "this_week", "today", "done"];
 
@@ -37,12 +39,23 @@ export default function ProjectBoard() {
   const tasks = useTasksStore((s) => s.tasks);
   const updateTask = useTasksStore((s) => s.updateTask);
   const moveTask = useTasksStore((s) => s.moveTask);
+  const addTask = useTasksStore((s) => s.addTask);
 
   const project = projects.find((p) => p.id === id);
 
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [view, setView] = useState<"list" | "board">("list");
+  const [newTitle, setNewTitle] = useState("");
+
+  const createTask = () => {
+    const title = newTitle.trim();
+    if (!title || !id) return;
+    const task = addTask({ title, project_id: id, column: "backlog" });
+    setNewTitle("");
+    setOpenTaskId(task.id);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -203,7 +216,30 @@ export default function ProjectBoard() {
           {isAr ? "مهمة متبقية" : "remaining"}
         </span>
 
-        <div className="ms-auto">
+        <div className="ms-auto flex items-center gap-2">
+          {/* View toggle: list (master-detail) ↔ board (kanban) */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
+            <button
+              onClick={() => setView("list")}
+              className={cn(
+                "grid h-7 w-7 place-items-center rounded-md transition",
+                view === "list" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+              title={isAr ? "قائمة" : "List"}
+            >
+              <Rows3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setView("board")}
+              className={cn(
+                "grid h-7 w-7 place-items-center rounded-md transition",
+                view === "board" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+              title={isAr ? "بورد" : "Board"}
+            >
+              <Columns3 className="h-4 w-4" />
+            </button>
+          </div>
           <button
             onClick={() => setEditOpen(true)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"
@@ -254,34 +290,93 @@ export default function ProjectBoard() {
         </div>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {COLUMNS.map((col) => (
-            <KanbanCol
-              key={col}
-              column={col}
-              tasks={tasksByColumn[col]}
-              onOpen={setOpenTaskId}
-              projectId={project.id}
-            />
-          ))}
+      {view === "board" ? (
+        <>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+              {COLUMNS.map((col) => (
+                <KanbanCol
+                  key={col}
+                  column={col}
+                  tasks={tasksByColumn[col]}
+                  onOpen={setOpenTaskId}
+                  projectId={project.id}
+                />
+              ))}
+            </div>
+
+            <DragOverlay>
+              {draggingTask && <KanbanCardOverlay task={draggingTask} />}
+            </DragOverlay>
+          </DndContext>
+
+          {/* Overlay drawer in board mode */}
+          <TaskDetailDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
+        </>
+      ) : (
+        /* ── List view: task list (start) + inline detail (main) ── */
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-72 shrink-0 flex-col border-e border-border/60">
+            <div className="border-b border-border/60 p-2">
+              <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/40 px-2">
+                <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") createTask(); }}
+                  placeholder={isAr ? "أضف مهمة…" : "Add task…"}
+                  className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50"
+                />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
+              {projectTasks.length === 0 ? (
+                <p className="px-3 py-6 text-center font-micro text-xs text-muted-foreground/50">
+                  {isAr ? "مفيش مهام لسه" : "No tasks yet"}
+                </p>
+              ) : (
+                projectTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    onClick={() => setOpenTaskId(task.id)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start transition",
+                      openTaskId === task.id ? "bg-primary/10" : "hover:bg-secondary"
+                    )}
+                  >
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", PRIORITY_STRIPE[task.priority])} />
+                    <span className={cn("min-w-0 flex-1 truncate text-sm", task.status === "done" && "text-muted-foreground line-through")}>
+                      {task.title}
+                    </span>
+                    {task.status === "done" && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            {openTaskId ? (
+              <TaskDetailDrawer taskId={openTaskId} embedded onClose={() => setOpenTaskId(null)} />
+            ) : (
+              <div className="grid h-full place-items-center text-center">
+                <div className="space-y-2">
+                  <ListChecks className="mx-auto h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground/60">
+                    {isAr ? "اختر مهمة لعرض تفاصيلها والشات" : "Select a task to view its details and chat"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-
-        <DragOverlay>
-          {draggingTask && <KanbanCardOverlay task={draggingTask} />}
-        </DragOverlay>
-      </DndContext>
-
-      <TaskDetailDrawer
-        taskId={openTaskId}
-        onClose={() => setOpenTaskId(null)}
-      />
+      )}
 
       {editOpen && (
         <EditProjectModal

@@ -243,7 +243,12 @@
     "sendHint": "⌘↵ للإرسال",
     "send": "إرسال",
     "delete": "حذف",
-    "mentionedIn": "ذُكرت في"
+    "mentionedIn": "ذُكرت في",
+    "attachImage": "صورة",
+    "attachVideo": "فيديو",
+    "attachFile": "ملف",
+    "recordVoice": "رسالة صوتية",
+    "stopRec": "إيقاف"
   },
   "notifications": {
     "title": "الإشعارات",
