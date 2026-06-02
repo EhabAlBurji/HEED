@@ -85,7 +85,7 @@ export default function Boards() {
               >
                 <button
                   onClick={() => navigate(`/boards/${b.id}`)}
-                  className="relative grid h-28 place-items-center overflow-hidden bg-[radial-gradient(circle,hsl(var(--muted-foreground)/0.22)_1.4px,transparent_1.4px)] [background-size:18px_18px]"
+                  className="relative grid aspect-square w-full place-items-center overflow-hidden bg-[radial-gradient(circle,hsl(var(--muted-foreground)/0.22)_1.4px,transparent_1.4px)] [background-size:18px_18px]"
                 >
                   {cover ? (
                     <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />

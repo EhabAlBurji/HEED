@@ -16,6 +16,7 @@ import {
   type Viewport,
 } from "../../stores/canvasStore";
 import { clampZoom, screenToWorld, type Point } from "../../lib/canvasMath";
+import { fileToStorableDataUrl } from "../../lib/imageCompress";
 import { cn } from "../../lib/utils";
 import { CanvasEdges } from "./CanvasEdges";
 import { CanvasNodeView } from "./CanvasNodeView";
@@ -282,22 +283,21 @@ export function CanvasSurface({
         ? "voice"
         : null;
       if (!type) return;
-      const reader = new FileReader();
-      reader.onload = () => {
+      // Compress images before storing (raw multi-MB base64 lags persist/sync).
+      void fileToStorableDataUrl(file).then((src) => {
         const node = addNode({
           project_id: projectId ?? "",
           space_id: spaceId,
           type,
           x: base.x,
           y: base.y,
-          data: { src: reader.result as string },
+          data: { src },
         });
         updateNode(node.id, {
           x: base.x - node.width / 2 + i * 24,
           y: base.y - node.height / 2 + i * 24,
         });
-      };
-      reader.readAsDataURL(file);
+      });
     });
   };
 

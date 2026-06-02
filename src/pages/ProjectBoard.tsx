@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeft, CheckCircle2, Clock4, ListChecks, Settings2, Workflow } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock4, ListChecks, Settings2 } from "lucide-react";
 import {
   useTasksStore,
   type KanbanColumn,
@@ -23,7 +23,6 @@ import {
 import { KanbanColumn as KanbanCol } from "../components/projects/KanbanColumn";
 import { KanbanCardOverlay } from "../components/projects/KanbanCard";
 import { TaskDetailDrawer } from "../components/tasks/TaskDetailDrawer";
-import { useCanvasStore } from "../stores/canvasStore";
 import { EditProjectModal } from "./Projects";
 
 const COLUMNS: KanbanColumn[] = ["backlog", "this_week", "today", "done"];
@@ -44,7 +43,6 @@ export default function ProjectBoard() {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const ensureProjectBoard = useCanvasStore((s) => s.ensureProjectBoard);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -205,20 +203,7 @@ export default function ProjectBoard() {
           {isAr ? "مهمة متبقية" : "remaining"}
         </span>
 
-        {/* Open the project's visual board (single visual planning surface) */}
-        <button
-          onClick={() => {
-            const board = ensureProjectBoard(project.id);
-            navigate(`/boards/${board.id}`);
-          }}
-          className="ms-auto flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 px-2.5 py-1.5 font-micro text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-          title={isAr ? "افتح بورد المشروع" : "Open project board"}
-        >
-          <Workflow className="h-3.5 w-3.5" />
-          {isAr ? "البورد" : "Board"}
-        </button>
-
-        <div>
+        <div className="ms-auto">
           <button
             onClick={() => setEditOpen(true)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"

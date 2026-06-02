@@ -22,6 +22,7 @@ import {
 import { useTasksStore } from "../../stores/tasksStore";
 import { cn } from "../../lib/utils";
 import { PRIORITY_STRIPE as priorityStripe } from "../../lib/taskMeta";
+import { fileToStorableDataUrl } from "../../lib/imageCompress";
 import type { LightboxContent } from "./CanvasLightbox";
 
 const MIN_W = 120;
@@ -84,8 +85,16 @@ export function CanvasNodeView({
   const removeNode = useCanvasStore((s) => s.removeNode);
   const bringToFront = useCanvasStore((s) => s.bringToFront);
 
-  const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
-  const resizeRef = useRef<{ sx: number; sy: number; ow: number; oh: number } | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number } | null>(null);
+  const resizeRef = useRef<{ sx: number; sy: number } | null>(null);
+  // Transient drag/resize: the offset is applied visually during the gesture and
+  // committed to the store ONCE on pointer-up. This avoids re-serializing the
+  // whole canvas (with base64 media) to localStorage on every mouse-move frame —
+  // the cause of the full-app lag when a board has images/videos.
+  const [dragOff, setDragOff] = useState<{ dx: number; dy: number } | null>(null);
+  const [sizeOff, setSizeOff] = useState<{ dw: number; dh: number } | null>(null);
+  const dragOffRef = useRef({ dx: 0, dy: 0 });
+  const sizeOffRef = useRef({ dw: 0, dh: 0 });
 
   const patchData = (patch: Partial<CanvasNode["data"]>) =>
     updateNode(node.id, { data: { ...node.data, ...patch } });
@@ -95,7 +104,8 @@ export function CanvasNodeView({
     onSelect(node.id);
     bringToFront(node.id);
     onCheckpoint();
-    dragRef.current = { sx: e.clientX, sy: e.clientY, ox: node.x, oy: node.y };
+    dragRef.current = { sx: e.clientX, sy: e.clientY };
+    dragOffRef.current = { dx: 0, dy: 0 };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
@@ -116,10 +126,16 @@ export function CanvasNodeView({
     if (!dragRef.current) return;
     const dx = (e.clientX - dragRef.current.sx) / zoom;
     const dy = (e.clientY - dragRef.current.sy) / zoom;
-    updateNode(node.id, { x: dragRef.current.ox + dx, y: dragRef.current.oy + dy });
+    dragOffRef.current = { dx, dy };
+    setDragOff({ dx, dy }); // re-renders only this node — no store write/serialize
   };
   const onPointerUp = (e: ReactPointerEvent) => {
-    dragRef.current = null;
+    if (dragRef.current) {
+      const { dx, dy } = dragOffRef.current;
+      dragRef.current = null;
+      if (dx || dy) updateNode(node.id, { x: node.x + dx, y: node.y + dy }); // single commit
+      setDragOff(null);
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -127,24 +143,32 @@ export function CanvasNodeView({
     }
   };
 
-  // Resize (bottom-end corner).
+  // Resize (bottom-end corner) — transient, committed on pointer-up.
   const onResizeDown = (e: ReactPointerEvent) => {
     e.stopPropagation();
     onCheckpoint();
-    resizeRef.current = { sx: e.clientX, sy: e.clientY, ow: node.width, oh: node.height };
+    resizeRef.current = { sx: e.clientX, sy: e.clientY };
+    sizeOffRef.current = { dw: 0, dh: 0 };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizeRef.current) return;
     const dw = (e.clientX - resizeRef.current.sx) / zoom;
     const dh = (e.clientY - resizeRef.current.sy) / zoom;
-    updateNode(node.id, {
-      width: Math.max(MIN_W, resizeRef.current.ow + dw),
-      height: Math.max(MIN_H, resizeRef.current.oh + dh),
-    });
+    sizeOffRef.current = { dw, dh };
+    setSizeOff({ dw, dh });
   };
   const onResizeUp = (e: ReactPointerEvent) => {
-    resizeRef.current = null;
+    if (resizeRef.current) {
+      const { dw, dh } = sizeOffRef.current;
+      resizeRef.current = null;
+      if (dw || dh)
+        updateNode(node.id, {
+          width: Math.max(MIN_W, node.width + dw),
+          height: Math.max(MIN_H, node.height + dh),
+        });
+      setSizeOff(null);
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -165,7 +189,15 @@ export function CanvasNodeView({
   return (
     <div
       className="group/cnode absolute select-none"
-      style={{ left: node.x, top: node.y, width: node.width, height: node.height, zIndex: node.z }}
+      style={{
+        left: node.x,
+        top: node.y,
+        width: sizeOff ? Math.max(MIN_W, node.width + sizeOff.dw) : node.width,
+        height: sizeOff ? Math.max(MIN_H, node.height + sizeOff.dh) : node.height,
+        zIndex: node.z,
+        transform: dragOff ? `translate(${dragOff.dx}px, ${dragOff.dy}px)` : undefined,
+        willChange: dragOff || sizeOff ? "transform, width, height" : undefined,
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -359,6 +391,7 @@ function NodeBody({
             icon={<ImagePlus className="h-5 w-5" />}
             label={t("canvas.uploadImage")}
             accept="image/*"
+            compress
             onFile={(dataUrl) => {
               onCheckpoint();
               patchData({ src: dataUrl });
@@ -757,11 +790,13 @@ function UploadCard({
   label,
   accept,
   onFile,
+  compress,
 }: {
   icon: React.ReactNode;
   label: string;
   accept: string;
   onFile: (dataUrl: string) => void;
+  compress?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -780,9 +815,11 @@ function UploadCard({
         type="file"
         accept={accept}
         className="hidden"
-        onChange={(e) => {
+        onChange={async (e) => {
           const f = e.target.files?.[0];
-          if (f) readFile(f, onFile);
+          if (!f) return;
+          if (compress) onFile(await fileToStorableDataUrl(f));
+          else readFile(f, onFile);
         }}
       />
     </Card>

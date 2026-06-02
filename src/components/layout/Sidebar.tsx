@@ -9,7 +9,6 @@ import {
   Workflow,
   Moon,
   Sun,
-  CalendarDays,
   ChevronDown,
   Plus,
   Users,
@@ -35,7 +34,6 @@ const navItems = [
   { to: "/",         icon: LayoutDashboard, key: "nav.dashboard",  end: true },
   { to: "/projects", icon: FolderKanban,     key: "nav.projects",  end: false },
   { to: "/boards",   icon: Workflow,         key: "nav.boards",    end: false },
-  { to: "/schedule", icon: CalendarDays,     key: "nav.schedule",  end: false },
 ];
 
 const workspaceColors = [

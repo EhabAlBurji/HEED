@@ -21,7 +21,6 @@ const ProjectBoard = lazy(() => import("./pages/ProjectBoard"));
 const Boards       = lazy(() => import("./pages/Boards"));
 const BoardView    = lazy(() => import("./pages/BoardView"));
 const Settings     = lazy(() => import("./pages/Settings"));
-const Schedule     = lazy(() => import("./pages/Schedule"));
 const AdminUsers   = lazy(() => import("./pages/AdminUsers"));
 const LoginPage    = lazy(() => import("./pages/LoginPage"));
 
@@ -156,7 +155,6 @@ export default function App() {
             <Route path="/boards"       element={<Boards />} />
             <Route path="/boards/:id"   element={<BoardView />} />
             <Route path="/settings"     element={<Settings />} />
-            <Route path="/schedule"     element={<Schedule />} />
             <Route path="/admin"        element={<AdminUsers />} />
           </Routes>
         </Suspense>
