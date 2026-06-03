@@ -3,6 +3,7 @@ import { useSyncStatusStore } from "../stores/syncStatusStore";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { cn } from "../lib/utils";
+import { pullAll } from "../lib/sync";
 
 const useI = () => {
   const { i18n } = useTranslation();
@@ -77,16 +78,17 @@ export function SyncStatusIndicator() {
   })();
 
   return (
-    <div
-      title={lastError ?? ui.label}
+    <button
+      onClick={() => void pullAll().catch(() => {})}
+      title={lastError ?? tr("اضغط للمزامنة الآن", "Click to sync now")}
       className={cn(
-        "hidden md:flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 transition",
+        "hidden md:flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 transition hover:bg-secondary",
         ui.tone
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", ui.dot)} />
       {ui.icon}
       <span className="font-micro text-[11px] font-medium whitespace-nowrap">{ui.label}</span>
-    </div>
+    </button>
   );
 }

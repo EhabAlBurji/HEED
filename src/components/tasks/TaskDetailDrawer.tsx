@@ -51,6 +51,7 @@ export function TaskDetailDrawer({
   const task = tasks.find((x) => x.id === taskId) ?? null;
   const scheduledPost = scheduledPosts.find((p) => p.taskId === taskId) ?? null;
   const [draft, setDraft] = useState<Task | null>(task);
+  const [chatOpen, setChatOpen] = useState(true);
 
   useEffect(() => {
     setDraft(task);
@@ -139,7 +140,12 @@ export function TaskDetailDrawer({
         </div>
       </header>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+      <div
+        className={cn(
+          "space-y-5 overflow-y-auto px-6 py-6",
+          chatOpen ? "max-h-[58%] shrink-0" : "min-h-0 flex-1"
+        )}
+      >
         {/* Big editable title at the very top, with the project name beneath it */}
         <div>
           <input
@@ -267,10 +273,21 @@ export function TaskDetailDrawer({
           </div>
         )}
 
-        {/* Comments & activity */}
-        <div className="border-t border-border/40 pt-5">
-          <TaskComments taskId={draft.id} workspaceId={draft.workspace_id} />
-        </div>
+      </div>
+
+      {/* Chat — pinned at the bottom; the thread scrolls inside it */}
+      <div
+        className={cn(
+          "flex flex-col border-t border-border/40 px-6",
+          chatOpen ? "min-h-0 flex-1 pb-4 pt-3" : "shrink-0 py-2"
+        )}
+      >
+        <TaskComments
+          taskId={draft.id}
+          workspaceId={draft.workspace_id}
+          collapsed={!chatOpen}
+          onToggleCollapse={() => setChatOpen((v) => !v)}
+        />
       </div>
     </Backdrop>
   );

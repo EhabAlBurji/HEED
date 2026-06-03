@@ -43,10 +43,19 @@ export function useInitialSync() {
     };
     window.addEventListener("focus", onFocus);
 
+    // Safety-net poll: re-pull every 45s while open so changes from other devices
+    // converge even when realtime delivery is flaky or RLS-filtered.
+    const poll = window.setInterval(() => {
+      if (cancelled) return;
+      lastPull = Date.now();
+      void pullAll().catch(() => {});
+    }, 45_000);
+
     return () => {
       cancelled = true;
       unsubscribe();
       window.removeEventListener("focus", onFocus);
+      window.clearInterval(poll);
     };
   }, [userId]);
 }
