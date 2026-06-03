@@ -33,9 +33,20 @@ export function useInitialSync() {
       }
     })();
 
+    // Re-pull when the window regains focus (throttled) so team changes show up
+    // even if a realtime event was missed (flaky connection / backgrounded app).
+    let lastPull = Date.now();
+    const onFocus = () => {
+      if (cancelled || Date.now() - lastPull < 10_000) return;
+      lastPull = Date.now();
+      void pullAll().catch(() => {});
+    };
+    window.addEventListener("focus", onFocus);
+
     return () => {
       cancelled = true;
       unsubscribe();
+      window.removeEventListener("focus", onFocus);
     };
   }, [userId]);
 }

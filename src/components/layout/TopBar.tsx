@@ -7,6 +7,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useNotificationsStore } from "../../stores/notificationsStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { acceptInviteServer, removeNotificationServer } from "../../lib/teamSync";
+import { pullAll } from "../../lib/sync";
 import { useNow } from "../../hooks/useNow";
 import { formatHMS } from "../../lib/utils";
 import { cn } from "../../lib/utils";
@@ -130,17 +131,20 @@ function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const acceptInvite = (id: string, ws: { id: string; name: string; color: string }) => {
+  const acceptInvite = async (id: string, ws: { id: string; name: string; color: string }) => {
     useWorkspaceStore.setState((s) => ({
       workspaces: s.workspaces.some((w) => w.id === ws.id)
         ? s.workspaces
         : [...s.workspaces, { id: ws.id, name: ws.name, type: "team", color: ws.color, memberCount: 1, members: [] }],
     }));
     setActiveWorkspace(ws.id);
-    void acceptInviteServer(ws.id); // join the workspace server-side (grants RLS access)
-    void removeNotificationServer(id);
     remove(id);
     setOpen(false);
+    void removeNotificationServer(id);
+    // Join server-side (grants RLS access), THEN pull so the shared workspace's
+    // EXISTING tasks/projects/boards load — realtime only delivers future changes.
+    await acceptInviteServer(ws.id);
+    void pullAll();
   };
 
   return (
