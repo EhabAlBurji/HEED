@@ -21,6 +21,7 @@ import {
   ZoomOut,
   AlertTriangle,
   Search,
+  LogOut,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -28,7 +29,7 @@ import { useUIStore, type FontSize } from "../../stores/uiStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useTasksStore, isoDate } from "../../stores/tasksStore";
-import { inviteMember } from "../../lib/teamSync";
+import { inviteMember, leaveWorkspaceServer } from "../../lib/teamSync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
@@ -51,7 +52,7 @@ export function Sidebar() {
   const zoomIn  = () => sizeIdx < sizeOrder.length - 1 && setFontSize(sizeOrder[sizeIdx + 1]);
   const resetZoom = () => setFontSize("md");
   const { user, signOut } = useAuthStore();
-  const { workspaces, activeWorkspaceId, setActiveWorkspace, addWorkspace, addMember, removeMember } =
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, addWorkspace, addMember, removeMember, leaveWorkspace } =
     useWorkspaceStore();
 
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
@@ -64,6 +65,7 @@ export function Sidebar() {
   const [showMembers, setShowMembers] = useState(false);
   const [inviteName, setInviteName]   = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const wsRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -110,6 +112,16 @@ export function Sidebar() {
     }
     setInviteName("");
     setInviteEmail("");
+  };
+
+  const handleLeaveWorkspace = () => {
+    if (!activeWs || activeWs.type === "personal") return;
+    const id = activeWs.id;
+    leaveWorkspace(id);
+    void leaveWorkspaceServer(id);
+    setConfirmLeave(false);
+    setShowMembers(false);
+    setWsOpen(false);
   };
 
   // (user profile is now shown in the TopBar — ryswift pattern)
@@ -269,6 +281,27 @@ export function Sidebar() {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* Leave / cancel this shared workspace */}
+                {confirmLeave ? (
+                  <div className="mt-1 flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2">
+                    <span className="flex-1 font-micro text-[10px] text-muted-foreground">متأكد إنك تغادر المساحة؟</span>
+                    <button onClick={handleLeaveWorkspace} className="rounded-lg bg-destructive px-2 py-1 font-micro text-[10px] text-white hover:opacity-90">
+                      مغادرة
+                    </button>
+                    <button onClick={() => setConfirmLeave(false)} className="rounded-lg bg-secondary px-2 py-1 font-micro text-[10px] text-muted-foreground hover:bg-secondary/70">
+                      تراجع
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmLeave(true)}
+                    className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-start text-sm text-destructive/80 transition-all hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span className="flex-1">مغادرة المساحة المشتركة</span>
+                  </button>
                 )}
               </>
             )}

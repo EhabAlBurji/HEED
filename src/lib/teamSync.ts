@@ -134,6 +134,21 @@ export async function acceptInviteServer(workspaceId: string) {
   }
 }
 
+// ─── Leaving a shared workspace: remove my own member row ────────────
+export async function leaveWorkspaceServer(workspaceId: string) {
+  if (!canSync()) return;
+  const u = useAuthStore.getState().user!;
+  try {
+    await getSupabase()
+      .from("workspace_members")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", u.id);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function markNotificationReadServer(id: string) {
   if (!canSync()) return;
   try {

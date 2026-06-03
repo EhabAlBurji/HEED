@@ -28,6 +28,9 @@ type WorkspaceState = {
   setActiveWorkspace: (id: string) => void;
   addWorkspace: (input: Omit<Workspace, "id" | "members">) => Workspace;
   deleteWorkspace: (id: string) => void;
+  // Leave a shared workspace (just drop it locally + switch away). The caller
+  // removes the member row server-side via leaveWorkspaceServer().
+  leaveWorkspace: (id: string) => void;
   addMember: (workspaceId: string, member: Omit<WorkspaceMember, "id" | "addedAt">) => void;
   removeMember: (workspaceId: string, memberId: string) => void;
 };
@@ -71,6 +74,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           activeWorkspaceId: activeWorkspaceId === id ? fallback : activeWorkspaceId,
         }));
         syncDeleteWorkspace(id);
+      },
+
+      leaveWorkspace: (id) => {
+        const { activeWorkspaceId, workspaces } = get();
+        const target = workspaces.find((w) => w.id === id);
+        if (target?.type === "personal") return;
+        const fallback =
+          workspaces.find((w) => w.type === "personal")?.id ?? workspaces[0]?.id ?? "personal";
+        set((s) => ({
+          workspaces: s.workspaces.filter((w) => w.id !== id),
+          activeWorkspaceId: activeWorkspaceId === id ? fallback : activeWorkspaceId,
+        }));
       },
 
       addMember: (workspaceId, member) => {
