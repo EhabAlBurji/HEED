@@ -49,6 +49,19 @@ export default function App() {
     return () => stopMcpBridge();
   }, [checkSession]);
 
+  // Re-check access while signed in (on focus + every 2 min) so that an admin
+  // revoking a user takes effect on their open session, not just at next login.
+  useEffect(() => {
+    if (!user || user.id === "guest") return;
+    const recheck = () => void useAuthStore.getState().fetchAccessStatus();
+    const id = setInterval(recheck, 120_000);
+    window.addEventListener("focus", recheck);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", recheck);
+    };
+  }, [user]);
+
   // Cross-user notifications + shared boards: pull + realtime while signed in.
   useEffect(() => {
     let cancelled = false;
@@ -140,12 +153,17 @@ export default function App() {
     );
   }
 
-  // Early-access gate: signed-in, non-admin, non-guest users await approval.
-  // "unknown" (offline/unconfigured) fails open so the app is never bricked.
-  if (user.id !== "guest" && !isAdmin(user.email) && accessStatus === "early_access") {
+  // Early-access gate: signed-in, non-admin, non-guest users await approval — or
+  // were rejected/revoked by an admin. "unknown" (offline/unconfigured) fails
+  // open so the app is never bricked.
+  if (
+    user.id !== "guest" &&
+    !isAdmin(user.email) &&
+    (accessStatus === "early_access" || accessStatus === "rejected")
+  ) {
     return (
       <ErrorBoundary>
-        <EarlyAccessGate />
+        <EarlyAccessGate status={accessStatus} />
       </ErrorBoundary>
     );
   }

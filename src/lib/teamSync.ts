@@ -72,7 +72,7 @@ export type AdminUser = {
   email: string | null;
   name: string | null;
   avatar_url: string | null;
-  access_status: "early_access" | "approved";
+  access_status: "early_access" | "approved" | "rejected";
   created_at: string;
 };
 
@@ -92,6 +92,18 @@ export async function approveUser(userId: string): Promise<boolean> {
   if (!canSync()) return false;
   try {
     const { error } = await getSupabase().functions.invoke("approve-access", { body: { userId } });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// Reject / revoke a user's access (blocks them from using the app, even if they
+// were previously approved). The Edge Function enforces the caller is an admin.
+export async function rejectUser(userId: string): Promise<boolean> {
+  if (!canSync()) return false;
+  try {
+    const { error } = await getSupabase().functions.invoke("reject-access", { body: { userId } });
     return !error;
   } catch {
     return false;

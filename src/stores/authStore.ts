@@ -8,7 +8,7 @@ import { isAdmin } from "../lib/admin";
 // table; an admin approves them (→ "approved") via the Admin dashboard.
 // "unknown" = couldn't determine (offline / not configured) → fail-open so the
 // desktop app is never bricked without a connection.
-export type AccessStatus = "early_access" | "approved" | "unknown";
+export type AccessStatus = "early_access" | "approved" | "rejected" | "unknown";
 
 const LAST_USER_KEY = "heed:last_identity";
 
@@ -90,7 +90,10 @@ export const useAuthStore = create<AuthState>()(
             .maybeSingle();
           if (error) { set({ accessStatus: "unknown" }); return; }
           const status = (data?.access_status as AccessStatus) ?? "early_access";
-          set({ accessStatus: status === "approved" ? "approved" : "early_access" });
+          set({
+            accessStatus:
+              status === "approved" ? "approved" : status === "rejected" ? "rejected" : "early_access",
+          });
         } catch {
           set({ accessStatus: "unknown" });
         }

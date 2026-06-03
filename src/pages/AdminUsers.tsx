@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { Ban, Check, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useAuthStore } from "../stores/authStore";
 import { isAdmin } from "../lib/admin";
-import { listUsers, approveUser, type AdminUser } from "../lib/teamSync";
+import { listUsers, approveUser, rejectUser, type AdminUser } from "../lib/teamSync";
 import { Page } from "../components/ui/grid";
 import { cn } from "../lib/utils";
 
 export default function AdminUsers() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const user = useAuthStore((s) => s.user);
   const allowed = isAdmin(user?.email);
 
@@ -31,6 +32,14 @@ export default function AdminUsers() {
     setBusy(u.id);
     const ok = await approveUser(u.id);
     if (ok) setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, access_status: "approved" } : x)));
+    setBusy(null);
+  };
+
+  const reject = async (u: AdminUser) => {
+    if (u.email && user?.email && u.email.toLowerCase() === user.email.toLowerCase()) return;
+    setBusy(u.id);
+    const ok = await rejectUser(u.id);
+    if (ok) setUsers((list) => list.map((x) => (x.id === u.id ? { ...x, access_status: "rejected" } : x)));
     setBusy(null);
   };
 
@@ -77,20 +86,49 @@ export default function AdminUsers() {
             <span className="shrink-0 font-micro text-[10px] text-muted-foreground/60">
               {t("admin.joined")} {new Date(u.created_at).toLocaleDateString()}
             </span>
-            {u.access_status === "approved" ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 font-micro text-[11px] text-emerald-500">
-                <ShieldCheck className="h-3.5 w-3.5" /> {t("admin.approved")}
-              </span>
-            ) : (
-              <button
-                onClick={() => approve(u)}
-                disabled={busy === u.id}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-              >
-                <Check className="h-3.5 w-3.5" />
-                {busy === u.id ? t("admin.approving") : t("admin.approve")}
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Current status badge */}
+              {u.access_status === "approved" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 font-micro text-[11px] text-emerald-500">
+                  <ShieldCheck className="h-3.5 w-3.5" /> {t("admin.approved")}
+                </span>
+              )}
+              {u.access_status === "rejected" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2.5 py-1 font-micro text-[11px] text-destructive">
+                  <Ban className="h-3.5 w-3.5" /> {isAr ? "مرفوض" : "Rejected"}
+                </span>
+              )}
+              {u.access_status === "early_access" && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 font-micro text-[11px] text-amber-500">
+                  {isAr ? "قيد المراجعة" : "Pending"}
+                </span>
+              )}
+
+              {/* Approve (if not already approved) */}
+              {u.access_status !== "approved" && (
+                <button
+                  onClick={() => approve(u)}
+                  disabled={busy === u.id}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {busy === u.id ? t("admin.approving") : t("admin.approve")}
+                </button>
+              )}
+
+              {/* Reject / revoke (if not already rejected, and not myself) */}
+              {u.access_status !== "rejected" &&
+                !(u.email && user?.email && u.email.toLowerCase() === user.email.toLowerCase()) && (
+                  <button
+                    onClick={() => reject(u)}
+                    disabled={busy === u.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Ban className="h-3.5 w-3.5" />
+                    {isAr ? "رفض" : "Reject"}
+                  </button>
+                )}
+            </div>
           </div>
         ))}
       </div>

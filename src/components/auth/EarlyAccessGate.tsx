@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, RefreshCw, LogOut, Sparkles, Clock } from "lucide-react";
+import { Loader2, RefreshCw, LogOut, Sparkles, Clock, Ban } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { HeedLogo } from "../HeedLogo";
 
-// Shown to signed-in users whose `profiles.access_status` is still
-// "early_access" (i.e. an admin hasn't approved them yet). They can re-check
-// (we also poll every 20s) or sign out. Approval flips them straight into the
-// app — no refresh needed.
-export function EarlyAccessGate() {
+// Shown to signed-in users whose `profiles.access_status` is "early_access"
+// (an admin hasn't approved them yet) or "rejected" (an admin revoked them).
+// They can re-check (we also poll every 20s) or sign out. Approval flips them
+// straight into the app — no refresh needed.
+export function EarlyAccessGate({ status = "early_access" }: { status?: "early_access" | "rejected" }) {
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const tr = <T,>(ar: T, en: T) => (isAr ? ar : en);
+  const rejected = status === "rejected";
 
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
@@ -63,20 +64,33 @@ export function EarlyAccessGate() {
 
         <div className="w-full rounded-3xl border border-border bg-card p-7 shadow-xl">
           <div className="mb-4 flex justify-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </span>
+            {rejected ? (
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 ring-2 ring-destructive/20">
+                <Ban className="h-6 w-6 text-destructive" />
+              </span>
+            ) : (
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </span>
+            )}
           </div>
 
           <h1 className="text-xl font-bold tracking-tight">
-            {tr("أنت ضمن الوصول المبكر 🎉", "You're on the early access list 🎉")}
+            {rejected
+              ? tr("وصولك إلى Heed غير متاح", "Your access to Heed isn't available")
+              : tr("أنت ضمن الوصول المبكر 🎉", "You're on the early access list 🎉")}
           </h1>
 
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {tr(
-              "شكراً لتسجيلك في Heed! حسابك قيد المراجعة وهنفعّلهولك قريب جداً. هنبعتلك إيميل ترحيب أول ما يتفعّل، وتقدر تبدأ على طول.",
-              "Thanks for signing up to Heed! Your account is under review and we'll activate it very soon. You'll get a welcome email the moment it's ready, and you can start right away.",
-            )}
+            {rejected
+              ? tr(
+                  "للأسف حسابك غير مفعّل للوصول إلى Heed حالياً. لو تعتقد أن هذا خطأ، تواصل معنا.",
+                  "Your account doesn't have access to Heed right now. If you believe this is a mistake, please contact us.",
+                )
+              : tr(
+                  "شكراً لتسجيلك في Heed! حسابك قيد المراجعة وهنفعّلهولك قريب جداً. هنبعتلك إيميل ترحيب أول ما يتفعّل، وتقدر تبدأ على طول.",
+                  "Thanks for signing up to Heed! Your account is under review and we'll activate it very soon. You'll get a welcome email the moment it's ready, and you can start right away.",
+                )}
           </p>
 
           {user?.email && (
