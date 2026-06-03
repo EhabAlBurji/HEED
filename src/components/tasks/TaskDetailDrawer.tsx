@@ -14,6 +14,7 @@ import { formatScheduleDate } from "../../lib/scheduleDates";
 import { QUICK_ESTIMATED_MINUTES, quickTaskDates } from "../../lib/taskDateShortcuts";
 import { PRIORITIES as priorities, PRIORITY_SOLID as priorityBg, WORKFLOW_STATUSES, workflowStatusById } from "../../lib/taskMeta";
 import { TaskComments } from "./TaskComments";
+import { ShareTaskButton } from "./ShareTaskButton";
 
 const videoStages: VideoStage[] = [
   "idea",
@@ -105,16 +106,19 @@ export function TaskDetailDrawer({
             {t("common.back")}
           </button>
         )}
-        <button
-          onClick={() => {
-            deleteTask(task.id);
-            onClose();
-          }}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("common.delete")}
-        </button>
+        <div className="flex items-center gap-1">
+          <ShareTaskButton task={draft} />
+          <button
+            onClick={() => {
+              deleteTask(task.id);
+              onClose();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("common.delete")}
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">

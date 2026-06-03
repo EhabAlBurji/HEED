@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -51,6 +51,13 @@ export default function ProjectBoard() {
   const [view, setView] = useState<"table" | "list" | "board">("table");
   const [newTitle, setNewTitle] = useState("");
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const [searchParams] = useSearchParams();
+
+  // Open a task directly from a shared deep link (?task=ID).
+  useEffect(() => {
+    const tid = searchParams.get("task");
+    if (tid) setOpenTaskId(tid);
+  }, [searchParams]);
 
   const createTask = () => {
     const title = newTitle.trim();
