@@ -14,13 +14,6 @@ import { pauseAndCommit, stopTimerAndCommit } from "../../lib/timerActions";
 import { Avatar } from "../Avatar";
 import { SyncStatusIndicator } from "../SyncStatusIndicator";
 
-async function toggleMaximize() {
-  try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("toggle_maximize");
-  } catch {}
-}
-
 export function TopBar() {
   const { t } = useTranslation();
   useNow(1000);
@@ -36,7 +29,6 @@ export function TopBar() {
   return (
     <header
       data-tauri-drag-region
-      onDoubleClick={toggleMaximize}
       className={cn(
         "drag-region flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-5",
         "select-none",
