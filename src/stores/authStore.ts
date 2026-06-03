@@ -118,11 +118,13 @@ export const useAuthStore = create<AuthState>()(
               await openUrl(data.url);
             }
           } else {
-            // Browser: normal OAuth redirect back to the current origin
+            // Browser (web app): redirect back to this exact app URL so the
+            // Supabase client can finish the session here (works on a GH Pages
+            // subpath + HashRouter).
             const { error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: window.location.origin,
+                redirectTo: window.location.origin + window.location.pathname,
                 queryParams: { access_type: "offline", prompt: "consent" },
               },
             });
