@@ -52,6 +52,9 @@ const taskToDb = (t: Task): Tables["tasks"]["Insert"] => ({
   estimated_minutes: t.estimated_minutes,
   actual_minutes: t.actual_minutes,
   deadline: t.deadline,
+  start_date: t.start_date ?? null,
+  workflow_status: t.workflow_status ?? null,
+  assignee_id: t.assignee_id ?? null,
   video_stage: t.video_stage,
   links: t.links,
   completed_at: t.completed_at,
@@ -74,6 +77,9 @@ const taskFromDb = (r: Tables["tasks"]["Row"]): Task => ({
   estimated_minutes: r.estimated_minutes,
   actual_minutes: r.actual_minutes,
   deadline: r.deadline,
+  start_date: r.start_date ?? null,
+  workflow_status: r.workflow_status ?? undefined,
+  assignee_id: r.assignee_id ?? null,
   video_stage: r.video_stage,
   links: r.links ?? [],
   completed_at: r.completed_at,
@@ -273,7 +279,25 @@ const track = <T extends { error: unknown }>(op: string, p: PromiseLike<T>) => {
 
 export const pushTask = (t: Task) => {
   if (!canSync()) return;
-  track("pushTask", getSupabase().from("tasks").upsert(taskToDb(t)));
+  const row = taskToDb(t);
+  void useSyncStatusStore.getState().trackPending(
+    Promise.resolve(getSupabase().from("tasks").upsert(row)).then(async (r) => {
+      // Older databases may not have the start_date / workflow_status /
+      // assignee_id columns yet (PostgREST schema-cache miss → PGRST204). Retry
+      // without them so basic task sync keeps working until the migration runs.
+      if (r.error && (r.error as { code?: string }).code === "PGRST204") {
+        const legacy = { ...row } as Record<string, unknown>;
+        delete legacy.start_date;
+        delete legacy.workflow_status;
+        delete legacy.assignee_id;
+        const r2 = await getSupabase().from("tasks").upsert(legacy as typeof row);
+        if (r2.error) swallow("pushTask")(r2.error);
+        return r2;
+      }
+      if (r.error) swallow("pushTask")(r.error);
+      return r;
+    })
+  );
 };
 
 export const deleteTask = (id: string) => {

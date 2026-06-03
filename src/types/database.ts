@@ -321,6 +321,9 @@ export type Database = {
           estimated_minutes: number | null;
           actual_minutes: number;
           deadline: string | null;        // ISO date (YYYY-MM-DD)
+          start_date: string | null;      // ISO date (YYYY-MM-DD)
+          workflow_status: string | null; // Wrike-style workflow status id
+          assignee_id: string | null;
           video_stage:
             | "idea" | "script" | "filming" | "editing" | "scheduled" | "published"
             | null;
@@ -344,6 +347,9 @@ export type Database = {
           estimated_minutes?: number | null;
           actual_minutes?: number;
           deadline?: string | null;
+          start_date?: string | null;
+          workflow_status?: string | null;
+          assignee_id?: string | null;
           video_stage?:
             | "idea" | "script" | "filming" | "editing" | "scheduled" | "published"
             | null;
