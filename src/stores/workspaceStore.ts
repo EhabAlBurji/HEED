@@ -33,6 +33,9 @@ type WorkspaceState = {
   leaveWorkspace: (id: string) => void;
   addMember: (workspaceId: string, member: Omit<WorkspaceMember, "id" | "addedAt">) => void;
   removeMember: (workspaceId: string, memberId: string) => void;
+  // Admin actions
+  updateWorkspace: (id: string, patch: Partial<Pick<Workspace, "name" | "color">>) => void;
+  updateMemberRole: (workspaceId: string, memberId: string, role: WorkspaceMember["role"]) => void;
 };
 
 const defaultWorkspace: Workspace = {
@@ -120,6 +123,39 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }),
         }));
         syncDeleteMember(memberId);
+        if (updatedWs) pushWorkspace(updatedWs);
+      },
+
+      updateWorkspace: (id, patch) => {
+        let updatedWs: Workspace | undefined;
+        set((s) => ({
+          workspaces: s.workspaces.map((w) => {
+            if (w.id !== id) return w;
+            updatedWs = { ...w, ...patch };
+            return updatedWs;
+          }),
+        }));
+        if (updatedWs) pushWorkspace(updatedWs);
+      },
+
+      updateMemberRole: (workspaceId, memberId, role) => {
+        let updatedWs: Workspace | undefined;
+        let updatedMember: WorkspaceMember | undefined;
+        set((s) => ({
+          workspaces: s.workspaces.map((w) => {
+            if (w.id !== workspaceId) return w;
+            updatedWs = {
+              ...w,
+              members: w.members.map((m) => {
+                if (m.id !== memberId) return m;
+                updatedMember = { ...m, role };
+                return updatedMember;
+              }),
+            };
+            return updatedWs;
+          }),
+        }));
+        if (updatedMember) pushMember(updatedMember, workspaceId);
         if (updatedWs) pushWorkspace(updatedWs);
       },
     }),

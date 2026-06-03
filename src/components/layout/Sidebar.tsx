@@ -23,6 +23,7 @@ import {
   Search,
   LogOut,
   Inbox as InboxIcon,
+  Trash2,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -56,7 +57,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const zoomIn  = () => sizeIdx < sizeOrder.length - 1 && setFontSize(sizeOrder[sizeIdx + 1]);
   const resetZoom = () => setFontSize("md");
   const { user, signOut } = useAuthStore();
-  const { workspaces, activeWorkspaceId, setActiveWorkspace, addWorkspace, addMember, removeMember, leaveWorkspace } =
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, addWorkspace, addMember, removeMember, leaveWorkspace, updateWorkspace, updateMemberRole, deleteWorkspace } =
     useWorkspaceStore();
   const inboxUnread = useNotificationsStore((s) => s.notifications.filter((n) => !n.read).length);
 
@@ -71,6 +72,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const [inviteName, setInviteName]   = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const wsRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -148,6 +150,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     leaveWorkspace(id);
     void leaveWorkspaceServer(id);
     setConfirmLeave(false);
+    setShowMembers(false);
+    setWsOpen(false);
+  };
+
+  const handleDeleteWorkspace = () => {
+    if (!activeWs || activeWs.type === "personal") return;
+    deleteWorkspace(activeWs.id);
+    setConfirmDelete(false);
     setShowMembers(false);
     setWsOpen(false);
   };
@@ -255,6 +265,19 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
                 {showMembers && (
                   <div className="space-y-1 px-1 pb-1">
+                    {iAmAdmin && (
+                      <input
+                        key={activeWs.id + ":" + activeWs.name}
+                        defaultValue={activeWs.name}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== activeWs.name) updateWorkspace(activeWs.id, { name: v });
+                        }}
+                        title={isAr ? "اسم المساحة (للمدير)" : "Workspace name (admin)"}
+                        className="mb-1 w-full rounded-lg border border-border/40 bg-background/40 px-2 py-1.5 text-xs font-medium outline-none focus:border-primary/50"
+                      />
+                    )}
                     {(activeWs.members ?? []).length === 0 ? (
                       <p className="py-1 text-center font-micro text-[10px] text-muted-foreground/40">لا يوجد أعضاء بعد</p>
                     ) : (
@@ -272,12 +295,22 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                               <Crown className="h-3 w-3 shrink-0 text-amber-400" />
                             </span>
                           ) : iAmAdmin ? (
-                            <button
-                              onClick={() => removeMember(activeWorkspaceId, m.id)}
-                              className="shrink-0 text-muted-foreground/30 hover:text-destructive transition-colors"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <button
+                                onClick={() => updateMemberRole(activeWorkspaceId, m.id, "owner")}
+                                title={isAr ? "ترقية لمدير" : "Make admin"}
+                                className="text-muted-foreground/30 transition-colors hover:text-amber-400"
+                              >
+                                <Crown className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => removeMember(activeWorkspaceId, m.id)}
+                                title={isAr ? "إزالة" : "Remove"}
+                                className="text-muted-foreground/30 transition-colors hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                       ))
@@ -320,16 +353,28 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   </div>
                 )}
 
-                {/* Leave / cancel this shared workspace */}
-                {confirmLeave ? (
+                {/* Admin → delete for everyone; member → just leave */}
+                {iAmAdmin ? (
+                  confirmDelete ? (
+                    <div className="mt-1 flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2">
+                      <span className="flex-1 font-micro text-[10px] text-muted-foreground">{isAr ? "حذف المساحة لكل الأعضاء؟" : "Delete for everyone?"}</span>
+                      <button onClick={handleDeleteWorkspace} className="rounded-lg bg-destructive px-2 py-1 font-micro text-[10px] text-white hover:opacity-90">{isAr ? "حذف" : "Delete"}</button>
+                      <button onClick={() => setConfirmDelete(false)} className="rounded-lg bg-secondary px-2 py-1 font-micro text-[10px] text-muted-foreground hover:bg-secondary/70">{isAr ? "تراجع" : "Cancel"}</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-start text-sm text-destructive/80 transition-all hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="flex-1">{isAr ? "حذف المساحة" : "Delete workspace"}</span>
+                    </button>
+                  )
+                ) : confirmLeave ? (
                   <div className="mt-1 flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 p-2">
-                    <span className="flex-1 font-micro text-[10px] text-muted-foreground">متأكد إنك تغادر المساحة؟</span>
-                    <button onClick={handleLeaveWorkspace} className="rounded-lg bg-destructive px-2 py-1 font-micro text-[10px] text-white hover:opacity-90">
-                      مغادرة
-                    </button>
-                    <button onClick={() => setConfirmLeave(false)} className="rounded-lg bg-secondary px-2 py-1 font-micro text-[10px] text-muted-foreground hover:bg-secondary/70">
-                      تراجع
-                    </button>
+                    <span className="flex-1 font-micro text-[10px] text-muted-foreground">{isAr ? "متأكد إنك تغادر المساحة؟" : "Leave this workspace?"}</span>
+                    <button onClick={handleLeaveWorkspace} className="rounded-lg bg-destructive px-2 py-1 font-micro text-[10px] text-white hover:opacity-90">{isAr ? "مغادرة" : "Leave"}</button>
+                    <button onClick={() => setConfirmLeave(false)} className="rounded-lg bg-secondary px-2 py-1 font-micro text-[10px] text-muted-foreground hover:bg-secondary/70">{isAr ? "تراجع" : "Cancel"}</button>
                   </div>
                 ) : (
                   <button
@@ -337,7 +382,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-start text-sm text-destructive/80 transition-all hover:bg-destructive/10 hover:text-destructive"
                   >
                     <LogOut className="h-3.5 w-3.5" />
-                    <span className="flex-1">مغادرة المساحة المشتركة</span>
+                    <span className="flex-1">{isAr ? "مغادرة المساحة المشتركة" : "Leave workspace"}</span>
                   </button>
                 )}
               </>
