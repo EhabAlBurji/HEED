@@ -27,9 +27,15 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
   const user = useAuthStore((s) => s.user);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
 
+  // Each member gets a short @handle (from their email, e.g. ealburji@… → ealburji).
   const members = useMemo(() => {
     const ws = workspaces.find((w) => w.id === workspaceId);
-    return ws?.members ?? [];
+    return (ws?.members ?? []).map((m) => ({
+      ...m,
+      handle: ((m.email?.split("@")[0] || m.name) ?? "")
+        .replace(/[^\w.-]+/g, "")
+        .toLowerCase(),
+    }));
   }, [workspaces, workspaceId]);
 
   const thread = useMemo(
@@ -57,12 +63,12 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
 
   const onChange = (val: string) => {
     setText(val);
-    const m = val.match(/@(\w*)$/);
+    const m = val.match(/@([\w.-]*)$/);
     setMentionQuery(m ? m[1] : null);
   };
 
-  const pickMention = (name: string) => {
-    setText((t) => t.replace(/@(\w*)$/, `@${name} `));
+  const pickMention = (handle: string) => {
+    setText((t) => t.replace(/@([\w.-]*)$/, `@${handle} `));
     setMentionQuery(null);
     inputRef.current?.focus();
   };
@@ -117,9 +123,9 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
       attachments: pending.length ? pending : undefined,
     });
     void pushComment(created);
-    const mentioned = new Set((body.match(/@(\w[\w-]*)/g) ?? []).map((m) => m.slice(1).toLowerCase()));
+    const mentioned = new Set((body.match(/@([\w.-]+)/g) ?? []).map((m) => m.slice(1).toLowerCase()));
     members.forEach((m) => {
-      if (mentioned.has(m.name.toLowerCase()) && m.id !== user.id) {
+      if ((mentioned.has(m.handle) || mentioned.has(m.name.toLowerCase())) && m.id !== user.id) {
         void notifyMention(workspaceId, m.name, task?.title ?? "", taskId);
       }
     });
@@ -130,7 +136,12 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
 
   const mentionMatches =
     mentionQuery !== null
-      ? members.filter((m) => m.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
+      ? members
+          .filter((m) => {
+            const q = mentionQuery.toLowerCase();
+            return m.handle.includes(q) || m.name.toLowerCase().includes(q);
+          })
+          .slice(0, 6)
       : [];
 
   return (
@@ -198,13 +209,14 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
             {mentionMatches.map((m) => (
               <button
                 key={m.id}
-                onClick={() => pickMention(m.name)}
+                onClick={() => pickMention(m.handle)}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary"
               >
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
                   {(m.name[0] ?? "?").toUpperCase()}
                 </span>
-                {m.name}
+                <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                <span className="shrink-0 font-micro text-[11px] text-primary/80">@{m.handle}</span>
               </button>
             ))}
           </div>
@@ -325,7 +337,7 @@ function Attachment({ a, small }: { a: CommentAttachment; small?: boolean }) {
 
 // Highlight @mentions inside a comment body.
 function renderBody(body: string) {
-  const parts = body.split(/(@\w[\w-]*)/g);
+  const parts = body.split(/(@[\w.-]+)/g);
   return parts.map((p, i) =>
     p.startsWith("@") ? (
       <span key={i} className="font-medium text-primary">

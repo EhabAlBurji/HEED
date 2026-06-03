@@ -68,10 +68,29 @@ export function TaskTable({
                 <input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && create()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") create();
+                    if (e.key === "Escape") setNewTitle("");
+                  }}
                   placeholder={isAr ? "أضف مهمة…" : "Add item…"}
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
                 />
+                {newTitle.trim() && (
+                  <>
+                    <button
+                      onClick={create}
+                      className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition hover:opacity-90"
+                    >
+                      {isAr ? "إنشاء" : "Create"}
+                    </button>
+                    <button
+                      onClick={() => setNewTitle("")}
+                      className="shrink-0 rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-secondary"
+                    >
+                      {isAr ? "إلغاء" : "Cancel"}
+                    </button>
+                  </>
+                )}
               </div>
             </td>
           </tr>
