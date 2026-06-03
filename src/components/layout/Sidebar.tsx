@@ -26,6 +26,7 @@ import {
   Trash2,
   Copy,
   LogIn,
+  Sparkles,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -49,6 +50,7 @@ import { isAdmin } from "../../lib/admin";
 const navItems = [
   { to: "/",         icon: LayoutDashboard, key: "nav.dashboard",  end: true },
   { to: "/inbox",    icon: InboxIcon,        key: "nav.inbox",     end: false },
+  { to: "/chat",     icon: Sparkles,         key: "nav.chat",      end: false },
   { to: "/projects", icon: FolderKanban,     key: "nav.projects",  end: false },
   { to: "/boards",   icon: Workflow,         key: "nav.boards",    end: false },
 ];

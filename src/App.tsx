@@ -23,6 +23,7 @@ const BoardView    = lazy(() => import("./pages/BoardView"));
 const Settings     = lazy(() => import("./pages/Settings"));
 const AdminUsers   = lazy(() => import("./pages/AdminUsers"));
 const Inbox        = lazy(() => import("./pages/Inbox"));
+const Chat         = lazy(() => import("./pages/Chat"));
 const LoginPage    = lazy(() => import("./pages/LoginPage"));
 
 export default function App() {
@@ -181,6 +182,7 @@ export default function App() {
             <Route path="/boards/:id"   element={<BoardView />} />
             <Route path="/settings"     element={<Settings />} />
             <Route path="/inbox"        element={<Inbox />} />
+            <Route path="/chat"         element={<Chat />} />
             <Route path="/admin"        element={<AdminUsers />} />
           </Routes>
         </Suspense>

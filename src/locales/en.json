@@ -12,6 +12,7 @@
     "schedule": "Content Plan",
     "boards": "Boards",
     "inbox": "Inbox",
+    "chat": "Heed Chat",
     "admin": "Users"
   },
   "auth": {
