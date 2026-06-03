@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, FileText, ImagePlus, Maximize2, Mic, Minimize2, Paperclip, Send, Square, Trash2, Video, X } from "lucide-react";
+import { AtSign, ChevronDown, FileText, ImagePlus, Maximize2, Mic, Minimize2, Paperclip, Send, Square, Trash2, Video, X } from "lucide-react";
 import { useTasksStore, type CommentAttachment } from "../../stores/tasksStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { cn } from "../../lib/utils";
 import { fileToStorableDataUrl } from "../../lib/imageCompress";
-import { notifyMention, pushComment, removeCommentServer, watchTaskComments } from "../../lib/teamSync";
+import { inviteMember, notifyMention, pushComment, removeCommentServer, watchTaskComments } from "../../lib/teamSync";
 
 const readDataUrl = (file: File): Promise<string> =>
   new Promise((res, rej) => {
@@ -29,16 +29,32 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
   const user = useAuthStore((s) => s.user);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
 
-  // Each member gets a short @handle (from their email, e.g. ealburji@… → ealburji).
+  // Mention candidates: everyone across ALL of the user's workspaces (deduped,
+  // minus me) so you can @mention any teammate — not only members of this
+  // task's workspace. Each gets a short @handle (from their email local-part).
   const members = useMemo(() => {
-    const ws = workspaces.find((w) => w.id === workspaceId);
-    return (ws?.members ?? []).map((m) => ({
-      ...m,
-      handle: ((m.email?.split("@")[0] || m.name) ?? "")
-        .replace(/[^\w.-]+/g, "")
-        .toLowerCase(),
-    }));
-  }, [workspaces, workspaceId]);
+    const seen = new Set<string>();
+    const out: Array<{ id: string; name: string; email: string; handle: string }> = [];
+    for (const w of workspaces) {
+      for (const m of w.members ?? []) {
+        const key = (m.email || m.id).toLowerCase();
+        if (!key || seen.has(key)) continue;
+        const isMe =
+          !!user &&
+          (m.id === user.id ||
+            (!!m.email && !!user.email && m.email.toLowerCase() === user.email.toLowerCase()));
+        if (isMe) continue;
+        seen.add(key);
+        out.push({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          handle: ((m.email?.split("@")[0] || m.name) ?? "").replace(/[^\w.-]+/g, "").toLowerCase(),
+        });
+      }
+    }
+    return out;
+  }, [workspaces, user]);
 
   const thread = useMemo(
     () => comments.filter((c) => c.task_id === taskId).sort((a, b) => a.created_at.localeCompare(b.created_at)),
@@ -68,12 +84,32 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
 
   const onChange = (val: string) => {
     setText(val);
-    const m = val.match(/@([\w.-]*)$/);
+    // Allow @ and . in the token so a full email can be detected/inviteable.
+    const m = val.match(/@([\w.@-]*)$/);
     setMentionQuery(m ? m[1] : null);
   };
 
   const pickMention = (handle: string) => {
-    setText((t) => t.replace(/@([\w.-]*)$/, `@${handle} `));
+    setText((t) => t.replace(/@([\w.@-]*)$/, `@${handle} `));
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  };
+
+  // The @ toolbar button: insert an @ and open the picker showing everyone.
+  const triggerMention = () => {
+    setText((t) => (t && !t.endsWith(" ") ? `${t} @` : `${t}@`));
+    setMentionQuery("");
+    inputRef.current?.focus();
+  };
+
+  // Type a full email of someone not in your workspaces → invite + mention them.
+  const inviteAndMention = (email: string) => {
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    if (ws && user) {
+      void inviteMember(email, { id: ws.id, name: ws.name, color: ws.color }, user.name || user.email || "");
+    }
+    const handle = email.split("@")[0].replace(/[^\w.-]+/g, "").toLowerCase();
+    setText((t) => t.replace(/@([\w.@-]*)$/, `@${handle} `));
     setMentionQuery(null);
     inputRef.current?.focus();
   };
@@ -128,12 +164,21 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
       attachments: pending.length ? pending : undefined,
     });
     void pushComment(created);
-    const mentioned = new Set((body.match(/@([\w.-]+)/g) ?? []).map((m) => m.slice(1).toLowerCase()));
-    members.forEach((m) => {
-      if ((mentioned.has(m.handle) || mentioned.has(m.name.toLowerCase())) && m.id !== user.id) {
+    // Ping mentioned people. Resolve each @token to a known teammate; if they
+    // aren't in this task's (team) workspace yet, pull them in so they get
+    // access + the notification. Best-effort, server-guarded.
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    const tokens = new Set((body.match(/@([\w.-]+)/g) ?? []).map((m) => m.slice(1).toLowerCase()));
+    if (ws && ws.type === "team" && tokens.size) {
+      const inWs = new Set((ws.members ?? []).map((m) => (m.email || m.id).toLowerCase()));
+      members.forEach((m) => {
+        if (!(tokens.has(m.handle) || tokens.has(m.name.toLowerCase()))) return;
+        if (!inWs.has((m.email || m.id).toLowerCase()) && m.email) {
+          void inviteMember(m.email, { id: ws.id, name: ws.name, color: ws.color }, user.name || user.email || "");
+        }
         void notifyMention(workspaceId, m.name, task?.title ?? "", taskId);
-      }
-    });
+      });
+    }
     setText("");
     setPending([]);
     setMentionQuery(null);
@@ -144,10 +189,15 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
       ? members
           .filter((m) => {
             const q = mentionQuery.toLowerCase();
-            return m.handle.includes(q) || m.name.toLowerCase().includes(q);
+            return !q || m.handle.includes(q) || m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
           })
-          .slice(0, 6)
+          .slice(0, 8)
       : [];
+  const isEmailQuery =
+    mentionQuery !== null && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mentionQuery.trim());
+  const canInviteMention =
+    isEmailQuery && !members.some((m) => m.email.toLowerCase() === mentionQuery!.trim().toLowerCase());
+  const showMentionBox = mentionQuery !== null && (mentionMatches.length > 0 || canInviteMention);
 
   return (
     <div className="flex flex-col">
@@ -237,21 +287,34 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
 
       {/* Composer */}
       <div className="relative mt-2 rounded-xl border border-border/60 bg-background/40 p-2">
-        {mentionMatches.length > 0 && (
-          <div className="absolute bottom-full mb-1 max-h-48 w-56 overflow-y-auto rounded-lg border border-border/60 bg-card p-1 shadow-2xl">
+        {showMentionBox && (
+          <div className="absolute bottom-full mb-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-border/60 bg-card p-1 shadow-2xl">
             {mentionMatches.map((m) => (
               <button
                 key={m.id}
                 onClick={() => pickMention(m.handle)}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary"
               >
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
                   {(m.name[0] ?? "?").toUpperCase()}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{m.name}</span>
-                <span className="shrink-0 font-micro text-[11px] text-primary/80">@{m.handle}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{m.name}</span>
+                  <span className="block truncate font-micro text-[10px] text-primary/80">@{m.handle}</span>
+                </span>
               </button>
             ))}
+            {canInviteMention && (
+              <button
+                onClick={() => inviteAndMention(mentionQuery!.trim())}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm text-primary hover:bg-secondary"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-[13px] font-bold">+</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {isAr ? `ادعُ وامنشن ${mentionQuery!.trim()}` : `Invite & mention ${mentionQuery!.trim()}`}
+                </span>
+              </button>
+            )}
           </div>
         )}
 
@@ -288,6 +351,9 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
         />
 
         <div className="flex items-center gap-1">
+          <ToolBtn title={isAr ? "منشن شخص" : "Mention someone"} onClick={triggerMention}>
+            <AtSign className="h-4 w-4" />
+          </ToolBtn>
           <ToolBtn title={t("comments.attachImage")} onClick={() => imgRef.current?.click()}>
             <ImagePlus className="h-4 w-4" />
           </ToolBtn>

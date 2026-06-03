@@ -11,7 +11,6 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { cn } from "../../lib/utils";
 import { formatScheduleDate } from "../../lib/scheduleDates";
-import { QUICK_ESTIMATED_MINUTES } from "../../lib/taskDateShortcuts";
 import { WORKFLOW_STATUSES, workflowStatusById } from "../../lib/taskMeta";
 import { TaskComments } from "./TaskComments";
 import { ShareTaskButton } from "./ShareTaskButton";
@@ -199,73 +198,6 @@ export function TaskDetailDrawer({
           <InfoRow label="ID"><span className="font-micro text-xs tabular-nums">{draft.id}</span></InfoRow>
         </div>
 
-        {/* Notes */}
-        <div>
-          <Label>{t("tasks.notes")}</Label>
-          <textarea
-            value={draft.notes}
-            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-            rows={4}
-            className="mt-1 w-full resize-y rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-            placeholder={isAr ? "اكتب تفاصيل أو ملاحظات…" : "Add details or notes…"}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          {/* Category */}
-          <div className="col-span-2">
-            <Label>{t("tasks.category")}</Label>
-            <select
-              value={draft.category_id ?? ""}
-              onChange={(e) =>
-                setDraft({ ...draft, category_id: e.target.value || null })
-              }
-              className="mt-1 w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-            >
-              <option value="">—</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Estimated */}
-          <div className="col-span-2">
-            <Label>{t("tasks.estimated")} (min)</Label>
-            <input
-              type="number"
-              min={0}
-              value={draft.estimated_minutes ?? ""}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  estimated_minutes:
-                    e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-              className="mt-1 w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-            />
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {QUICK_ESTIMATED_MINUTES.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, estimated_minutes: minutes })}
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 font-micro text-[10px] transition",
-                    draft.estimated_minutes === minutes
-                      ? "border-primary/45 bg-primary/15 text-primary"
-                      : "border-border/40 bg-background/40 text-muted-foreground hover:border-primary/35 hover:text-foreground"
-                  )}
-                >
-                  {minutes}م
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {scheduledPost && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4">
