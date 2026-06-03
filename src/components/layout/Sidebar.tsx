@@ -47,6 +47,7 @@ const workspaceColors = [
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const { theme, setTheme, fontSize, setFontSize } = useUIStore();
 
   const sizeOrder: FontSize[] = ["sm", "md", "lg", "xl", "2xl"];
@@ -95,11 +96,34 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       color: newWsColor,
       memberCount: 1,
     });
+    // The creator is the workspace admin (owner).
+    if (user) {
+      addMember(ws.id, {
+        name: user.name || user.email?.split("@")[0] || "Me",
+        email: user.email || "",
+        role: "owner",
+      });
+    }
     setActiveWorkspace(ws.id);
     setNewWsName("");
     setCreating(false);
     setWsOpen(false);
   };
+
+  // Am I the admin (owner) of the active workspace? Legacy workspaces with no
+  // owner recorded yet fall back to "everyone can manage" so nobody is locked
+  // out of their own existing teams.
+  const activeMembers = activeWs?.members ?? [];
+  const hasOwner = activeMembers.some((m) => m.role === "owner");
+  const iAmAdmin =
+    !hasOwner ||
+    activeMembers.some(
+      (m) =>
+        m.role === "owner" &&
+        !!m.email &&
+        !!user?.email &&
+        m.email.toLowerCase() === user.email.toLowerCase()
+    );
 
   const handleInviteMember = () => {
     if (!inviteName.trim() && !inviteEmail.trim()) return;
@@ -244,19 +268,27 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                             {m.email && <p className="truncate font-micro text-[10px] text-muted-foreground/60" dir="ltr">{m.email}</p>}
                           </div>
                           {m.role === "owner" ? (
-                            <Crown className="h-3 w-3 shrink-0 text-amber-400" />
-                          ) : (
+                            <span title={isAr ? "مدير المساحة" : "Workspace admin"}>
+                              <Crown className="h-3 w-3 shrink-0 text-amber-400" />
+                            </span>
+                          ) : iAmAdmin ? (
                             <button
                               onClick={() => removeMember(activeWorkspaceId, m.id)}
                               className="shrink-0 text-muted-foreground/30 hover:text-destructive transition-colors"
                             >
                               <X className="h-3 w-3" />
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       ))
                     )}
 
+                    {!iAmAdmin && (
+                      <p className="px-1 py-1 font-micro text-[10px] text-muted-foreground/50">
+                        {isAr ? "مدير المساحة بس اللي يقدر يدعو أعضاء" : "Only the workspace admin can invite members"}
+                      </p>
+                    )}
+                    {iAmAdmin && (
                     <div className="mt-1 space-y-1.5 rounded-xl border border-dashed border-border/40 p-2">
                       <p className="font-micro text-[10px] text-muted-foreground/60 flex items-center gap-1">
                         <UserPlus className="h-3 w-3" />دعوة عضو جديد
@@ -284,6 +316,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                         </button>
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
 
