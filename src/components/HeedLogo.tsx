@@ -3,7 +3,7 @@
 export function HeedLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
     <img
-      src="/heed-icon.png"
+      src={`${import.meta.env.BASE_URL}heed-icon.png`}
       alt="Heed"
       className={className}
       draggable={false}
@@ -15,7 +15,7 @@ export function HeedLogo({ className = "h-6 w-6" }: { className?: string }) {
 export function HeedLogoFull({ className = "h-8" }: { className?: string }) {
   return (
     <img
-      src="/heed-logo-full.png"
+      src={`${import.meta.env.BASE_URL}heed-logo-full.png`}
       alt="Heed"
       className={className}
       draggable={false}

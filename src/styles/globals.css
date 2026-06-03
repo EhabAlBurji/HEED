@@ -11,109 +11,52 @@
    عندك مثلاً: GraphikArabic-Regular.otf أو GraphikArabic-Medium.woff2
    ============================================================ */
 
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Thin.otf") format("opentype");
-  font-weight: 100;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-ExtraLight.otf") format("opentype");
-  font-weight: 200;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Light.otf") format("opentype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Regular.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Medium.otf") format("opentype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Semibold.otf") format("opentype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Bold.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Graphik Arabic";
-  src: url("/fonts/GraphikArabic-Black.otf") format("opentype");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Forma DJR kept as fallback in case Graphik files not yet present */
 @font-face {
   font-family: "Forma DJR Banner";
-  src: url("/fonts/FormaDJRArabicBanner-Medium.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicBanner-Medium.otf") format("opentype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Deck";
-  src: url("/fonts/FormaDJRArabicDeck-ExtraLight.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicDeck-ExtraLight.otf") format("opentype");
   font-weight: 200;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Deck";
-  src: url("/fonts/FormaDJRArabicDeck-Light.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicDeck-Light.otf") format("opentype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Deck";
-  src: url("/fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Deck";
-  src: url("/fonts/FormaDJRArabicDeck-Bold.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicDeck-Bold.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Deck";
-  src: url("/fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicDeck-Medium.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Forma DJR Micro";
-  src: url("/fonts/FormaDJRArabicMicro-Regular.otf") format("opentype");
+  src: url("../fonts/FormaDJRArabicMicro-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
