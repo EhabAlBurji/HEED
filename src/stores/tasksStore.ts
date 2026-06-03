@@ -64,7 +64,8 @@ export type Task = {
   position: number;
   estimated_minutes: number | null;
   actual_minutes: number;
-  deadline: string | null; // ISO date string (YYYY-MM-DD) or null
+  start_date?: string | null; // ISO date (YYYY-MM-DD) or null
+  deadline: string | null; // ISO date string (YYYY-MM-DD) or null — "due date"
   video_stage: VideoStage | null;
   links: Array<{ label: string; url: string }>;
   completed_at: string | null;

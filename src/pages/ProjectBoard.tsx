@@ -14,14 +14,16 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeft, CheckCircle2, Clock4, Columns3, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock4, Columns3, ListChecks, Plus, Rows3, Settings2, Table2 } from "lucide-react";
 import {
   useTasksStore,
   type KanbanColumn,
   type Task,
 } from "../stores/tasksStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import { KanbanColumn as KanbanCol } from "../components/projects/KanbanColumn";
 import { KanbanCardOverlay } from "../components/projects/KanbanCard";
+import { TaskTable } from "../components/projects/TaskTable";
 import { TaskDetailDrawer } from "../components/tasks/TaskDetailDrawer";
 import { EditProjectModal } from "./Projects";
 import { PRIORITY_STRIPE } from "../lib/taskMeta";
@@ -46,8 +48,9 @@ export default function ProjectBoard() {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [view, setView] = useState<"list" | "board">("list");
+  const [view, setView] = useState<"table" | "list" | "board">("table");
   const [newTitle, setNewTitle] = useState("");
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
 
   const createTask = () => {
     const title = newTitle.trim();
@@ -220,6 +223,16 @@ export default function ProjectBoard() {
           {/* View toggle: list (master-detail) ↔ board (kanban) */}
           <div className="flex items-center gap-0.5 rounded-lg border border-border/60 p-0.5">
             <button
+              onClick={() => setView("table")}
+              className={cn(
+                "grid h-7 w-7 place-items-center rounded-md transition",
+                view === "table" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+              title={isAr ? "جدول" : "Table"}
+            >
+              <Table2 className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setView("list")}
               className={cn(
                 "grid h-7 w-7 place-items-center rounded-md transition",
@@ -290,7 +303,17 @@ export default function ProjectBoard() {
         </div>
       </div>
 
-      {view === "board" ? (
+      {view === "table" ? (
+        <>
+          <TaskTable
+            tasks={projectTasks}
+            members={workspaces.find((w) => w.id === project.workspace_id)?.members ?? []}
+            projectId={project.id}
+            onOpen={setOpenTaskId}
+          />
+          <TaskDetailDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
+        </>
+      ) : view === "board" ? (
         <>
           <DndContext
             sensors={sensors}

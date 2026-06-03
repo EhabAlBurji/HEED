@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect } from "react";
-import { Pause, Play, Square, Timer, LogOut, Bell, Check, X, Settings as SettingsIcon, ChevronDown } from "lucide-react";
+import { Pause, Play, Square, Timer, LogOut, Bell, Check, X, Settings as SettingsIcon, ChevronDown, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTimerStore } from "../../stores/timerStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -42,9 +42,18 @@ export function TopBar() {
         "select-none",
       )}
     >
-      {/* Left: empty drag region (logo lives in the sidebar). data-tauri-drag-region
-          is the reliable macOS drag handle (CSS app-region is flaky in WKWebView). */}
-      <div data-tauri-drag-region className="h-full flex-1 ps-16" />
+      {/* Left: global search box + drag region. data-tauri-drag-region is the
+          reliable macOS drag handle (CSS app-region is flaky in WKWebView). */}
+      <div data-tauri-drag-region className="flex h-full flex-1 items-center ps-16">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("heed:open-search"))}
+          className="no-drag flex w-full max-w-md items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-1.5 text-sm text-muted-foreground transition hover:border-primary/40"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-start">{t("search.placeholder")}</span>
+          <kbd className="hidden rounded border border-border/60 px-1.5 py-0.5 font-micro text-[10px] sm:inline">⌘K</kbd>
+        </button>
+      </div>
 
       {/* Right: timer + settings/notif/user */}
       <div className="no-drag flex items-center gap-2">

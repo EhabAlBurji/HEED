@@ -81,8 +81,14 @@ export function GlobalSearch() {
       }
       if (e.key === "Escape") setOpen(false);
     };
+    // Lets the top-bar search box open this palette.
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("heed:open-search", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("heed:open-search", onOpen);
+    };
   }, []);
 
   useEffect(() => {
