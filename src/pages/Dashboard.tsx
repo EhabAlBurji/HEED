@@ -1,7 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarClock, Clock, RefreshCw, Video, Users, Plus, X, ExternalLink } from "lucide-react";
+import { CalendarClock, Clock, RefreshCw, Video, Users, Plus, X, ExternalLink, ChevronRight } from "lucide-react";
 import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
+import { useUIStore } from "../stores/uiStore";
 import { syncGoogleCalendar } from "../lib/googleCalendarSync";
 import { useTasksStore, isoDate } from "../stores/tasksStore";
 import { useAuthStore } from "../stores/authStore";
@@ -448,6 +449,8 @@ function TodayMeetingsSidebar({ isAr, activeWorkspaceId }: { isAr: boolean; acti
   const addMeeting    = useMeetingsStore((s) => s.addMeeting);
   const deleteMeeting = useMeetingsStore((s) => s.deleteMeeting);
   const gcal          = useGoogleCalendarStore();
+  const panelOpen     = useUIStore((s) => s.todayPanelOpen);
+  const setPanelOpen  = useUIStore((s) => s.setTodayPanelOpen);
 
   const todayStr = isoDate(new Date());
 
@@ -497,6 +500,20 @@ function TodayMeetingsSidebar({ isAr, activeWorkspaceId }: { isAr: boolean; acti
     setShowForm(false);
   };
 
+  if (!panelOpen) {
+    return (
+      <aside className="sticky top-0 hidden h-[calc(100vh-44px)] w-11 shrink-0 flex-col items-center gap-2 border-s border-border/40 bg-card/20 pt-4 lg:flex">
+        <button
+          onClick={() => setPanelOpen(true)}
+          title={isAr ? "إظهار اجتماعات اليوم" : "Show today's meetings"}
+          className="grid h-8 w-8 place-items-center rounded-lg bg-violet-500/15 text-violet-400 transition hover:bg-violet-500/25"
+        >
+          <CalendarClock className="h-4 w-4" />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="sticky top-0 hidden h-[calc(100vh-44px)] w-72 shrink-0 flex-col border-s border-border/40 bg-card/20 lg:flex">
       {/* Header */}
@@ -531,6 +548,13 @@ function TodayMeetingsSidebar({ isAr, activeWorkspaceId }: { isAr: boolean; acti
             className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground/50 transition hover:bg-secondary hover:text-foreground"
           >
             {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={() => setPanelOpen(false)}
+            title={isAr ? "إخفاء اللوحة" : "Hide panel"}
+            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground/50 transition hover:bg-secondary hover:text-foreground"
+          >
+            <ChevronRight className="h-4 w-4 rtl:rotate-180" />
           </button>
         </div>
       </div>

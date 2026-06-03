@@ -22,6 +22,9 @@ type UIState = {
   /** Width (px) of the right-side Today Tasks panel on Projects page */
   todayPanelWidth: number;
   setTodayPanelWidth: (w: number) => void;
+  /** Show the right-side Today panel (tasks/meetings). Auto-hidden on phones. */
+  todayPanelOpen: boolean;
+  setTodayPanelOpen: (v: boolean) => void;
 };
 
 export const useUIStore = create<UIState>()(
@@ -36,6 +39,8 @@ export const useUIStore = create<UIState>()(
       todayPanelWidth: 320,
       setTodayPanelWidth: (todayPanelWidth) =>
         set({ todayPanelWidth: Math.max(240, Math.min(720, todayPanelWidth)) }),
+      todayPanelOpen: true,
+      setTodayPanelOpen: (todayPanelOpen) => set({ todayPanelOpen }),
     }),
     {
       name: "heed:ui",
@@ -43,6 +48,7 @@ export const useUIStore = create<UIState>()(
         fontSize: s.fontSize,
         theme: s.theme,
         todayPanelWidth: s.todayPanelWidth,
+        todayPanelOpen: s.todayPanelOpen,
       }),
     }
   )

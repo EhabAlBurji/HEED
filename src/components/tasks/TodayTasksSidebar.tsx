@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarClock, CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarClock, CheckCircle2, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useTasksStore, categorizeByDeadline } from "../../stores/tasksStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -39,6 +39,8 @@ export function TodayTasksSidebar() {
   // ── Resize handle (drag the left edge to grow/shrink) ──────
   const width = useUIStore((s) => s.todayPanelWidth);
   const setWidth = useUIStore((s) => s.setTodayPanelWidth);
+  const panelOpen = useUIStore((s) => s.todayPanelOpen);
+  const setPanelOpen = useUIStore((s) => s.setTodayPanelOpen);
   const draggingRef = useRef(false);
   const isRtl = i18n.language === "ar" || document.documentElement.dir === "rtl";
 
@@ -72,6 +74,21 @@ export function TodayTasksSidebar() {
       window.removeEventListener("mouseup", onUp);
     };
   }, [setWidth, isRtl]);
+
+  // Collapsed → a slim rail with a reopen button (still hidden on phones).
+  if (!panelOpen) {
+    return (
+      <aside className="sticky top-0 hidden h-[calc(100vh-44px)] w-11 shrink-0 flex-col items-center gap-2 border-s border-border bg-card pt-4 lg:flex">
+        <button
+          onClick={() => setPanelOpen(true)}
+          title={isAr ? "إظهار مهام اليوم" : "Show today's tasks"}
+          className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary transition hover:bg-primary/20"
+        >
+          <CalendarClock className="h-4 w-4" />
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -108,16 +125,25 @@ export function TodayTasksSidebar() {
             </p>
           </div>
         </div>
-        <span
-          className={cn(
-            "flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-micro text-[11px] font-bold",
-            todayTasks.length > 0
-              ? "bg-primary text-white"
-              : "bg-secondary text-muted-foreground",
-          )}
-        >
-          {todayTasks.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-micro text-[11px] font-bold",
+              todayTasks.length > 0
+                ? "bg-primary text-white"
+                : "bg-secondary text-muted-foreground",
+            )}
+          >
+            {todayTasks.length}
+          </span>
+          <button
+            onClick={() => setPanelOpen(false)}
+            title={isAr ? "إخفاء" : "Hide"}
+            className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Today list */}
