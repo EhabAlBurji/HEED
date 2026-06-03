@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Paperclip, Plus } from "lucide-react";
+import { CalendarDays, FileText, Paperclip, Plus } from "lucide-react";
 import { useTasksStore, type Task } from "../../stores/tasksStore";
 import { WORKFLOW_STATUSES, workflowStatusById } from "../../lib/taskMeta";
+import { quickTaskDates } from "../../lib/taskDateShortcuts";
 import { cn } from "../../lib/utils";
 
 type Member = { id: string; name: string };
@@ -224,6 +225,17 @@ function AssigneeCell({
   );
 }
 
+function friendlyDate(iso: string, isAr: boolean) {
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return iso;
+  const today = new Date(new Date().toDateString());
+  const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return isAr ? "اليوم" : "Today";
+  if (diff === 1) return isAr ? "غدًا" : "Tomorrow";
+  if (diff === -1) return isAr ? "أمس" : "Yesterday";
+  return d.toLocaleDateString(isAr ? "ar" : "en", { month: "short", day: "numeric" });
+}
+
 function DateCell({
   value,
   onChange,
@@ -235,17 +247,57 @@ function DateCell({
   isAr: boolean;
   overdue?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref, () => setOpen(false));
+  const quick = quickTaskDates();
   return (
-    <input
-      type="date"
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || null)}
-      onClick={(e) => e.stopPropagation()}
-      className={cn(
-        "w-full cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-xs outline-none [color-scheme:dark] hover:bg-secondary/60",
-        value ? (overdue ? "text-red-400" : "text-foreground") : "text-muted-foreground/40"
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-xs outline-none transition hover:bg-secondary/60",
+          value ? (overdue ? "text-red-400" : "text-foreground") : "text-muted-foreground/40"
+        )}
+        title={isAr ? "غيّر التاريخ" : "Change date"}
+      >
+        <CalendarDays className="h-3 w-3 shrink-0 opacity-60" />
+        <span className="truncate">{value ? friendlyDate(value, isAr) : isAr ? "تحديد" : "Set date"}</span>
+      </button>
+      {open && (
+        <div className="absolute start-0 top-full z-30 mt-1 w-52 rounded-xl border border-border/60 bg-card p-1.5 shadow-2xl">
+          <div className="flex flex-wrap gap-1">
+            {quick.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => { onChange(o.value); setOpen(false); }}
+                className={cn(
+                  "rounded-full border px-2 py-1 font-micro text-[10px] transition",
+                  value === o.value
+                    ? "border-primary/45 bg-primary/15 text-primary"
+                    : "border-border/40 text-muted-foreground hover:border-primary/35 hover:text-foreground"
+                )}
+              >
+                {isAr ? o.labelAr : o.labelEn}
+              </button>
+            ))}
+          </div>
+          <input
+            type="date"
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value || null)}
+            className="mt-1.5 w-full rounded-md border border-border/50 bg-background/60 px-2 py-1 text-xs outline-none [color-scheme:dark] focus:border-primary/50"
+          />
+          {value && (
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              className="mt-1 w-full rounded-md px-2 py-1 text-start font-micro text-[11px] text-muted-foreground hover:bg-secondary"
+            >
+              {isAr ? "بدون تاريخ" : "Clear date"}
+            </button>
+          )}
+        </div>
       )}
-      title={isAr ? "غيّر التاريخ" : "Change date"}
-    />
+    </div>
   );
 }

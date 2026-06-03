@@ -15,6 +15,7 @@ import { QUICK_ESTIMATED_MINUTES, quickTaskDates } from "../../lib/taskDateShort
 import { PRIORITIES as priorities, PRIORITY_SOLID as priorityBg, WORKFLOW_STATUSES, workflowStatusById } from "../../lib/taskMeta";
 import { TaskComments } from "./TaskComments";
 import { ShareTaskButton } from "./ShareTaskButton";
+import { inviteMember } from "../../lib/teamSync";
 
 const videoStages: VideoStage[] = [
   "idea",
@@ -174,6 +175,10 @@ export function TaskDetailDrawer({
               onChange={(id) => setDraft({ ...draft, assignee_id: id })}
               assigneeName={assignee?.name}
               emptyLabel={isAr ? "فارغ" : "Empty"}
+              onInvite={(email) => {
+                const ws = workspaces.find((w) => w.id === draft.workspace_id);
+                if (ws) void inviteMember(email, { id: ws.id, name: ws.name, color: ws.color }, user?.name || user?.email || "");
+              }}
             />
           </FieldCard>
           <FieldCard label={isAr ? "التاريخ" : "Date"}>
@@ -678,19 +683,26 @@ function AssigneePicker({
   onChange,
   assigneeName,
   emptyLabel,
+  onInvite,
 }: {
   members: Array<{ id: string; name: string; email?: string }>;
   onChange: (id: string | null) => void;
   assigneeName?: string;
   emptyLabel: string;
+  onInvite?: (email: string) => void;
 }) {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [invited, setInvited] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const filtered = members.filter((m) => {
     const s = q.toLowerCase();
     return !s || m.name.toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s);
   });
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.trim());
+  const canInvite = Boolean(onInvite) && isEmail && filtered.length === 0;
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", h);
@@ -741,8 +753,24 @@ function AssigneePicker({
                 </span>
               </button>
             ))}
-            {filtered.length === 0 && (
-              <p className="px-2 py-2 font-micro text-[11px] text-muted-foreground/50">لا نتائج</p>
+            {canInvite && (
+              <button
+                onClick={() => { onInvite?.(q.trim()); setInvited(q.trim()); setQ(""); }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm text-primary hover:bg-secondary"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-[13px] font-bold">+</span>
+                <span className="min-w-0 flex-1 truncate">{isAr ? `ادعُ ${q.trim()}` : `Invite ${q.trim()}`}</span>
+              </button>
+            )}
+            {invited && (
+              <p className="px-2 py-1.5 font-micro text-[11px] text-emerald-400">
+                {isAr ? `تم إرسال دعوة إلى ${invited} ✓` : `Invited ${invited} ✓`}
+              </p>
+            )}
+            {filtered.length === 0 && !canInvite && !invited && (
+              <p className="px-2 py-2 font-micro text-[11px] text-muted-foreground/50">
+                {isEmail ? (isAr ? "اكتب إيميل صحيح" : "Enter a valid email") : isAr ? "لا نتائج" : "No results"}
+              </p>
             )}
           </div>
         </div>

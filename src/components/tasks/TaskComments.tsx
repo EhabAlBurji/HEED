@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, ImagePlus, Mic, Paperclip, Send, Square, Trash2, Video, X } from "lucide-react";
+import { ChevronDown, FileText, ImagePlus, Maximize2, Mic, Minimize2, Paperclip, Send, Square, Trash2, Video, X } from "lucide-react";
 import { useTasksStore, type CommentAttachment } from "../../stores/tasksStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { cn } from "../../lib/utils";
 import { fileToStorableDataUrl } from "../../lib/imageCompress";
 import { notifyMention, pushComment, removeCommentServer, watchTaskComments } from "../../lib/teamSync";
 
@@ -19,7 +20,8 @@ const readDataUrl = (file: File): Promise<string> =>
 // supports @mentions of project members and attachments (image / video / file
 // / voice note).
 export function TaskComments({ taskId, workspaceId }: { taskId: string; workspaceId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const comments = useTasksStore((s) => s.comments);
   const addComment = useTasksStore((s) => s.addComment);
   const deleteComment = useTasksStore((s) => s.deleteComment);
@@ -47,6 +49,9 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
   const [pending, setPending] = useState<CommentAttachment[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  // Chat sizing: collapsed (header only) · normal · expanded (taller box).
+  const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
   const vidRef = useRef<HTMLInputElement>(null);
@@ -145,13 +150,41 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
       : [];
 
   return (
-    <div className="flex h-full flex-col">
-      <p className="mb-3 font-micro text-[11px] uppercase tracking-widest text-muted-foreground">
-        {t("comments.title")}
-      </p>
+    <div className="flex flex-col">
+      {/* Header with size controls */}
+      <div className="mb-3 flex items-center gap-2">
+        <p className="font-micro text-[11px] uppercase tracking-widest text-muted-foreground">
+          {t("comments.title")}
+        </p>
+        {thread.length > 0 && (
+          <span className="rounded-full bg-secondary px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground">
+            {thread.length}
+          </span>
+        )}
+        <div className="ms-auto flex items-center gap-0.5">
+          {!collapsed && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              title={expanded ? (isAr ? "تصغير" : "Shrink") : isAr ? "تكبير" : "Enlarge"}
+              className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            title={collapsed ? (isAr ? "فتح المحادثة" : "Open chat") : isAr ? "طي المحادثة" : "Minimize chat"}
+            className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <ChevronDown className={cn("h-4 w-4 transition-transform", collapsed && "-rotate-90")} />
+          </button>
+        </div>
+      </div>
 
+      {collapsed ? null : (
+      <>
       {/* Thread */}
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pe-1">
+      <div ref={scrollRef} className={cn("space-y-3 overflow-y-auto pe-1", expanded ? "h-[32rem]" : "h-72")}>
         {task && (
           <div className="flex items-center gap-2 font-micro text-[11px] text-muted-foreground/70">
             <span className="h-1.5 w-1.5 rounded-full bg-border" />
@@ -296,6 +329,8 @@ export function TaskComments({ taskId, workspaceId }: { taskId: string; workspac
         <input ref={fileRef} type="file" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void addFile(f); e.target.value = ""; }} />
       </div>
+      </>
+      )}
     </div>
   );
 }
