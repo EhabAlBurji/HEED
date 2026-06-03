@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CalendarDays, ChevronDown, ExternalLink, FolderKanban, Link2, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, ExternalLink, FolderKanban, Link2, Plus, Trash2, X } from "lucide-react";
 import {
   useTasksStore,
   type Task,
@@ -29,10 +29,14 @@ export function TaskDetailDrawer({
   taskId,
   onClose,
   embedded = false,
+  taskIds,
+  onNavigate,
 }: {
   taskId: string | null;
   onClose: () => void;
   embedded?: boolean;
+  taskIds?: string[];
+  onNavigate?: (id: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const tasks = useTasksStore((s) => s.tasks);
@@ -78,6 +82,9 @@ export function TaskDetailDrawer({
   const isAr = i18n.language === "ar";
   const members = workspaces.find((w) => w.id === draft.workspace_id)?.members ?? [];
   const assignee = members.find((m) => m.id === draft.assignee_id);
+  const navIdx = taskIds && taskId ? taskIds.indexOf(taskId) : -1;
+  const prevId = navIdx > 0 ? taskIds![navIdx - 1] : null;
+  const nextId = navIdx >= 0 && taskIds && navIdx < taskIds.length - 1 ? taskIds[navIdx + 1] : null;
 
   const addLink = () =>
     setDraft({ ...draft, links: [...draft.links, { label: "", url: "" }] });
@@ -96,7 +103,31 @@ export function TaskDetailDrawer({
     <Backdrop onClose={onClose} embedded={embedded}>
       <header className="flex items-center justify-between border-b border-border/60 px-5 py-4">
         {embedded ? (
-          <span className="max-w-[60%] truncate text-sm font-semibold">{draft.title}</span>
+          taskIds && taskIds.length > 1 ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                disabled={!prevId}
+                onClick={() => prevId && onNavigate?.(prevId)}
+                title={isAr ? "السابقة" : "Previous"}
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+              <button
+                disabled={!nextId}
+                onClick={() => nextId && onNavigate?.(nextId)}
+                title={isAr ? "التالية" : "Next"}
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              <span className="ms-1 font-micro text-[11px] text-muted-foreground/60">
+                {navIdx + 1}/{taskIds.length}
+              </span>
+            </div>
+          ) : (
+            <span />
+          )
         ) : (
           <button
             onClick={onClose}
@@ -122,6 +153,15 @@ export function TaskDetailDrawer({
       </header>
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+        {/* Big editable title at the very top */}
+        <input
+          type="text"
+          value={draft.title}
+          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+          placeholder={isAr ? "اسم المهمة" : "Task name"}
+          className="w-full border-0 bg-transparent text-2xl font-bold tracking-tight outline-none placeholder:text-muted-foreground/40"
+        />
+
         {/* ── Wrike-style cards: Status / Assignee / Date ── */}
         <div className="grid grid-cols-3 gap-2">
           <StatusSelect
@@ -159,17 +199,6 @@ export function TaskDetailDrawer({
           </InfoRow>
           <InfoRow label={isAr ? "النوع" : "Item type"}>{isAr ? "مهمة" : "Task"}</InfoRow>
           <InfoRow label="ID"><span className="font-micro text-xs tabular-nums">{draft.id}</span></InfoRow>
-        </div>
-
-        {/* Title */}
-        <div>
-          <Label>{t("tasks.title")}</Label>
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            className="mt-1 w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-lg font-medium outline-none focus:border-primary/50"
-          />
         </div>
 
         {/* Notes */}
@@ -650,13 +679,18 @@ function AssigneePicker({
   assigneeName,
   emptyLabel,
 }: {
-  members: Array<{ id: string; name: string }>;
+  members: Array<{ id: string; name: string; email?: string }>;
   onChange: (id: string | null) => void;
   assigneeName?: string;
   emptyLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const filtered = members.filter((m) => {
+    const s = q.toLowerCase();
+    return !s || m.name.toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s);
+  });
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", h);
@@ -677,25 +711,40 @@ function AssigneePicker({
         )}
       </button>
       {open && (
-        <div className="absolute start-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
-          <button
-            onClick={() => { onChange(null); setOpen(false); }}
-            className="w-full rounded-md px-2 py-1.5 text-start text-sm text-muted-foreground hover:bg-secondary"
-          >
-            {emptyLabel}
-          </button>
-          {members.map((m) => (
+        <div className="absolute start-0 top-full z-30 mt-1 w-56 rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="بحث بالاسم أو الإيميل…"
+            className="mb-1 w-full rounded-md border border-border/50 bg-background/60 px-2 py-1.5 text-sm outline-none focus:border-primary/50"
+          />
+          <div className="max-h-48 overflow-y-auto">
             <button
-              key={m.id}
-              onClick={() => { onChange(m.id); setOpen(false); }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary"
+              onClick={() => { onChange(null); setOpen(false); }}
+              className="w-full rounded-md px-2 py-1.5 text-start text-sm text-muted-foreground hover:bg-secondary"
             >
-              <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-                {m.name[0]?.toUpperCase()}
-              </span>
-              {m.name}
+              {emptyLabel}
             </button>
-          ))}
+            {filtered.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => { onChange(m.id); setOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+                  {m.name[0]?.toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{m.name}</span>
+                  {m.email && <span className="block truncate font-micro text-[10px] text-muted-foreground/60">{m.email}</span>}
+                </span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-2 py-2 font-micro text-[11px] text-muted-foreground/50">لا نتائج</p>
+            )}
+          </div>
         </div>
       )}
     </div>

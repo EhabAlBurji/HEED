@@ -311,15 +311,27 @@ export default function ProjectBoard() {
       </div>
 
       {view === "table" ? (
-        <>
-          <TaskTable
-            tasks={projectTasks}
-            members={workspaces.find((w) => w.id === project.workspace_id)?.members ?? []}
-            projectId={project.id}
-            onOpen={setOpenTaskId}
-          />
-          <TaskDetailDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
-        </>
+        <div className="flex min-h-0 flex-1">
+          <div className={cn("min-h-0 flex-1", openTaskId && "hidden md:block")}>
+            <TaskTable
+              tasks={projectTasks}
+              members={workspaces.find((w) => w.id === project.workspace_id)?.members ?? []}
+              projectId={project.id}
+              onOpen={setOpenTaskId}
+            />
+          </div>
+          {openTaskId && (
+            <div className="min-h-0 w-full shrink-0 border-s border-border/60 md:w-[460px]">
+              <TaskDetailDrawer
+                taskId={openTaskId}
+                embedded
+                onClose={() => setOpenTaskId(null)}
+                taskIds={projectTasks.map((t) => t.id)}
+                onNavigate={setOpenTaskId}
+              />
+            </div>
+          )}
+        </div>
       ) : view === "board" ? (
         <>
           <DndContext
@@ -393,7 +405,13 @@ export default function ProjectBoard() {
 
           <div className="min-w-0 flex-1">
             {openTaskId ? (
-              <TaskDetailDrawer taskId={openTaskId} embedded onClose={() => setOpenTaskId(null)} />
+              <TaskDetailDrawer
+                taskId={openTaskId}
+                embedded
+                onClose={() => setOpenTaskId(null)}
+                taskIds={projectTasks.map((t) => t.id)}
+                onNavigate={setOpenTaskId}
+              />
             ) : (
               <div className="grid h-full place-items-center text-center">
                 <div className="space-y-2">
