@@ -108,6 +108,7 @@ export type Database = {
           author_name: string;
           author_avatar: string | null;
           body: string;
+          attachments: Array<{ kind: string; src: string; name?: string }> | null;
           created_at: string;
         };
         Insert: {
@@ -118,6 +119,7 @@ export type Database = {
           author_name: string;
           author_avatar?: string | null;
           body: string;
+          attachments?: Array<{ kind: string; src: string; name?: string }> | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["task_comments"]["Insert"]>;

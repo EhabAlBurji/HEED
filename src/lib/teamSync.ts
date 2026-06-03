@@ -242,6 +242,7 @@ const commentToRow = (c: TaskComment) => ({
   author_name: c.author_name,
   author_avatar: c.author_avatar ?? null,
   body: c.body,
+  attachments: c.attachments ?? null,
   created_at: c.created_at,
 });
 const commentFromRow = (r: Record<string, unknown>): TaskComment => ({
@@ -252,13 +253,51 @@ const commentFromRow = (r: Record<string, unknown>): TaskComment => ({
   author_name: r.author_name as string,
   author_avatar: (r.author_avatar as string) ?? null,
   body: r.body as string,
+  attachments: (r.attachments as TaskComment["attachments"]) ?? undefined,
   created_at: r.created_at as string,
 });
+
+// Upload a base64 attachment to Storage (reuses the public canvas-media bucket)
+// → returns a public URL. Falls back to the original data URL on failure.
+async function uploadAttachment(dataUrl: string, commentId: string, idx: number): Promise<string> {
+  if (!dataUrl.startsWith("data:")) return dataUrl;
+  try {
+    const sb = getSupabase();
+    const [meta, b64] = dataUrl.split(",");
+    const mime = meta.match(/data:([^;]+)/)?.[1] ?? "application/octet-stream";
+    const ext = (mime.split("/")[1] ?? "bin").split("+")[0];
+    const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+    const path = `comments/${commentId}-${idx}.${ext}`;
+    const { error } = await sb.storage.from("canvas-media").upload(path, bytes, { contentType: mime, upsert: true });
+    if (error) return dataUrl;
+    return sb.storage.from("canvas-media").getPublicUrl(path).data.publicUrl;
+  } catch {
+    return dataUrl;
+  }
+}
 
 export async function pushComment(c: TaskComment) {
   if (!canSync()) return;
   try {
-    await getSupabase().from("task_comments").upsert(commentToRow(c));
+    let attachments = c.attachments;
+    // Upload any base64 media to Storage and keep only the URL — never store
+    // big base64 blobs in Postgres (and swap the local copy to the URL too).
+    if (attachments?.some((a) => a.src.startsWith("data:"))) {
+      attachments = await Promise.all(
+        attachments.map(async (a, i) =>
+          a.src.startsWith("data:") ? { ...a, src: await uploadAttachment(a.src, c.id, i) } : a
+        )
+      );
+      useTasksStore.getState().upsertComment({ ...c, attachments });
+    }
+    const row = commentToRow({ ...c, attachments });
+    const { error } = await getSupabase().from("task_comments").upsert(row);
+    if (error && (error as { code?: string }).code === "PGRST204") {
+      // task_comments.attachments column not added yet → keep text sync working.
+      const legacy = { ...row } as Record<string, unknown>;
+      delete legacy.attachments;
+      await getSupabase().from("task_comments").upsert(legacy as typeof row);
+    }
   } catch {
     /* ignore */
   }
