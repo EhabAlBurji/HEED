@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef, useEffect } from "react";
-import { Pause, Play, Square, Timer, LogOut, Bell, Check, X, Settings as SettingsIcon, ChevronDown } from "lucide-react";
+import { Pause, Play, Square, Timer, LogOut, Bell, Check, X, Settings as SettingsIcon, ChevronDown, PanelLeft } from "lucide-react";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import { useNavigate } from "react-router-dom";
 import { useTimerStore } from "../../stores/timerStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -15,8 +16,10 @@ import { pauseAndCommit, stopTimerAndCommit } from "../../lib/timerActions";
 import { Avatar } from "../Avatar";
 import { SyncStatusIndicator } from "../SyncStatusIndicator";
 
-export function TopBar() {
-  const { t } = useTranslation();
+export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  const isMobile = useIsMobile();
   useNow(1000);
 
   const activeTask     = useTimerStore((s) => s.activeTask);
@@ -35,9 +38,20 @@ export function TopBar() {
         "select-none",
       )}
     >
-      {/* Left: empty drag region (logo + search now live in the sidebar).
-          data-tauri-drag-region is the reliable macOS drag handle. */}
-      <div data-tauri-drag-region className="h-full flex-1 ps-16" />
+      {/* Left: sidebar toggle + drag region. ps-16 clears the macOS traffic
+          lights on desktop; tighter on phones. */}
+      <div
+        data-tauri-drag-region
+        className={cn("flex h-full flex-1 items-center", isMobile ? "ps-2" : "ps-16")}
+      >
+        <button
+          onClick={onToggleSidebar}
+          title={isAr ? "إظهار/إخفاء القائمة" : "Toggle sidebar"}
+          className="no-drag grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-background text-foreground/70 transition hover:bg-secondary hover:text-foreground"
+        >
+          <PanelLeft className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Right: timer + settings/notif/user */}
       <div className="no-drag flex items-center gap-2">

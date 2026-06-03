@@ -42,7 +42,7 @@ const workspaceColors = [
   "#0A4EFF", "#FDFD5F", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
 ];
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme, fontSize, setFontSize } = useUIStore();
 
@@ -370,6 +370,7 @@ export function Sidebar() {
               key={to}
               to={to}
               end={end}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
@@ -397,6 +398,7 @@ export function Sidebar() {
         <NavSection label="Other">
           <NavLink
             to="/settings"
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",

@@ -91,31 +91,38 @@ export function TaskDetailDrawer({
     <Backdrop onClose={onClose} embedded={embedded}>
       <header className="flex items-center justify-between border-b border-border/60 px-5 py-4">
         {embedded ? (
-          taskIds && taskIds.length > 1 ? (
-            <div className="flex items-center gap-0.5">
-              <button
-                disabled={!prevId}
-                onClick={() => prevId && onNavigate?.(prevId)}
-                title={isAr ? "السابقة" : "Previous"}
-                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <button
-                disabled={!nextId}
-                onClick={() => nextId && onNavigate?.(nextId)}
-                title={isAr ? "التالية" : "Next"}
-                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <span className="ms-1 font-micro text-[11px] text-muted-foreground/60">
-                {navIdx + 1}/{taskIds.length}
-              </span>
-            </div>
-          ) : (
-            <span />
-          )
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={onClose}
+              title={isAr ? "رجوع" : "Back"}
+              className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            {taskIds && taskIds.length > 1 && (
+              <>
+                <button
+                  disabled={!prevId}
+                  onClick={() => prevId && onNavigate?.(prevId)}
+                  title={isAr ? "السابقة" : "Previous"}
+                  className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <button
+                  disabled={!nextId}
+                  onClick={() => nextId && onNavigate?.(nextId)}
+                  title={isAr ? "التالية" : "Next"}
+                  className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <span className="ms-1 font-micro text-[11px] text-muted-foreground/60">
+                  {navIdx + 1}/{taskIds.length}
+                </span>
+              </>
+            )}
+          </div>
         ) : (
           <button
             onClick={onClose}
