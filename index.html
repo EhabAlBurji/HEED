@@ -93,6 +93,15 @@
 
 <body class="text-[#172935] antialiased">
 
+  <!-- Always open at the top: stop the browser restoring an old scroll
+       position (which made the page jump down to the Sign in section). -->
+  <script>
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.addEventListener('load', function () {
+      if (!location.hash) window.scrollTo(0, 0);
+    });
+  </script>
+
   <!-- ── Nav ─────────────────────────────────────────────────────── -->
   <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
     <!-- Official full logo (icon + HEED wordmark) from the design source -->
