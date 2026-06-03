@@ -36,22 +36,31 @@ export function UpdateChecker() {
     if (!isTauri()) return;
     let cancelled = false;
 
-    (async () => {
+    const checkNow = async () => {
       try {
         const { check } = await import("@tauri-apps/plugin-updater");
         const update = await check();
         if (cancelled || !update) return;
         setInfo(update as unknown as UpdateInfo);
-        setPhase("available");
+        // Don't interrupt an in-progress download/install.
+        setPhase((p) => (p === "downloading" || p === "ready" ? p : "available"));
       } catch (e) {
         // Updater unavailable (dev build, no signing key, offline) — silent.
         // eslint-disable-next-line no-console
         console.warn("[updater] check failed:", (e as Error).message);
       }
-    })();
+    };
+
+    void checkNow();
+    // Re-check periodically so a published update reaches users without a restart.
+    const id = setInterval(() => void checkNow(), 20 * 60 * 1000);
+    const onFocus = () => void checkNow();
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 

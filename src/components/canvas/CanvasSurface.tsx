@@ -165,11 +165,12 @@ export function CanvasSurface({
         e.preventDefault();
         groupSelection();
       }
-      // Zoom shortcuts: + / = zoom in, - zoom out, 0 reset.
-      if (!typing && !mod) {
+      // Zoom shortcuts: Cmd/Ctrl + (+/=) zoom in, Cmd/Ctrl + (-/_) zoom out,
+      // Cmd/Ctrl + 0 reset. Plain +/- also work for convenience.
+      if (!typing) {
         if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomBy(1.2); }
         else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomBy(1 / 1.2); }
-        else if (e.key === "0") { e.preventDefault(); resetView(); }
+        else if (mod && e.key === "0") { e.preventDefault(); resetView(); }
       }
     };
     window.addEventListener("keydown", onKey);

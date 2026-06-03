@@ -20,6 +20,7 @@ import {
   ZoomIn,
   ZoomOut,
   AlertTriangle,
+  Search,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -116,14 +117,26 @@ export function Sidebar() {
 
   return (
     <aside className="relative flex h-full w-60 flex-col bg-card border-e border-border">
-      {/* ── Brand logo at top (ryswift style) ──────────── */}
-      <div className="px-5 pt-5 pb-4">
+      {/* ── Brand logo at top ──────────── */}
+      <div className="px-5 pt-5 pb-3">
         <div className="flex items-center gap-2.5">
           <HeedLogo className="h-9 w-9 text-primary drop-shadow-[0_4px_12px_rgba(103,53,225,0.25)]" />
           <span className="font-display text-lg font-bold tracking-tight text-foreground">
             Heed
           </span>
         </div>
+      </div>
+
+      {/* ── Search (under the logo) ──────────── */}
+      <div className="px-3 pb-3">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("heed:open-search"))}
+          className="flex w-full items-center gap-2 rounded-2xl border border-border/40 bg-background/40 px-3 py-2 text-sm text-muted-foreground transition hover:border-primary/30 hover:bg-secondary"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-start">{t("search.placeholder")}</span>
+          <kbd className="rounded border border-border/50 px-1.5 py-0.5 font-micro text-[10px]">⌘K</kbd>
+        </button>
       </div>
 
       {/* ── Workspace selector ────────────────────────── */}
