@@ -111,7 +111,7 @@ export const useAuthStore = create<AuthState>()(
               provider: "google",
               options: {
                 skipBrowserRedirect: true,
-                redirectTo: "https://ehabalburji.github.io/HEED/auth.html",
+                redirectTo: "https://heedapp.co/auth.html",
                 queryParams: { access_type: "offline", prompt: "consent" },
               },
             });
