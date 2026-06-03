@@ -11,6 +11,7 @@ import { getSupabase, isSupabaseConfigured } from "./supabase";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationsStore, type AppNotification } from "../stores/notificationsStore";
 import { useTasksStore, type TaskComment } from "../stores/tasksStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 
 const canSync = () => {
   if (!isSupabaseConfigured()) return false;
@@ -311,6 +312,29 @@ export async function removeCommentServer(id: string) {
   if (!canSync()) return;
   try {
     await getSupabase().from("task_comments").delete().eq("id", id);
+  } catch {
+    /* ignore */
+  }
+}
+
+// Inbox activity feed: pull the most recent comments across ALL of my
+// workspaces (not just the task that's open) so the Inbox can show team
+// conversations ordered by recency. Merges into the local comments store.
+export async function fetchRecentActivity(limit = 80): Promise<void> {
+  if (!canSync()) return;
+  const wsIds = useWorkspaceStore.getState().workspaces.map((w) => w.id);
+  if (!wsIds.length) return;
+  try {
+    const { data } = await getSupabase()
+      .from("task_comments")
+      .select("*")
+      .in("workspace_id", wsIds)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (data) {
+      const upsert = useTasksStore.getState().upsertComment;
+      (data as Record<string, unknown>[]).forEach((r) => upsert(commentFromRow(r)));
+    }
   } catch {
     /* ignore */
   }
