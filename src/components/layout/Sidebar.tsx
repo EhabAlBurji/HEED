@@ -24,6 +24,8 @@ import {
   LogOut,
   Inbox as InboxIcon,
   Trash2,
+  Copy,
+  LogIn,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -32,7 +34,16 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useTasksStore, isoDate } from "../../stores/tasksStore";
 import { useNotificationsStore } from "../../stores/notificationsStore";
-import { inviteMember, leaveWorkspaceServer } from "../../lib/teamSync";
+import {
+  inviteMember,
+  leaveWorkspaceServer,
+  requestToJoinWorkspace,
+  fetchJoinRequests,
+  approveJoinRequest,
+  rejectJoinRequest,
+  type JoinRequest,
+} from "../../lib/teamSync";
+import { pullAll } from "../../lib/sync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
@@ -73,6 +84,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinMsg, setJoinMsg] = useState<string | null>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const wsRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -160,6 +176,37 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     setConfirmDelete(false);
     setShowMembers(false);
     setWsOpen(false);
+  };
+
+  // Load incoming join requests when the workspace menu opens (RLS returns only
+  // requests for workspaces I own).
+  useEffect(() => {
+    if (wsOpen) void fetchJoinRequests().then(setJoinRequests);
+  }, [wsOpen]);
+
+  const handleRequestJoin = async () => {
+    const code = joinCode.trim();
+    if (!code) return;
+    const res = await requestToJoinWorkspace(code);
+    setJoinMsg(
+      res.ok
+        ? isAr ? "تم إرسال طلب الانضمام ✓ هتنضم أول ما المدير يوافق" : "Request sent ✓ you'll join once an admin approves"
+        : isAr ? "تعذّر الإرسال — تأكد من الكود" : "Couldn't send — check the code"
+    );
+    if (res.ok) setJoinCode("");
+  };
+
+  const handleApprove = async (req: JoinRequest) => {
+    const ok = await approveJoinRequest(req);
+    if (ok) {
+      setJoinRequests((l) => l.filter((r) => r.id !== req.id));
+      void pullAll();
+    }
+  };
+
+  const handleReject = async (reqId: string) => {
+    const ok = await rejectJoinRequest(reqId);
+    if (ok) setJoinRequests((l) => l.filter((r) => r.id !== reqId));
   };
 
   // (user profile is now shown in the TopBar — ryswift pattern)
@@ -350,6 +397,40 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                       </div>
                     </div>
                     )}
+
+                    {iAmAdmin && (
+                      <div className="mt-2 space-y-1.5 border-t border-border/30 pt-2">
+                        <p className="font-micro text-[10px] text-muted-foreground/60">
+                          {isAr ? "كود المساحة (شاركه عشان الناس تطلب الانضمام)" : "Workspace code (share to let people request to join)"}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <code dir="ltr" className="flex-1 truncate rounded-lg border border-border/40 bg-background/40 px-2 py-1.5 font-micro text-[10px]">
+                            {activeWs.id}
+                          </code>
+                          <button
+                            onClick={() => { void navigator.clipboard?.writeText(activeWs.id); setCopiedCode(true); setTimeout(() => setCopiedCode(false), 1500); }}
+                            title={isAr ? "نسخ" : "Copy"}
+                            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-secondary/60 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                          >
+                            {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                        {joinRequests.filter((r) => r.workspace_id === activeWs.id).map((r) => (
+                          <div key={r.id} className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2 py-1.5">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-micro text-xs font-medium">{r.name || r.email}</p>
+                              <p className="truncate font-micro text-[10px] text-muted-foreground/60">{isAr ? "طلب انضمام" : "wants to join"}</p>
+                            </div>
+                            <button onClick={() => void handleApprove(r)} title={isAr ? "قبول" : "Approve"} className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/20 text-primary hover:bg-primary/30">
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => void handleReject(r.id)} title={isAr ? "رفض" : "Reject"} className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground/50 hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -435,6 +516,38 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <Plus className="h-3.5 w-3.5" />
                 مساحة عمل جديدة
+              </button>
+            )}
+
+            {/* Join a workspace by its code (anyone) → admin approves */}
+            {joining ? (
+              <div className="mt-1 space-y-2 px-1">
+                <input
+                  autoFocus
+                  value={joinCode}
+                  onChange={(e) => { setJoinCode(e.target.value); setJoinMsg(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleRequestJoin(); if (e.key === "Escape") setJoining(false); }}
+                  placeholder={isAr ? "الصق كود المساحة" : "Paste workspace code"}
+                  dir="ltr"
+                  className="w-full rounded-lg border border-border/40 bg-background/40 px-2.5 py-1.5 text-xs outline-none focus:border-primary/50"
+                />
+                {joinMsg && <p className="px-1 font-micro text-[10px] text-muted-foreground">{joinMsg}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => void handleRequestJoin()} className="flex-1 rounded-lg bg-primary/20 py-1.5 text-xs text-primary hover:bg-primary/30">
+                    {isAr ? "إرسال طلب" : "Request to join"}
+                  </button>
+                  <button onClick={() => { setJoining(false); setJoinMsg(null); }} className="rounded-lg bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary">
+                    {isAr ? "إلغاء" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setJoining(true)}
+                className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-start text-sm text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                {isAr ? "انضم لمساحة بكود" : "Join with a code"}
               </button>
             )}
           </div>

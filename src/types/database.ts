@@ -125,6 +125,28 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["task_comments"]["Insert"]>;
         Relationships: [];
       };
+      workspace_join_requests: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          user_id: string;
+          name: string | null;
+          email: string | null;
+          status: "pending" | "approved" | "rejected";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          user_id: string;
+          name?: string | null;
+          email?: string | null;
+          status?: "pending" | "approved" | "rejected";
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["workspace_join_requests"]["Insert"]>;
+        Relationships: [];
+      };
       boards: {
         Row: {
           id: string;

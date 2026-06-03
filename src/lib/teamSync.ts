@@ -199,6 +199,95 @@ export async function leaveWorkspaceServer(workspaceId: string) {
   }
 }
 
+// ─── Join requests (request-to-join + admin approval) ───────────────
+export type JoinRequest = {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
+// A user asks to join a workspace by its code/id.
+export async function requestToJoinWorkspace(workspaceId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!canSync()) return { ok: false, error: "offline" };
+  const u = useAuthStore.getState().user;
+  if (!u || u.id === "guest") return { ok: false, error: "not signed in" };
+  try {
+    const { error } = await getSupabase()
+      .from("workspace_join_requests")
+      .upsert(
+        {
+          workspace_id: workspaceId.trim(),
+          user_id: u.id,
+          name: u.name ?? u.email ?? "",
+          email: u.email ?? "",
+          status: "pending",
+        },
+        { onConflict: "workspace_id,user_id" }
+      );
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+// Admin: list pending requests (RLS returns only ones for workspaces I own).
+export async function fetchJoinRequests(): Promise<JoinRequest[]> {
+  if (!canSync()) return [];
+  const u = useAuthStore.getState().user;
+  try {
+    const { data } = await getSupabase()
+      .from("workspace_join_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    // Exclude my own outgoing requests — the admin view is incoming requests.
+    return ((data as JoinRequest[]) ?? []).filter((r) => r.user_id !== u?.id);
+  } catch {
+    return [];
+  }
+}
+
+// Admin approves: add the requester as a member + mark approved + ping them.
+export async function approveJoinRequest(req: JoinRequest): Promise<boolean> {
+  if (!canSync()) return false;
+  try {
+    const sb = getSupabase();
+    await sb.from("workspace_members").upsert({
+      id: `${req.workspace_id}:${req.user_id}`,
+      workspace_id: req.workspace_id,
+      user_id: req.user_id,
+      name: req.name ?? req.email ?? "Member",
+      email: req.email ?? "",
+      role: "member",
+    });
+    await sb.from("workspace_join_requests").update({ status: "approved" }).eq("id", req.id);
+    // They now share the workspace → allowed to notify them of acceptance.
+    await sb.from("notifications").insert({
+      id: crypto.randomUUID(),
+      recipient_id: req.user_id,
+      type: "info",
+      title: "Your request to join a workspace was approved 🎉",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function rejectJoinRequest(reqId: string): Promise<boolean> {
+  if (!canSync()) return false;
+  try {
+    await getSupabase().from("workspace_join_requests").update({ status: "rejected" }).eq("id", reqId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function markNotificationReadServer(id: string) {
   if (!canSync()) return;
   try {
