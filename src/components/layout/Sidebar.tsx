@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Search,
   LogOut,
+  Inbox as InboxIcon,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -29,11 +30,13 @@ import { useUIStore, type FontSize } from "../../stores/uiStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useTasksStore, isoDate } from "../../stores/tasksStore";
+import { useNotificationsStore } from "../../stores/notificationsStore";
 import { inviteMember, leaveWorkspaceServer } from "../../lib/teamSync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
   { to: "/",         icon: LayoutDashboard, key: "nav.dashboard",  end: true },
+  { to: "/inbox",    icon: InboxIcon,        key: "nav.inbox",     end: false },
   { to: "/projects", icon: FolderKanban,     key: "nav.projects",  end: false },
   { to: "/boards",   icon: Workflow,         key: "nav.boards",    end: false },
 ];
@@ -54,6 +57,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, signOut } = useAuthStore();
   const { workspaces, activeWorkspaceId, setActiveWorkspace, addWorkspace, addMember, removeMember, leaveWorkspace } =
     useWorkspaceStore();
+  const inboxUnread = useNotificationsStore((s) => s.notifications.filter((n) => !n.read).length);
 
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0];
 
@@ -389,6 +393,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                   />
                   <span className="leading-none">{t(key)}</span>
+                  {to === "/inbox" && inboxUnread > 0 && (
+                    <span
+                      className={cn(
+                        "ms-auto grid h-5 min-w-5 place-items-center rounded-full px-1 font-micro text-[10px] font-bold",
+                        isActive ? "bg-white/25 text-white" : "bg-destructive text-white"
+                      )}
+                    >
+                      {inboxUnread}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

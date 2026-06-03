@@ -11,6 +11,7 @@
     "settings": "Settings",
     "schedule": "Content Plan",
     "boards": "Boards",
+    "inbox": "Inbox",
     "admin": "Users"
   },
   "auth": {

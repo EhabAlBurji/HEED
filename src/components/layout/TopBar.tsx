@@ -9,6 +9,7 @@ import { useNotificationsStore } from "../../stores/notificationsStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { acceptInviteServer, removeNotificationServer } from "../../lib/teamSync";
 import { pullAll } from "../../lib/sync";
+import { navigateToTask } from "../../lib/openTask";
 import { useNow } from "../../hooks/useNow";
 import { formatHMS } from "../../lib/utils";
 import { cn } from "../../lib/utils";
@@ -131,6 +132,7 @@ function NotificationBell() {
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
   const remove = useNotificationsStore((s) => s.remove);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -190,7 +192,14 @@ function NotificationBell() {
               <p className="px-4 py-8 text-center font-micro text-xs text-muted-foreground/50">{t("notifications.none")}</p>
             )}
             {notifications.map((n) => (
-              <div key={n.id} className="border-b border-border/30 px-4 py-3 last:border-0">
+              <div
+                key={n.id}
+                onClick={() => { if (n.taskId) { setOpen(false); void navigateToTask(n.taskId, navigate); } }}
+                className={cn(
+                  "border-b border-border/30 px-4 py-3 last:border-0",
+                  n.taskId && "cursor-pointer hover:bg-secondary/40"
+                )}
+              >
                 <div className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: n.read ? "transparent" : "var(--tw-prose-bullets, #6735E1)" }} />
                   <div className="min-w-0 flex-1">
@@ -214,7 +223,7 @@ function NotificationBell() {
                     )}
                   </div>
                   {n.type !== "workspace_invite" && (
-                    <button onClick={() => { void removeNotificationServer(n.id); remove(n.id); }} className="text-muted-foreground/50 hover:text-foreground">
+                    <button onClick={(e) => { e.stopPropagation(); void removeNotificationServer(n.id); remove(n.id); }} className="text-muted-foreground/50 hover:text-foreground">
                       <X className="h-3 w-3" />
                     </button>
                   )}
