@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -65,6 +65,32 @@ export default function ProjectBoard() {
     const task = addTask({ title, project_id: id, column: "backlog" });
     setNewTitle("");
     setOpenTaskId(task.id);
+  };
+
+  // Resizable master-detail split (table | task detail). Width of the detail
+  // panel as a % of the row; default ~50/50, drag the handle to resize.
+  const [detailPct, setDetailPct] = useState(50);
+  const splitRef = useRef<HTMLDivElement>(null);
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const el = splitRef.current;
+    if (!el) return;
+    const rtl = getComputedStyle(el).direction === "rtl";
+    const move = (ev: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      const fromEnd = rtl ? ev.clientX - rect.left : rect.right - ev.clientX;
+      setDetailPct(Math.min(75, Math.max(25, (fromEnd / rect.width) * 100)));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   const sensors = useSensors(
@@ -311,8 +337,8 @@ export default function ProjectBoard() {
       </div>
 
       {view === "table" ? (
-        <div className="flex min-h-0 flex-1">
-          <div className={cn("min-h-0 flex-1", openTaskId && "hidden md:block")}>
+        <div ref={splitRef} className="flex min-h-0 flex-1">
+          <div className={cn("min-h-0 min-w-0 flex-1", openTaskId && "hidden md:block")}>
             <TaskTable
               tasks={projectTasks}
               members={workspaces.find((w) => w.id === project.workspace_id)?.members ?? []}
@@ -321,15 +347,28 @@ export default function ProjectBoard() {
             />
           </div>
           {openTaskId && (
-            <div className="min-h-0 w-full shrink-0 border-s border-border/60 md:w-[460px]">
-              <TaskDetailDrawer
-                taskId={openTaskId}
-                embedded
-                onClose={() => setOpenTaskId(null)}
-                taskIds={projectTasks.map((t) => t.id)}
-                onNavigate={setOpenTaskId}
-              />
-            </div>
+            <>
+              {/* Drag handle to resize the split */}
+              <div
+                onPointerDown={startResize}
+                title={isAr ? "اسحب لتغيير الحجم" : "Drag to resize"}
+                className="hidden w-1.5 shrink-0 cursor-col-resize items-center justify-center bg-border/40 transition-colors hover:bg-primary/50 md:flex"
+              >
+                <span className="h-8 w-0.5 rounded-full bg-muted-foreground/40" />
+              </div>
+              <div
+                style={{ "--dw": `${detailPct}%` } as React.CSSProperties}
+                className="min-h-0 w-full shrink-0 border-s border-border/60 md:w-[var(--dw)] md:border-s-0"
+              >
+                <TaskDetailDrawer
+                  taskId={openTaskId}
+                  embedded
+                  onClose={() => setOpenTaskId(null)}
+                  taskIds={projectTasks.map((t) => t.id)}
+                  onNavigate={setOpenTaskId}
+                />
+              </div>
+            </>
           )}
         </div>
       ) : view === "board" ? (
