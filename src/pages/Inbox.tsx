@@ -68,7 +68,8 @@ export default function Inbox() {
   const feed = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = [];
     for (const c of comments) {
-      if (!wsIds.has(c.workspace_id)) continue;
+      // My own messages always show; otherwise scope to my workspaces.
+      if (!wsIds.has(c.workspace_id) && !(user && c.author_id === user.id)) continue;
       items.push({ id: "c_" + c.id, at: c.created_at, kind: "comment", comment: c });
     }
     for (const n of notifications) {
@@ -79,7 +80,7 @@ export default function Inbox() {
     if (filter === "mentions") list = list.filter((i) => i.kind === "comment" && mentionsMe(i.comment.body));
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comments, notifications, wsIds, filter, myHandle]);
+  }, [comments, notifications, wsIds, filter, myHandle, user]);
 
   const groups = useMemo(() => {
     const out: Array<{ key: string; items: FeedItem[] }> = [];

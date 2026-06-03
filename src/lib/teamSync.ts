@@ -115,16 +115,49 @@ export async function rejectUser(userId: string): Promise<boolean> {
   }
 }
 
+// Notify a mentioned teammate. Direct insert into notifications, guarded by the
+// "Members can notify co-members" RLS policy — no Edge Function needed. Resolves
+// the recipient's auth id from workspace_members (by name, then email).
 export async function notifyMention(
   workspaceId: string,
   memberName: string,
   taskTitle: string,
-  taskId: string
+  taskId: string,
+  memberEmail?: string
 ) {
   if (!canSync()) return;
   try {
-    await getSupabase().functions.invoke("notify-mention", {
-      body: { workspaceId, memberName, taskTitle, taskId },
+    const sb = getSupabase();
+    const me = useAuthStore.getState().user;
+    let userId: string | null = null;
+
+    const byName = await sb
+      .from("workspace_members")
+      .select("user_id")
+      .eq("workspace_id", workspaceId)
+      .ilike("name", memberName)
+      .not("user_id", "is", null)
+      .maybeSingle();
+    userId = (byName.data?.user_id as string | undefined) ?? null;
+
+    if (!userId && memberEmail) {
+      const byEmail = await sb
+        .from("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", workspaceId)
+        .ilike("email", memberEmail)
+        .not("user_id", "is", null)
+        .maybeSingle();
+      userId = (byEmail.data?.user_id as string | undefined) ?? null;
+    }
+
+    if (!userId || userId === me?.id) return; // unknown, or it's me
+    await sb.from("notifications").insert({
+      id: crypto.randomUUID(),
+      recipient_id: userId,
+      type: "mention",
+      title: `You were mentioned in "${taskTitle || "a task"}"`,
+      task_id: taskId || null,
     });
   } catch {
     /* best-effort */

@@ -183,7 +183,7 @@ export function TaskComments({
         if (!inWs.has((m.email || m.id).toLowerCase()) && m.email) {
           void inviteMember(m.email, { id: ws.id, name: ws.name, color: ws.color }, user.name || user.email || "");
         }
-        void notifyMention(workspaceId, m.name, task?.title ?? "", taskId);
+        void notifyMention(workspaceId, m.name, task?.title ?? "", taskId, m.email);
       });
     }
     setText("");
