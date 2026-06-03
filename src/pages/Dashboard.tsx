@@ -498,7 +498,7 @@ function TodayMeetingsSidebar({ isAr, activeWorkspaceId }: { isAr: boolean; acti
   };
 
   return (
-    <aside className="sticky top-0 flex h-[calc(100vh-44px)] w-72 shrink-0 flex-col border-s border-border/40 bg-card/20">
+    <aside className="sticky top-0 hidden h-[calc(100vh-44px)] w-72 shrink-0 flex-col border-s border-border/40 bg-card/20 lg:flex">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-4">
         <div className="flex items-center gap-2">

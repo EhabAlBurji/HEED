@@ -75,7 +75,7 @@ export function TodayTasksSidebar() {
 
   return (
     <aside
-      className="sticky top-0 flex h-[calc(100vh-44px)] shrink-0 flex-col border-s border-border bg-card"
+      className="sticky top-0 hidden h-[calc(100vh-44px)] shrink-0 flex-col border-s border-border bg-card lg:flex"
       style={{ width: `${width}px` }}
     >
       {/* Resize handle — sits on the inner edge (start-side in RTL = right of panel) */}
