@@ -99,11 +99,15 @@ export async function approveUser(userId: string): Promise<boolean> {
 }
 
 // Reject / revoke a user's access (blocks them from using the app, even if they
-// were previously approved). The Edge Function enforces the caller is an admin.
+// were previously approved). A direct update guarded by the "Admins can update
+// any profile" RLS policy — no Edge Function needed.
 export async function rejectUser(userId: string): Promise<boolean> {
   if (!canSync()) return false;
   try {
-    const { error } = await getSupabase().functions.invoke("reject-access", { body: { userId } });
+    const { error } = await getSupabase()
+      .from("profiles")
+      .update({ access_status: "rejected" })
+      .eq("id", userId);
     return !error;
   } catch {
     return false;
