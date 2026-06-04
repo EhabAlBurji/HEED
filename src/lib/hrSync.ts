@@ -504,18 +504,27 @@ export function subscribeHRRealtime(workspaceId: string): () => void {
         if (idx >= 0) next[idx] = req; else next.push(req);
         store.setRequests(next);
 
-        // Notify when an HR request status changes to approved or rejected
-        if (p.eventType === "UPDATE") {
+        const currentUserId = useAuthStore.getState().user?.id;
+        const currentEmp = store.employees.find(
+          (e) => e.userId === currentUserId && e.workspaceId === req.workspaceId
+        );
+        const requestType = store.requestTypes.find((rt) => rt.id === req.typeId);
+        const typeName = requestType?.nameAr ?? requestType?.nameEn ?? "طلب";
+
+        // HR admins: notify when a new request is submitted
+        if (p.eventType === "INSERT" && currentEmp?.isHrAdmin) {
+          const submitter = store.employees.find((e) => e.id === req.employeeId);
+          const submitterName = submitter?.name ?? "موظف";
+          showNotification("طلب جديد بانتظار مراجعتك", `${typeName} — ${submitterName}`);
+        }
+
+        // Employee: notify when their own request is approved or rejected
+        if (p.eventType === "UPDATE" && req.employeeId === currentEmp?.id) {
           const oldStatus = p.old?.status as string | undefined;
           const newStatus = req.status;
           if (newStatus !== oldStatus && (newStatus === "approved" || newStatus === "rejected")) {
-            const statusLabel: Record<string, string> = {
-              approved: "✅ موافق عليه",
-              rejected: "❌ مرفوض",
-            };
-            const requestType = store.requestTypes.find((rt) => rt.id === req.typeId);
-            const typeName = requestType?.nameAr ?? requestType?.nameEn ?? "";
-            showNotification("طلب HR", `${statusLabel[newStatus]} — ${typeName}`);
+            const label = newStatus === "approved" ? "✅ موافق عليه" : "❌ مرفوض";
+            showNotification(`${label}`, `${typeName}`);
           }
         }
       }

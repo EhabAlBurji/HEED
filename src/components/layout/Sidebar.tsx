@@ -634,9 +634,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </NavSection>
       </nav>
 
-      {/* ── Attention Needed card (ryswift footer pattern) ── */}
+      {/* ── Attention Needed card ────────────────────────── */}
       <AttentionCard />
-
 
       {/* ── Bottom: theme + language toggles ────────────── */}
       <div className="border-t border-border/30 p-3 space-y-1.5">
