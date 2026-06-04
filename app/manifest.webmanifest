@@ -1,0 +1,14 @@
+{
+  "name": "Heed",
+  "short_name": "Heed",
+  "description": "Your AI-powered productivity workspace",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0E0F11",
+  "theme_color": "#0E0F11",
+  "icons": [
+    { "src": "heed-icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "heed-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
