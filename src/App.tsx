@@ -10,8 +10,11 @@ import { startMcpBridge, stopMcpBridge } from "./lib/mcpBridge";
 import { pauseAndCommit, stopTimerAndCommit } from "./lib/timerActions";
 import { useInitialSync } from "./hooks/useInitialSync";
 import { UpdateChecker } from "./components/UpdateChecker";
+import { VoiceAgent } from "./components/VoiceAgent";
+import { startWebUpdateWatcher } from "./lib/webUpdate";
 import { startNotifications, stopNotifications } from "./lib/teamSync";
 import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
+import { startChatSync, stopChatSync } from "./lib/chatSync";
 import { EarlyAccessGate } from "./components/auth/EarlyAccessGate";
 import { isAdmin } from "./lib/admin";
 
@@ -23,7 +26,9 @@ const BoardView    = lazy(() => import("./pages/BoardView"));
 const Settings     = lazy(() => import("./pages/Settings"));
 const AdminUsers   = lazy(() => import("./pages/AdminUsers"));
 const Inbox        = lazy(() => import("./pages/Inbox"));
+const Messages     = lazy(() => import("./pages/Messages"));
 const Chat         = lazy(() => import("./pages/Chat"));
+const ShareChat    = lazy(() => import("./pages/ShareChat"));
 const LoginPage    = lazy(() => import("./pages/LoginPage"));
 
 export default function App() {
@@ -51,6 +56,10 @@ export default function App() {
     return () => stopMcpBridge();
   }, [checkSession]);
 
+  // Web: auto-reload to the latest deployed build when the tab regains focus,
+  // so heedapp.co always opens on the newest version without a manual refresh.
+  useEffect(() => { startWebUpdateWatcher(); }, []);
+
   // Re-check access while signed in (on focus + every 2 min) so that an admin
   // revoking a user takes effect on their open session, not just at next login.
   useEffect(() => {
@@ -64,11 +73,12 @@ export default function App() {
     };
   }, [user]);
 
-  // Cross-user notifications + shared boards: pull + realtime while signed in.
+  // Cross-user notifications + shared boards + chat sync: start while signed in.
   useEffect(() => {
     let cancelled = false;
     if (user && user.id !== "guest") {
       void useAuthStore.getState().fetchAccessStatus();
+      startChatSync();
       void (async () => {
         await startNotifications();
         if (cancelled) { stopNotifications(); return; }
@@ -78,6 +88,7 @@ export default function App() {
     }
     return () => {
       cancelled = true;
+      stopChatSync();
       stopNotifications();
       stopCanvasSync();
     };
@@ -144,6 +155,19 @@ export default function App() {
     };
   }, [isTray, setIsTray]);
 
+  // Public share pages — shown without login or AppShell.
+  if (window.location.pathname.startsWith("/share/")) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<AppLoader />}>
+          <Routes>
+            <Route path="/share/:id" element={<ShareChat />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   // Show login if not authenticated
   if (!user) {
     return (
@@ -175,20 +199,22 @@ export default function App() {
       <ErrorBoundary>
         <Suspense fallback={<AppLoader />}>
           <Routes>
-            <Route path="/"             element={<Inbox />} />
+            <Route path="/"             element={<Messages />} />
+            <Route path="/messages"     element={<Messages />} />
+            <Route path="/inbox"        element={<Inbox />} />
             <Route path="/dashboard"    element={<Dashboard />} />
             <Route path="/projects"     element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectBoard />} />
             <Route path="/boards"       element={<Boards />} />
             <Route path="/boards/:id"   element={<BoardView />} />
             <Route path="/settings"     element={<Settings />} />
-            <Route path="/inbox"        element={<Inbox />} />
             <Route path="/chat"         element={<Chat />} />
             <Route path="/admin"        element={<AdminUsers />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>
       <UpdateChecker />
+      <VoiceAgent />
     </AppShell>
   );
 }

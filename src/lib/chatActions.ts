@@ -1,4 +1,5 @@
 import i18n from "./i18n";
+import { imagePromptUrl } from "./imageGen";
 import { useChatStore, uidChat, type ChatMsg, type ChatAttachment } from "../stores/chatStore";
 import {
   streamChat,
@@ -190,6 +191,27 @@ export async function sendChat(
   } finally {
     controllers.delete(convId);
   }
+}
+
+/** Generate an image from a prompt (free, keyless) and add it as an assistant reply. */
+export function generateImage(convId: string, prompt: string): void {
+  const body = prompt.trim();
+  if (!body) return;
+  const store = useChatStore.getState();
+  const conv = store.conversations.find((c) => c.id === convId);
+  if (!conv) return;
+
+  const isFirst = conv.messages.length === 0;
+  store.addMessage(convId, { id: uidChat(), role: "user", content: body, createdAt: Date.now() });
+  if (isFirst) store.renameConversation(convId, stripEmoji(body).slice(0, 40));
+
+  store.addMessage(convId, {
+    id: uidChat(),
+    role: "assistant",
+    content: "",
+    attachments: [{ id: uidChat(), kind: "image", name: body, mime: "image/png", url: imagePromptUrl(body) }],
+    createdAt: Date.now(),
+  });
 }
 
 /**

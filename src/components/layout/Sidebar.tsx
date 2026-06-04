@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   Search,
   LogOut,
-  Inbox as InboxIcon,
+  Activity,
+  MessageSquare,
   Trash2,
   Copy,
   LogIn,
@@ -48,7 +49,8 @@ import { pullAll } from "../../lib/sync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
-  { to: "/",          icon: InboxIcon,        key: "nav.inbox",     end: true },
+  { to: "/messages",  icon: MessageSquare,    key: "nav.messages",  end: true },
+  { to: "/inbox",     icon: Activity,         key: "nav.activity",  end: true },
   { to: "/projects",  icon: FolderKanban,     key: "nav.projects",  end: false },
   { to: "/chat",      icon: Gem,              key: "nav.chat",      end: false },
   { to: "/boards",    icon: Workflow,         key: "nav.boards",    end: false },
@@ -586,7 +588,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                   />
                   <span className="leading-none">{t(key)}</span>
-                  {to === "/" && inboxUnread > 0 && (
+                  {to === "/inbox" && inboxUnread > 0 && (
                     <span
                       className={cn(
                         "ms-auto grid h-5 min-w-5 place-items-center rounded-full px-1 font-micro text-[10px] font-bold",

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, RefreshCw, FileText, Sparkles } from "lucide-react";
+import { Check, Copy, RefreshCw, FileText, Sparkles, Pencil, X, ArrowUp } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Markdown } from "./Markdown";
 import type { ChatAssistant, ChatMsg, Conversation } from "../../stores/chatStore";
-import { regenerate } from "../../lib/chatActions";
+import { useChatStore } from "../../stores/chatStore";
+import { regenerate, sendChat } from "../../lib/chatActions";
 
 // =========================================================================
 // Message thread — the scrolling list of bubbles. Empty state shows the
@@ -84,6 +85,86 @@ export function EmptyState({
   );
 }
 
+function UserBubble({ msg, convId, isAr }: { msg: ChatMsg; convId: string; isAr: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(msg.content);
+  const updateMessage = useChatStore((s) => s.updateMessage);
+  const trimMessages = useChatStore((s) => s.conversations.find((c) => c.id === convId)?.messages ?? []);
+
+  const submitEdit = () => {
+    const v = draft.trim();
+    if (!v || v === msg.content) { setEditing(false); return; }
+    // Trim conversation to messages up to (not including) this one, then resend.
+    const idx = trimMessages.findIndex((m) => m.id === msg.id);
+    if (idx >= 0) {
+      useChatStore.setState((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === convId ? { ...c, messages: c.messages.slice(0, idx) } : c
+        ),
+      }));
+      void sendChat(convId, v, msg.attachments);
+    } else {
+      updateMessage(convId, msg.id, { content: v });
+    }
+    setEditing(false);
+  };
+
+  return (
+    <div className="group flex flex-col items-end gap-1.5">
+      {msg.attachments && msg.attachments.length > 0 && (
+        <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+          {msg.attachments.map((a) =>
+            a.kind === "image" ? (
+              <img key={a.id} src={a.url} alt={a.name} className="h-28 w-28 rounded-xl border border-border/40 object-cover" />
+            ) : (
+              <div key={a.id} className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-card/60 px-2.5 py-1.5">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                <span className="max-w-[160px] truncate font-micro text-[11px]">{a.name}</span>
+              </div>
+            )
+          )}
+        </div>
+      )}
+      {editing ? (
+        <div className="flex w-full max-w-[85%] flex-col gap-1.5">
+          <textarea
+            autoFocus
+            dir="auto"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitEdit(); } if (e.key === "Escape") setEditing(false); }}
+            className="min-h-[60px] w-full resize-none rounded-2xl border border-primary/50 bg-primary/10 px-4 py-2.5 text-sm outline-none focus:border-primary"
+            rows={3}
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditing(false)} className="grid h-7 w-7 place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-secondary/70">
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={submitEdit} className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground hover:opacity-90">
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        msg.content && (
+          <div className="flex items-end gap-1.5">
+            <button
+              onClick={() => { setDraft(msg.content); setEditing(true); }}
+              title={isAr ? "تعديل" : "Edit"}
+              className="mb-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground/50 opacity-0 transition group-hover:opacity-100 hover:bg-secondary hover:text-foreground"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-start text-sm text-primary-foreground">
+              {msg.content}
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function Bubble({
   msg,
   isLast,
@@ -107,32 +188,7 @@ function Bubble({
 
   if (isUser) {
     return (
-      <div className="flex flex-col items-end gap-1.5">
-        {msg.attachments && msg.attachments.length > 0 && (
-          <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
-            {msg.attachments.map((a) =>
-              a.kind === "image" ? (
-                <img
-                  key={a.id}
-                  src={a.url}
-                  alt={a.name}
-                  className="h-28 w-28 rounded-xl border border-border/40 object-cover"
-                />
-              ) : (
-                <div key={a.id} className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-card/60 px-2.5 py-1.5">
-                  <FileText className="h-3.5 w-3.5 text-primary" />
-                  <span className="max-w-[160px] truncate font-micro text-[11px]">{a.name}</span>
-                </div>
-              )
-            )}
-          </div>
-        )}
-        {msg.content && (
-          <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-start text-sm text-primary-foreground">
-            {msg.content}
-          </div>
-        )}
-      </div>
+      <UserBubble msg={msg} convId={convId} isAr={isAr} />
     );
   }
 

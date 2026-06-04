@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore, type ChatAttachment } from "../../stores/chatStore";
 import { transcribeAudio } from "../../lib/chatProviders";
@@ -27,12 +27,14 @@ export function Composer({
   onSend,
   onStop,
   onOpenSettings,
+  onImage,
   placeholder,
 }: {
   streaming: boolean;
   onSend: (text: string, attachments?: ChatAttachment[]) => void;
   onStop: () => void;
   onOpenSettings: () => void;
+  onImage?: (prompt: string) => void;
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
@@ -213,13 +215,27 @@ export function Composer({
             {attMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setAttMenu(false)} />
-                <div className="absolute bottom-full z-50 mb-1.5 w-44 rounded-xl border border-border/60 bg-card p-1.5 shadow-2xl">
+                <div className="absolute bottom-full z-50 mb-1.5 w-48 rounded-xl border border-border/60 bg-card p-1.5 shadow-2xl">
                   <MenuItem icon={<ImageIcon className="h-4 w-4" />} onClick={() => { imgRef.current?.click(); setAttMenu(false); }}>
                     {isAr ? "إضافة صورة" : "Add image"}
                   </MenuItem>
                   <MenuItem icon={<FileText className="h-4 w-4" />} onClick={() => { fileRef.current?.click(); setAttMenu(false); }}>
                     {isAr ? "إضافة ملف" : "Add file"}
                   </MenuItem>
+                  {onImage && (
+                    <MenuItem
+                      icon={<Wand2 className="h-4 w-4" />}
+                      onClick={() => {
+                        const prompt = text.trim();
+                        if (!prompt) { toast.error(isAr ? "اكتب وصف الصورة أولاً" : "Type an image description first"); return; }
+                        onImage(prompt);
+                        setText("");
+                        setAttMenu(false);
+                      }}
+                    >
+                      {isAr ? "توليد صورة" : "Generate image"}
+                    </MenuItem>
+                  )}
                 </div>
               </>
             )}

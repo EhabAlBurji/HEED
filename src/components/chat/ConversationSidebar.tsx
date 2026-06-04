@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, Trash2, Settings, Sparkles, Pencil, SquarePen, PanelLeft } from "lucide-react";
+import { MessageSquare, Trash2, Settings, Sparkles, Pencil, SquarePen, PanelLeft, Share2, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../stores/chatStore";
+import { shareConversation } from "../../lib/chatShare";
+import { toast } from "sonner";
 
 // =========================================================================
 // Left rail — new chat, the Custom-GPT gallery button, settings, and the
@@ -32,6 +34,29 @@ export function ConversationSidebar({
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [sharingId, setSharingId] = useState<string | null>(null);
+  const assistants = useChatStore((s) => s.assistants);
+
+  const handleShare = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const conv = conversations.find((c) => c.id === convId);
+    if (!conv || conv.messages.length === 0) {
+      toast.error(isAr ? "المحادثة فارغة" : "Conversation is empty");
+      return;
+    }
+    setSharingId(convId);
+    try {
+      const assistant = assistants.find((a) => a.id === conv.assistantId);
+      const id = await shareConversation(conv.title, conv.messages, assistant?.name ?? "Heed Assistant");
+      const url = `${window.location.origin}/share/${id}`;
+      await navigator.clipboard.writeText(url);
+      toast.success(isAr ? "تم نسخ الرابط ✓" : "Link copied ✓");
+    } catch {
+      toast.error(isAr ? "تعذّرت المشاركة" : "Share failed");
+    } finally {
+      setSharingId(null);
+    }
+  };
 
   return (
     <aside className="flex h-full w-full shrink-0 flex-col border-e border-border/60 bg-card/30">
@@ -100,6 +125,13 @@ export function ConversationSidebar({
                   <span dir="auto" className="min-w-0 flex-1 truncate text-start">{c.title}</span>
                 )}
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                  <button
+                    onClick={(e) => void handleShare(c.id, e)}
+                    className="grid h-6 w-6 place-items-center rounded text-muted-foreground/60 hover:text-primary"
+                    title={isAr ? "مشاركة المحادثة" : "Share chat"}
+                  >
+                    {sharingId === c.id ? <Check className="h-3 w-3 text-primary" /> : <Share2 className="h-3 w-3" />}
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditingId(c.id); setDraft(c.title); }}
                     className="grid h-6 w-6 place-items-center rounded text-muted-foreground/60 hover:text-foreground"

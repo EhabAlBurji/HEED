@@ -12,6 +12,8 @@
     "schedule": "Content Plan",
     "boards": "Boards",
     "inbox": "Inbox",
+    "activity": "Activity",
+    "messages": "Messages",
     "chat": "Heed Chat",
     "admin": "Users"
   },

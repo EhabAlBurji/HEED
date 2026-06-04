@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { SquarePen, PanelLeft, FolderPlus } from "lucide-react";
+import { SquarePen, PanelLeft } from "lucide-react";
 import { useChatStore, type ChatAssistant, type ChatAttachment } from "../stores/chatStore";
 import { useAuthStore } from "../stores/authStore";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { sendChat, stopChat, isStreaming } from "../lib/chatActions";
+import { sendChat, stopChat, isStreaming, generateImage } from "../lib/chatActions";
 import { ConversationSidebar } from "../components/chat/ConversationSidebar";
 import { MessageThread } from "../components/chat/MessageThread";
 import { Composer } from "../components/chat/Composer";
@@ -80,7 +79,6 @@ export default function Chat() {
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
 
   const conversations = useChatStore((s) => s.conversations);
   const activeId = useChatStore((s) => s.activeId);
@@ -151,6 +149,15 @@ export default function Chat() {
     } else {
       const id = newConversation(draftAssistantId);
       void sendChat(id, text, attachments);
+    }
+  };
+
+  const handleImage = (prompt: string) => {
+    if (active) {
+      generateImage(active.id, prompt);
+    } else {
+      const id = newConversation(draftAssistantId);
+      generateImage(id, prompt);
     }
   };
 
@@ -240,7 +247,7 @@ export default function Chat() {
         {hasThread ? (
           <>
             <MessageThread conversation={active!} assistant={activeAssistant} onStarter={(t) => handleSend(t)} />
-            <Composer streaming={streaming} onSend={handleSend} onStop={() => active && stopChat(active.id)} onOpenSettings={() => setSettings(true)} />
+            <Composer streaming={streaming} onSend={handleSend} onStop={() => active && stopChat(active.id)} onOpenSettings={() => setSettings(true)} onImage={handleImage} />
           </>
         ) : (
           <div className="relative flex flex-1 flex-col items-center justify-center px-4">
@@ -268,7 +275,7 @@ export default function Chat() {
                 )}
               </div>
 
-              <Composer streaming={false} onSend={handleSend} onStop={() => {}} onOpenSettings={() => setSettings(true)} />
+              <Composer streaming={false} onSend={handleSend} onStop={() => {}} onOpenSettings={() => setSettings(true)} onImage={handleImage} />
 
               {chips.length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -285,16 +292,6 @@ export default function Chat() {
                 </div>
               )}
 
-              {/* Quick action — create a project (Heed's original purple identity) */}
-              <div className="mt-5 flex justify-center">
-                <button
-                  onClick={() => navigate("/projects")}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white shadow-[0_4px_16px_rgba(103,53,225,0.32)] transition hover:opacity-90"
-                  style={{ backgroundColor: "#6735E1" }}
-                >
-                  <FolderPlus className="h-4 w-4" /> {isAr ? "مشروع جديد" : "New project"}
-                </button>
-              </div>
             </motion.div>
           </div>
         )}

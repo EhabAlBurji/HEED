@@ -496,7 +496,7 @@ export default function Projects() {
         {!creating && (
           <button
             onClick={() => setCreating(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 shadow-[0_4px_14px_hsl(var(--primary)/0.35)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {isAr ? "مشروع جديد" : "New project"}
@@ -627,7 +627,6 @@ export default function Projects() {
           activeWorkspaceId={activeWorkspaceId}
           onOpen={(id) => navigate(`/projects/${id}`)}
           onEdit={setEditProject}
-          onCreate={() => setCreating(true)}
           isAr={isAr}
         />
       )}
@@ -652,7 +651,6 @@ function ProjectsGrid({
   activeWorkspaceId,
   onOpen,
   onEdit,
-  onCreate,
   isAr,
 }: {
   projects: Project[];
@@ -660,7 +658,6 @@ function ProjectsGrid({
   activeWorkspaceId: string;
   onOpen: (id: string) => void;
   onEdit: (p: Project) => void;
-  onCreate: () => void;
   isAr: boolean;
 }) {
   const reorderProjects = useTasksStore((s) => s.reorderProjects);
@@ -700,18 +697,6 @@ function ProjectsGrid({
               isAr={isAr}
             />
           ))}
-          {/* + CREATE LIST dashed card */}
-          <button
-            onClick={onCreate}
-            className="group/create flex aspect-[5/4] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/70 bg-transparent text-muted-foreground transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
-          >
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-current">
-              <Plus className="h-3.5 w-3.5" />
-            </span>
-            <span className="font-display text-xs font-bold tracking-widest uppercase">
-              {isAr ? "إنشاء قائمة" : "Create List"}
-            </span>
-          </button>
         </div>
       </SortableContext>
     </DndContext>

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
-  Inbox as InboxIcon,
+  Activity,
+  MessageSquare,
   Gem,
   FolderKanban,
   Workflow,
@@ -22,7 +23,8 @@ import { isAdmin } from "../../lib/admin";
 // =========================================================================
 
 const items = [
-  { to: "/",          icon: InboxIcon,        key: "nav.inbox",    end: true },
+  { to: "/messages",  icon: MessageSquare,    key: "nav.messages", end: true },
+  { to: "/inbox",     icon: Activity,         key: "nav.activity", end: true },
   { to: "/projects",  icon: FolderKanban,     key: "nav.projects", end: false },
   { to: "/chat",      icon: Gem,              key: "nav.chat",     end: false },
   { to: "/boards",    icon: Workflow,         key: "nav.boards",   end: false },

@@ -1,12 +1,11 @@
 {
   "name": "heed",
   "private": true,
-  "version": "0.1.39",
+  "version": "0.1.40",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:web": "tsc && vite build --base=/app/ --outDir landing/app --emptyOutDir",
     "preview": "vite preview",
     "tauri": "tauri"
   },
