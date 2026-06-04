@@ -25,6 +25,7 @@ import {
   deleteHRDepartment,
   createHRDepartment,
   createHRPosition,
+  pushHRPosition,
   deleteHRPosition,
   pushHRRequestType,
   createHRRequestType,
@@ -137,16 +138,18 @@ export default function HR() {
     return list;
   }, [wsEmployees, empDeptFilter, empStatusFilter, empSearch]);
 
+  // Effective scope: fall back to "all" if no employee record is linked
+  const effectiveScope = currentEmployee ? reqScope : "all";
+
   const filteredRequests = useMemo(() => {
     let list = wsRequests;
-    // "طلباتي": only current employee's own requests
-    if (reqScope === "mine" && currentEmployee) {
+    if (effectiveScope === "mine" && currentEmployee) {
       list = list.filter((r) => r.employeeId === currentEmployee.id);
     }
     if (reqStatusFilter !== "all") list = list.filter((r) => r.status === reqStatusFilter);
     if (reqEmpFilter) list = list.filter((r) => r.employeeId === reqEmpFilter);
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [wsRequests, reqStatusFilter, reqEmpFilter, reqScope, currentEmployee]);
+  }, [wsRequests, reqStatusFilter, reqEmpFilter, effectiveScope, currentEmployee]);
 
   // Request counts for badge
   const pendingCount = wsRequests.filter(
@@ -195,8 +198,10 @@ export default function HR() {
     await createHRPosition({ workspaceId: activeWorkspaceId, name, grade, departmentId });
   };
 
-  const handleUpdatePosition = (id: string, patch: Partial<typeof positions[0]>) => {
+  const handleUpdatePosition = async (id: string, patch: Partial<typeof positions[0]>) => {
     updatePosition(id, patch);
+    const pos = useHRStore.getState().positions.find((p) => p.id === id);
+    if (pos) await pushHRPosition({ ...pos, ...patch });
   };
 
   const handleDeletePosition = async (id: string) => {
@@ -463,53 +468,51 @@ export default function HR() {
             <div className="border-b border-border/40 bg-card/30">
               {/* Row 1: scope + new button */}
               <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-                {/* طلباتي / الكل toggle */}
+                {/* طلباتي / الكل toggle — show "الكل" tab always for HR admins or when no employee record */}
                 <div className="flex rounded-xl border border-border/50 bg-background/40 p-0.5">
-                  <button
-                    onClick={() => { setReqScope("mine"); setReqEmpFilter(""); }}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
-                      reqScope === "mine"
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    طلباتي
-                    {myPending > 0 && (
-                      <span className={cn(
-                        "grid h-4 min-w-4 place-items-center rounded-full px-1 font-micro text-[9px] font-bold",
-                        reqScope === "mine" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
-                      )}>
-                        {myPending}
-                      </span>
-                    )}
-                  </button>
-                  {isHrAdmin && (
+                  {currentEmployee && (
                     <button
-                      onClick={() => setReqScope("all")}
+                      onClick={() => { setReqScope("mine"); setReqEmpFilter(""); }}
                       className={cn(
                         "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
-                        reqScope === "all"
+                        effectiveScope === "mine"
                           ? "bg-primary text-white shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      جميع الطلبات
-                      {wsRequests.filter((r) => r.status === "pending").length > 0 && (
+                      طلباتي
+                      {myPending > 0 && (
                         <span className={cn(
                           "grid h-4 min-w-4 place-items-center rounded-full px-1 font-micro text-[9px] font-bold",
-                          reqScope === "all" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
+                          effectiveScope === "mine" ? "bg-white/25 text-white" : "bg-amber-500 text-white"
                         )}>
-                          {wsRequests.filter((r) => r.status === "pending").length}
+                          {myPending}
                         </span>
                       )}
                     </button>
                   )}
+                  <button
+                    onClick={() => setReqScope("all")}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                      effectiveScope === "all"
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {isHrAdmin ? "جميع الطلبات" : "الطلبات"}
+                    {wsRequests.filter((r) => r.status === "pending").length > 0 && effectiveScope === "all" && (
+                      <span className="grid h-4 min-w-4 place-items-center rounded-full px-1 font-micro text-[9px] font-bold bg-white/25 text-white">
+                        {wsRequests.filter((r) => r.status === "pending").length}
+                      </span>
+                    )}
+                  </button>
                 </div>
 
                 <div className="flex-1" />
 
-                {currentEmployee && (
+                {/* زر "طلب جديد" يظهر لأي مستخدم مسجّل — يختار الموظف داخل النموذج */}
+                {canUseHR && (
                   <button
                     onClick={() => { setSelectedReq(null); setReqFormOpen(true); }}
                     className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
@@ -525,7 +528,7 @@ export default function HR() {
                 <div className="flex gap-1 flex-wrap">
                   {(["all", "pending", "approved", "rejected", "cancelled"] as StatusFilter[]).map((s) => {
                     const cfg = s !== "all" ? STATUS_CONFIG[s] : null;
-                    const base = reqScope === "mine" ? myRequests : wsRequests;
+                    const base = effectiveScope === "mine" ? myRequests : wsRequests;
                     const count = s === "all" ? base.length : base.filter((r) => r.status === s).length;
                     return (
                       <button
@@ -545,7 +548,7 @@ export default function HR() {
                     );
                   })}
                 </div>
-                {isHrAdmin && reqScope === "all" && (
+                {effectiveScope === "all" && (
                   <select
                     value={reqEmpFilter}
                     onChange={(e) => setReqEmpFilter(e.target.value)}

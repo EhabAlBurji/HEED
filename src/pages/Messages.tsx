@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -34,21 +34,23 @@ const EMOJI_ROWS = [
 function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-function dayStamp(iso: string) {
+function dayStamp(iso: string, isAr = false) {
   const d = new Date(iso);
   const today = new Date(new Date().toDateString());
   const diff = Math.round((new Date(d.toDateString()).getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return "Today";
-  if (diff === -1) return "Yesterday";
-  return d.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" });
+  if (diff === 0) return isAr ? "اليوم" : "Today";
+  if (diff === -1) return isAr ? "أمس" : "Yesterday";
+  const locale = isAr ? "ar" : "en";
+  return d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
 }
-function relativeTime(iso: string) {
+function relativeTime(iso: string, isAr = false) {
   const d = new Date(iso);
   const today = new Date(new Date().toDateString());
   const diff = Math.round((new Date(d.toDateString()).getTime() - today.getTime()) / 86_400_000);
   if (diff === 0) return hhmm(iso);
-  if (diff === -1) return "Yesterday";
-  return d.toLocaleDateString("en", { day: "numeric", month: "short" });
+  if (diff === -1) return isAr ? "أمس" : "Yesterday";
+  const locale = isAr ? "ar" : "en";
+  return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
 }
 function initials(name: string) {
   return name.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").slice(0, 2).join("");
@@ -256,9 +258,27 @@ export default function Messages() {
   };
 
   // ── File picker ───────────────────────────────────────────────────────────
+  const ALLOWED_MIME = new Set([
+    "image/jpeg","image/png","image/gif","image/webp","image/svg+xml",
+    "video/mp4","video/webm","audio/mpeg","audio/ogg","audio/wav","audio/webm",
+    "application/pdf","text/plain",
+    "application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ]);
+  const MAX_FILE_MB = 10;
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > MAX_FILE_MB * 1024 * 1024) {
+      toast.error(`الحد الأقصى للملف ${MAX_FILE_MB} MB`);
+      e.target.value = "";
+      return;
+    }
+    if (!ALLOWED_MIME.has(f.type)) {
+      toast.error("نوع الملف غير مدعوم");
+      e.target.value = "";
+      return;
+    }
     setPendingFile(f);
     if (f.type.startsWith("image/")) {
       const url = URL.createObjectURL(f);
@@ -309,10 +329,13 @@ export default function Messages() {
     if (!mediaRecorderRef.current || !activeId || !me) return;
     const mr = mediaRecorderRef.current;
     mr.onstop = async () => {
-      const blob = new Blob(recChunksRef.current, { type: mr.mimeType || "audio/webm" });
+      const mimeType = mr.mimeType || "audio/webm";
+      const blob = new Blob(recChunksRef.current, { type: mimeType });
+      const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
+      const voiceFile = new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType });
       stopRecording();
       setUploading(true);
-      const attachment = await uploadDmAttachment(blob, me.id);
+      const attachment = await uploadDmAttachment(voiceFile, me.id);
       setUploading(false);
       if (!attachment) {
         toast.error(isAr ? "فشل رفع التسجيل" : "Voice upload failed");
@@ -350,6 +373,10 @@ export default function Messages() {
   };
 
   const recMmss = `${String(Math.floor(recSeconds / 60)).padStart(2, "0")}:${String(recSeconds % 60).padStart(2, "0")}`;
+
+  // Derived — declared here so search/Jitsi helpers can use them
+  const activePartner = partners.find((p) => p.id === activeId) ?? null;
+  const activeThread = activeId ? (threads[activeId] ?? []) : [];
 
   // ── Thread search helpers ─────────────────────────────────────────────────
   const searchMatches = activeThread.reduce<number[]>((acc, msg, i) => {
@@ -475,9 +502,6 @@ export default function Messages() {
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   };
-
-  const activePartner = partners.find((p) => p.id === activeId) ?? null;
-  const activeThread = activeId ? (threads[activeId] ?? []) : [];
 
   const sorted = [...partners]
     .filter((p) =>
@@ -710,8 +734,10 @@ export default function Messages() {
             const isFirst = !prev || prev.senderId !== msg.senderId || showDay;
             const isLast = !next || next.senderId !== msg.senderId;
             const failed = failedIds.has(msg.id);
+            const isSearchMatch = searchMatches.includes(i);
+            const isCurrentSearchMatch = searchMatches[searchMatchIdx] === i;
             return (
-              <div key={msg.id}>
+              <div key={msg.id} ref={(el) => { if (el) msgRefsMap.current.set(msg.id, el); else msgRefsMap.current.delete(msg.id); }}>
                 {showDay && (
                   <div className="my-4 flex items-center justify-center">
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-muted-foreground/70 shadow-sm">
@@ -739,13 +765,17 @@ export default function Messages() {
                       mine && isFirst ? "rounded-2xl rounded-ee-sm"
                         : mine ? "rounded-2xl rounded-e-sm"
                         : !mine && isFirst ? "rounded-2xl rounded-ss-sm"
-                        : "rounded-2xl rounded-s-sm"
+                        : "rounded-2xl rounded-s-sm",
+                      isSearchMatch && !isCurrentSearchMatch && "ring-1 ring-yellow-400/60",
+                      isCurrentSearchMatch && "ring-2 ring-yellow-400"
                     )}
                     dir="auto"
                   >
                     {/* Attachment */}
                     {msg.attachmentUrl && (
-                      isImageType(msg.attachmentType) ? (
+                      msg.attachmentType?.startsWith("audio/") ? (
+                        <audio controls src={msg.attachmentUrl} className="w-full max-w-xs mt-1 mb-1" />
+                      ) : isImageType(msg.attachmentType) ? (
                         <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-2">
                           <img
                             src={msg.attachmentUrl}
@@ -771,7 +801,9 @@ export default function Messages() {
 
                     {/* Text */}
                     {msg.content && (
-                      <p className="whitespace-pre-wrap leading-[1.45]">{msg.content}</p>
+                      <p className="whitespace-pre-wrap leading-[1.45]">
+                        {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
+                      </p>
                     )}
 
                     {/* Time + tick */}
@@ -821,97 +853,148 @@ export default function Messages() {
       {/* Composer */}
       <div className="border-t border-border/40 bg-card/80 px-3 py-3 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-end gap-2">
-          {/* Emoji picker */}
-          <Popover.Root>
-            <Popover.Trigger asChild>
-              <button title={isAr ? "إيموجي" : "Emoji"} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground">
-                <Smile className="h-5 w-5" />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                side="top" align="start" sideOffset={8}
-                className="z-50 rounded-2xl border border-border/60 bg-card p-2 shadow-2xl"
+          {/* Recording UI */}
+          <AnimatePresence mode="wait">
+            {recording ? (
+              <motion.div
+                key="recording"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex flex-1 items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5"
               >
-                {EMOJI_ROWS.map((row, ri) => (
-                  <div key={ri} className="flex">
-                    {row.map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => setText((t) => t + emoji)}
-                        className="h-9 w-9 rounded-lg text-xl transition hover:bg-secondary active:scale-90"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500" />
+                </span>
+                <span className="flex-1 text-sm font-medium text-rose-500">{recMmss}</span>
+                <button
+                  onClick={cancelRecording}
+                  className="text-xs text-muted-foreground/70 transition hover:text-foreground"
+                >
+                  {isAr ? "إلغاء" : "Cancel"}
+                </button>
+                <button
+                  onClick={() => void sendVoiceMessage()}
+                  disabled={uploading}
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition hover:opacity-90",
+                    uploading && "opacity-50"
+                  )}
+                >
+                  {uploading
+                    ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    : <ArrowUp className="h-5 w-5" />}
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="composer"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex flex-1 items-end gap-2"
+              >
+                {/* Emoji picker */}
+                <Popover.Root>
+                  <Popover.Trigger asChild>
+                    <button title={isAr ? "إيموجي" : "Emoji"} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground">
+                      <Smile className="h-5 w-5" />
+                    </button>
+                  </Popover.Trigger>
+                  <Popover.Portal>
+                    <Popover.Content
+                      side="top" align="start" sideOffset={8}
+                      className="z-50 rounded-2xl border border-border/60 bg-card p-2 shadow-2xl"
+                    >
+                      {EMOJI_ROWS.map((row, ri) => (
+                        <div key={ri} className="flex">
+                          {row.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => setText((t) => t + emoji)}
+                              className="h-9 w-9 rounded-lg text-xl transition hover:bg-secondary active:scale-90"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </Popover.Content>
+                  </Popover.Portal>
+                </Popover.Root>
 
-          {/* File attach */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,application/pdf,text/plain,application/zip,video/mp4"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <button
-            title={isAr ? "إرفاق ملف" : "Attach file"}
-            onClick={() => fileInputRef.current?.click()}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"
-          >
-            {pendingFile
-              ? <ImageIcon className="h-5 w-5 text-primary" />
-              : <Paperclip className="h-5 w-5" />}
-          </button>
+                {/* File attach */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf,text/plain,application/zip,video/mp4"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <button
+                  title={isAr ? "إرفاق ملف" : "Attach file"}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"
+                >
+                  {pendingFile
+                    ? <ImageIcon className="h-5 w-5 text-primary" />
+                    : <Paperclip className="h-5 w-5" />}
+                </button>
 
-          {/* Text input */}
-          <div className="flex-1 min-w-0 rounded-2xl border border-border/50 bg-secondary/40 px-4 py-2.5 focus-within:border-primary/40 transition-colors">
-            <textarea
-              ref={inputRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              rows={1}
-              dir="auto"
-              placeholder={isAr ? "اكتب رسالة" : "Type a message"}
-              style={{ maxHeight: 140 }}
-              className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 leading-relaxed"
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = "auto";
-                el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-              }}
-            />
-          </div>
+                {/* Text input */}
+                <div className="flex-1 min-w-0 rounded-2xl border border-border/50 bg-secondary/40 px-4 py-2.5 focus-within:border-primary/40 transition-colors">
+                  <textarea
+                    ref={inputRef}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        void handleSend();
+                      }
+                    }}
+                    rows={1}
+                    dir="auto"
+                    placeholder={isAr ? "اكتب رسالة" : "Type a message"}
+                    style={{ maxHeight: 140 }}
+                    className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 leading-relaxed"
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = "auto";
+                      el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+                    }}
+                  />
+                </div>
 
-          {/* Send / Mic */}
-          <button
-            onClick={() => void handleSend()}
-            disabled={sending || uploading}
-            title={text.trim() || pendingFile ? (isAr ? "إرسال" : "Send") : (isAr ? "رسالة صوتية" : "Voice message")}
-            className={cn(
-              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition-all duration-150",
-              text.trim() || pendingFile
-                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
-                : "bg-secondary text-muted-foreground/70 hover:bg-secondary/80",
-              (sending || uploading) && "opacity-50"
+                {/* Send / Mic */}
+                <button
+                  onClick={() => {
+                    if (text.trim() || pendingFile) {
+                      void handleSend();
+                    } else {
+                      void startRecording();
+                    }
+                  }}
+                  disabled={sending || uploading}
+                  title={text.trim() || pendingFile ? (isAr ? "إرسال" : "Send") : (isAr ? "رسالة صوتية" : "Voice message")}
+                  className={cn(
+                    "grid h-10 w-10 shrink-0 place-items-center rounded-full transition-all duration-150",
+                    text.trim() || pendingFile
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+                      : "bg-secondary text-muted-foreground/70 hover:bg-secondary/80",
+                    (sending || uploading) && "opacity-50"
+                  )}
+                >
+                  {uploading
+                    ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    : text.trim() || pendingFile
+                      ? <ArrowUp className="h-5 w-5" />
+                      : <Mic className="h-5 w-5" />}
+                </button>
+              </motion.div>
             )}
-          >
-            {uploading
-              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              : text.trim() || pendingFile
-                ? <ArrowUp className="h-5 w-5" />
-                : <Mic className="h-5 w-5" />}
-          </button>
+          </AnimatePresence>
         </div>
       </div>
     </div>

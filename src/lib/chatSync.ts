@@ -83,16 +83,30 @@ export function startChatSync() {
     if (state.conversations !== prev.conversations) scheduleChatPush();
   });
   const onFocus = () => void pullChatData();
+  // Flush pending push before tab closes so no data is lost during the 3s debounce window.
+  const onBeforeUnload = () => {
+    if (pushTimer) {
+      clearTimeout(pushTimer);
+      pushTimer = null;
+      void doPush();
+    }
+  };
   window.addEventListener("focus", onFocus);
+  window.addEventListener("beforeunload", onBeforeUnload);
   unsubChatSync = () => {
     unsubStore();
     window.removeEventListener("focus", onFocus);
+    window.removeEventListener("beforeunload", onBeforeUnload);
     unsubChatSync = null;
   };
 }
 
 export function stopChatSync() {
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+    void doPush();
+  }
   unsubChatSync?.();
   unsubChatSync = null;
-  if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
 }

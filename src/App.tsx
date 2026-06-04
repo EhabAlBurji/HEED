@@ -15,6 +15,9 @@ import { startWebUpdateWatcher } from "./lib/webUpdate";
 import { startNotifications, stopNotifications } from "./lib/teamSync";
 import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
 import { startChatSync, stopChatSync } from "./lib/chatSync";
+import { subscribeHRRealtime } from "./lib/hrSync";
+import { stopDmSubscription } from "./lib/dmSync";
+import { useWorkspaceStore } from "./stores/workspaceStore";
 import { EarlyAccessGate } from "./components/auth/EarlyAccessGate";
 import { isAdmin } from "./lib/admin";
 
@@ -38,8 +41,10 @@ export default function App() {
   const isTray    = useUIStore((s) => s.isTray);
   const setIsTray = useUIStore((s) => s.setIsTray);
   const user      = useAuthStore((s) => s.user);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const accessStatus = useAuthStore((s) => s.accessStatus);
   const checkSession = useAuthStore((s) => s.checkSession);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   useInitialSync();
 
   useEffect(() => {
@@ -98,8 +103,16 @@ export default function App() {
       stopChatSync();
       stopNotifications();
       stopCanvasSync();
+      stopDmSubscription();
     };
   }, [user]);
+
+  // HR realtime: re-subscribe whenever the active workspace changes.
+  useEffect(() => {
+    if (!user || user.id === "guest" || !activeWorkspaceId) return;
+    const unsub = subscribeHRRealtime(activeWorkspaceId);
+    return unsub;
+  }, [user, activeWorkspaceId]);
 
   // Deep link OAuth callback: heed://auth-callback?code=...
   useEffect(() => {
@@ -173,6 +186,11 @@ export default function App() {
         </Suspense>
       </ErrorBoundary>
     );
+  }
+
+  // Show a blank loader while the session is being resolved to avoid flashing the login page
+  if (isLoading && !user) {
+    return <AppLoader />;
   }
 
   // Show login if not authenticated

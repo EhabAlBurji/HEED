@@ -171,7 +171,7 @@ export const useChatStore = create<ChatState>()(
       },
       deleteAssistant: (id) =>
         set((s) => ({
-          assistants: s.assistants.filter((a) => a.id === id ? a.builtin : true),
+          assistants: s.assistants.filter((a) => a.id !== id || !!a.builtin),
           // conversations bound to a deleted assistant fall back to the default
           conversations: s.conversations.map((c) =>
             c.assistantId === id ? { ...c, assistantId: "heed-default" } : c

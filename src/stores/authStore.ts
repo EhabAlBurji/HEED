@@ -107,7 +107,13 @@ export const useAuthStore = create<AuthState>()(
       initAuthListener: () => {
         if (!isSupabaseConfigured()) return () => {};
         const supabase = getSupabase();
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === "SIGNED_OUT" || (!session && event === "TOKEN_REFRESHED")) {
+            // Server-side signout / token expiry — clear local state.
+            ensureFreshFor(null);
+            set({ user: null, accessStatus: "unknown", isLoading: false });
+            return;
+          }
           if (session?.user) {
             const u = session.user;
             const existing = get().user;
@@ -297,7 +303,7 @@ export const useAuthStore = create<AuthState>()(
       signOut: () => {
         // Wipe local cache so the next user doesn't inherit this one's data
         ensureFreshFor(null);
-        set({ user: null, error: null });
+        set({ user: null, error: null, accessStatus: "unknown" });
         // Fire-and-forget Supabase signout in background
         if (isSupabaseConfigured()) {
           try {

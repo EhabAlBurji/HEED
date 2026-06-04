@@ -5,12 +5,13 @@
 // as sync.ts but kept separate to avoid polluting the main sync file.
 // =========================================================================
 
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 // HR tables are not yet in the generated Database types, so we use a typed
 // helper to avoid `never` inference on `.from()` calls.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const hrTable = (name: string) => (getSupabase() as any).from(name);
+function hrTable(name: string): any { return (getSupabase() as any).from(name); }
 import { useAuthStore } from "../stores/authStore";
 import {
   useHRStore,
@@ -423,4 +424,92 @@ export async function reviewHRRequest(
       .update({ status, notes, reviewed_by: reviewedBy, reviewed_at: now })
       .eq("id", id);
   }
+}
+
+// =========================================================================
+// REALTIME — live HR updates across team members
+// Requires migration 20260605000006_hr_realtime.sql
+// =========================================================================
+
+let hrChannel: RealtimeChannel | null = null;
+
+export function subscribeHRRealtime(workspaceId: string): () => void {
+  if (!canSync()) return () => {};
+  const supabase = getSupabase();
+  if (hrChannel) {
+    try { supabase.removeChannel(hrChannel); } catch { /* ignore */ }
+    hrChannel = null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  hrChannel = (supabase as any)
+    .channel(`hr:${workspaceId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "hr_departments", filter: `workspace_id=eq.${workspaceId}` }, (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const store = useHRStore.getState();
+      if (p.eventType === "DELETE") {
+        store.setDepartments(store.departments.filter((d) => d.id !== (p.old as { id: string }).id));
+      } else {
+        const dept = dbToDept(p.new);
+        const idx = store.departments.findIndex((d) => d.id === dept.id);
+        const next = store.departments.slice();
+        if (idx >= 0) next[idx] = dept; else next.push(dept);
+        store.setDepartments(next);
+      }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "hr_positions", filter: `workspace_id=eq.${workspaceId}` }, (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const store = useHRStore.getState();
+      if (p.eventType === "DELETE") {
+        store.setPositions(store.positions.filter((x) => x.id !== (p.old as { id: string }).id));
+      } else {
+        const pos = dbToPos(p.new);
+        const idx = store.positions.findIndex((x) => x.id === pos.id);
+        const next = store.positions.slice();
+        if (idx >= 0) next[idx] = pos; else next.push(pos);
+        store.setPositions(next);
+      }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "hr_employees", filter: `workspace_id=eq.${workspaceId}` }, (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const store = useHRStore.getState();
+      if (p.eventType === "DELETE") {
+        store.setEmployees(store.employees.filter((x) => x.id !== (p.old as { id: string }).id));
+      } else {
+        const emp = dbToEmployee(p.new);
+        const idx = store.employees.findIndex((x) => x.id === emp.id);
+        const next = store.employees.slice();
+        if (idx >= 0) next[idx] = emp; else next.push(emp);
+        store.setEmployees(next);
+      }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "hr_request_types", filter: `workspace_id=eq.${workspaceId}` }, (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const store = useHRStore.getState();
+      if (p.eventType === "DELETE") {
+        store.setRequestTypes(store.requestTypes.filter((x) => x.id !== (p.old as { id: string }).id));
+      } else {
+        const rt = dbToRequestType(p.new);
+        const idx = store.requestTypes.findIndex((x) => x.id === rt.id);
+        const next = store.requestTypes.slice();
+        if (idx >= 0) next[idx] = rt; else next.push(rt);
+        store.setRequestTypes(next);
+      }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "hr_requests", filter: `workspace_id=eq.${workspaceId}` }, (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      const store = useHRStore.getState();
+      if (p.eventType === "DELETE") {
+        store.setRequests(store.requests.filter((x) => x.id !== (p.old as { id: string }).id));
+      } else {
+        const req = dbToRequest(p.new);
+        const idx = store.requests.findIndex((x) => x.id === req.id);
+        const next = store.requests.slice();
+        if (idx >= 0) next[idx] = req; else next.push(req);
+        store.setRequests(next);
+      }
+    })
+    .subscribe();
+
+  return () => {
+    if (hrChannel) {
+      try { supabase.removeChannel(hrChannel); } catch { /* ignore */ }
+      hrChannel = null;
+    }
+  };
 }

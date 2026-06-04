@@ -88,7 +88,7 @@ const taskFromDb = (r: Tables["tasks"]["Row"]): Task => ({
 });
 
 // ─── projects ────────────────────────────────────────────────────────
-const projectToDb = (p: Project, position: number): Tables["projects"]["Insert"] => ({
+const projectToDb = (p: Project, position: number) => ({
   id: p.id,
   workspace_id: p.workspace_id,
   name: p.name,
@@ -96,12 +96,13 @@ const projectToDb = (p: Project, position: number): Tables["projects"]["Insert"]
   icon: p.icon,
   icon_url: p.iconUrl ?? null,
   type: p.type,
+  description: p.description ?? null, // column added in 20260605000006_project_description.sql
   shared_workspace_ids: p.shared_workspace_ids ?? [],
   position,
   created_at: p.created_at,
-});
+} as unknown as Tables["projects"]["Insert"]);
 
-const projectFromDb = (r: Tables["projects"]["Row"]): Project => ({
+const projectFromDb = (r: Tables["projects"]["Row"] & { description?: string | null }): Project => ({
   id: r.id,
   workspace_id: r.workspace_id,
   name: r.name,
@@ -109,6 +110,7 @@ const projectFromDb = (r: Tables["projects"]["Row"]): Project => ({
   icon: r.icon,
   iconUrl: r.icon_url,
   type: r.type,
+  description: r.description ?? undefined,
   shared_workspace_ids: r.shared_workspace_ids ?? [],
   created_at: r.created_at,
 });

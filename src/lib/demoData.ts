@@ -115,14 +115,34 @@ function seedHR(workspaceId: string) {
   ];
   store.setEmployees(employees);
 
+  // ── Request Types — seed locally if store is empty (offline / no Supabase) ──
+  let storedTypes = useHRStore.getState().requestTypes.filter((r) => r.workspaceId === workspaceId);
+  if (storedTypes.length === 0) {
+    const localTypes = DEFAULT_REQUEST_TYPES.map((rt) => ({
+      id: uid(),
+      workspaceId,
+      nameAr: rt.nameAr,
+      nameEn: rt.nameEn,
+      icon: rt.icon,
+      fields: rt.fields,
+      needsAttach: rt.needsAttach,
+      isActive: rt.isActive,
+      sortOrder: rt.sortOrder,
+      isSystem: rt.isSystem,
+      createdAt: new Date().toISOString(),
+    }));
+    store.setRequestTypes(localTypes);
+    storedTypes = localTypes;
+  }
+
   // ── Requests (seed realistic history) ────────────────────────────────
-  const rtIds = useHRStore.getState().requestTypes.map((r) => r.id);
-  const leaveTypeId  = rtIds[0] ?? "";
-  const expenseTypeId = rtIds[1] ?? "";
-  const advanceTypeId = rtIds[3] ?? "";
-  const letterTypeId  = rtIds[4] ?? "";
-  const trainingTypeId = rtIds[7] ?? "";
-  const exitTypeId    = rtIds[6] ?? "";
+  const byName = (n: string) => storedTypes.find((r) => r.nameAr === n)?.id ?? storedTypes[0]?.id ?? "";
+  const leaveTypeId    = byName("طلب إجازة");
+  const expenseTypeId  = byName("طلب مصاريف مالية");
+  const advanceTypeId  = byName("طلب سلفة");
+  const letterTypeId   = byName("طلب خطاب");
+  const trainingTypeId = byName("طلب الالتحاق بتدريب");
+  const exitTypeId     = byName("طلب خروج وعودة");
 
   const requests = [
     {

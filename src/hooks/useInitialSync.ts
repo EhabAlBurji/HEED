@@ -56,6 +56,8 @@ export function useInitialSync() {
       unsubscribe();
       window.removeEventListener("focus", onFocus);
       window.clearInterval(poll);
+      // Clear the ref so re-login by the same user triggers a fresh pull+subscribe.
+      lastSyncedRef.current = null;
     };
   }, [userId]);
 }
