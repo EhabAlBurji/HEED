@@ -13,9 +13,10 @@
     "boards": "Boards",
     "inbox": "Inbox",
     "activity": "Activity",
-    "messages": "Messages",
+    "messages": "DMs",
     "chat": "Heed Chat",
-    "admin": "Users"
+    "admin": "Users",
+    "hr": "HR"
   },
   "auth": {
     "login": "Sign in",

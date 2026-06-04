@@ -217,12 +217,12 @@
   /* Premium CTA — vertical gradient with inset highlights + outer glow
      (Linear / Cursor / Stripe-style depth) */
   .btn-cta {
-    background: linear-gradient(180deg, #8155EB 0%, #6735E1 55%, #5024B8 100%);
+    background: linear-gradient(180deg, #5a9df8 0%, #1A73E8 55%, #1557b0 100%);
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.20) inset,
       0 -1px 0 rgba(0, 0, 0, 0.15) inset,
-      0 0 0 1px rgba(103, 53, 225, 0.45),
-      0 8px 24px rgba(103, 53, 225, 0.38);
+      0 0 0 1px rgba(26, 115, 232, 0.45),
+      0 8px 24px rgba(26, 115, 232, 0.38);
     color: white;
     transition: box-shadow 200ms ease, transform 80ms ease, filter 200ms ease;
   }
@@ -231,8 +231,8 @@
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.24) inset,
       0 -1px 0 rgba(0, 0, 0, 0.15) inset,
-      0 0 0 1px rgba(103, 53, 225, 0.55),
-      0 10px 32px rgba(103, 53, 225, 0.50);
+      0 0 0 1px rgba(26, 115, 232, 0.55),
+      0 10px 32px rgba(26, 115, 232, 0.50);
   }
   .btn-cta:active {
     transform: translateY(1px);

@@ -43,6 +43,7 @@ export type Project = {
   color: string; // hex
   icon: string;  // first letter or emoji
   iconUrl?: string | null; // base64 data URL or null
+  description?: string;
   type: "general" | "video" | "design";
   created_at: string;
   workspace_id: string;

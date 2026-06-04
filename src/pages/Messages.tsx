@@ -1,34 +1,110 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { motion } from "framer-motion";
-import { ArrowUp, MessageSquare, Search } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search, Edit3, Phone, Video, MoreVertical,
+  Smile, Paperclip, Mic, ArrowUp, Check, CheckCheck,
+  MessageSquare, ChevronLeft, Filter, X, FileText,
+  Image as ImageIcon, AlertCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import * as Popover from "@radix-ui/react-popover";
 import { useAuthStore } from "../stores/authStore";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { cn } from "../lib/utils";
 import {
   fetchDmPartners, fetchThread, fetchLastMessages, fetchUnreadCounts,
-  sendDm, markThreadRead, subscribeDms,
+  sendDm, markThreadRead, subscribeDms, searchProfiles, uploadDmAttachment,
+  fetchPartnerProfile,
   type DmMessage, type DmPartner,
 } from "../lib/dmSync";
 
 // =========================================================================
-// Heed Messages — WhatsApp-style DM chat between workspace members.
-// Two-pane layout: contact list (left) + thread (right).
+// Heed DMs — WhatsApp Web-style DM chat
 // =========================================================================
+
+const EMOJI_ROWS = [
+  ["😀","😁","😂","🤣","😊","😍","🥰","😎","🤔","😅","😭","😤"],
+  ["👍","👎","❤️","🔥","🎉","💯","🙏","👏","✅","❌","🚀","💪"],
+  ["😴","🤯","😱","🥳","😏","🤗","😒","😌","😔","🙄","🤫","🤭"],
+  ["🌍","⭐","🎵","📸","🎮","🏆","💡","📱","💻","🌙","☀️","⚡"],
+  ["🍕","🍔","☕","🍺","🎂","🍰","🍩","🍦","🌮","🥗","🍜","🍣"],
+];
 
 function hhmm(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-function dayStamp(iso: string, isAr: boolean) {
+function dayStamp(iso: string) {
   const d = new Date(iso);
   const today = new Date(new Date().toDateString());
   const diff = Math.round((new Date(d.toDateString()).getTime() - today.getTime()) / 86_400_000);
-  if (diff === 0) return isAr ? "اليوم" : "Today";
-  if (diff === -1) return isAr ? "أمس" : "Yesterday";
-  return d.toLocaleDateString(isAr ? "ar" : "en", { day: "numeric", month: "short" });
+  if (diff === 0) return "Today";
+  if (diff === -1) return "Yesterday";
+  return d.toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" });
+}
+function relativeTime(iso: string) {
+  const d = new Date(iso);
+  const today = new Date(new Date().toDateString());
+  const diff = Math.round((new Date(d.toDateString()).getTime() - today.getTime()) / 86_400_000);
+  if (diff === 0) return hhmm(iso);
+  if (diff === -1) return "Yesterday";
+  return d.toLocaleDateString("en", { day: "numeric", month: "short" });
 }
 function initials(name: string) {
   return name.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").slice(0, 2).join("");
+}
+
+const AVATAR_COLORS = [
+  "bg-violet-500","bg-blue-500","bg-emerald-500",
+  "bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-teal-500",
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function isImageType(type: string | null) {
+  return Boolean(type && type.startsWith("image/"));
+}
+
+// ── Highlight helper ─────────────────────────────────────────────────────────
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(part)
+      ? <mark key={i} className="bg-yellow-300/60 rounded-sm not-italic">{part}</mark>
+      : part
+  );
+}
+
+// ── Message tick ─────────────────────────────────────────────────────────────
+function MsgTick({ msg, isMine }: { msg: DmMessage; isMine: boolean }) {
+  if (!isMine) return null;
+  return msg.readAt
+    ? <CheckCheck className="inline h-3.5 w-3.5 text-sky-300 shrink-0" />
+    : <Check className="inline h-3.5 w-3.5 opacity-60 shrink-0" />;
+}
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+function ContactAvatar({ name, avatarUrl, size = "md" }: { name: string; avatarUrl?: string | null; size?: "xs" | "sm" | "md" }) {
+  const dims = size === "xs" ? "h-6 w-6 text-[9px]" : size === "sm" ? "h-9 w-9 text-[11px]" : "h-11 w-11 text-[13px]";
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={cn("shrink-0 rounded-full object-cover", dims)}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+      />
+    );
+  }
+  return (
+    <div className={cn("shrink-0 grid place-items-center rounded-full font-bold text-white", dims, avatarColor(name))}>
+      {initials(name)}
+    </div>
+  );
 }
 
 export default function Messages() {
@@ -44,13 +120,42 @@ export default function Messages() {
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [listWidth, setListWidth] = useState(300);
+  const [listWidth, setListWidth] = useState(340);
+
+  // New DM modal
+  const [newDmOpen, setNewDmOpen] = useState(false);
+  const [dmSearch, setDmSearch] = useState("");
+  const [dmResults, setDmResults] = useState<DmPartner[]>([]);
+  const [dmSearching, setDmSearching] = useState(false);
+  const dmSearchRef = useRef<HTMLInputElement>(null);
+  const dmSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Attachment
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Initial load.
+  // Voice recording
+  const [recording, setRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recChunksRef = useRef<Blob[]>([]);
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Thread search
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const msgRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
+  const threadSearchRef = useRef<HTMLInputElement>(null);
+
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
       const [p, l, u] = await Promise.all([fetchDmPartners(), fetchLastMessages(), fetchUnreadCounts()]);
@@ -60,10 +165,25 @@ export default function Messages() {
     })();
   }, []);
 
-  // Realtime incoming messages.
+  // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = subscribeDms((msg) => {
       const partner = msg.senderId === me?.id ? msg.receiverId : msg.senderId;
+
+      // If we don't know this sender yet, fetch their profile and add them to the list.
+      setPartners((prev) => {
+        if (!prev.some((p) => p.id === partner)) {
+          void fetchPartnerProfile(partner).then((profile) => {
+            if (profile) {
+              setPartners((cur) =>
+                cur.some((p) => p.id === profile.id) ? cur : [profile, ...cur]
+              );
+            }
+          });
+        }
+        return prev;
+      });
+
       setLastMsgs((prev) => ({ ...prev, [partner]: msg }));
       setThreads((prev) => {
         const existing = prev[partner] ?? [];
@@ -79,56 +199,278 @@ export default function Messages() {
     return unsub;
   }, [me?.id, activeId]);
 
-  // Load thread when switching partners.
+  // ── Load thread on partner change ─────────────────────────────────────────
   useEffect(() => {
     if (!activeId) return;
-    if (!threads[activeId]) {
-      void fetchThread(activeId).then((msgs) => setThreads((prev) => ({ ...prev, [activeId]: msgs })));
-    }
+    // Always fetch fresh on switch (catches messages missed by realtime).
+    void fetchThread(activeId).then((msgs) =>
+      setThreads((prev) => ({ ...prev, [activeId]: msgs }))
+    );
     setUnread((prev) => ({ ...prev, [activeId]: 0 }));
     void markThreadRead(activeId);
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll to bottom on new messages.
+  // ── Polling fallback (every 15s) for missed realtime events ──────────────
+  useEffect(() => {
+    if (!activeId) return;
+    const id = setInterval(async () => {
+      const msgs = await fetchThread(activeId);
+      setThreads((prev) => {
+        const cur = prev[activeId] ?? [];
+        if (msgs.length === cur.length && msgs.every((m, i) => m.id === cur[i]?.id)) return prev;
+        return { ...prev, [activeId]: msgs };
+      });
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [activeId]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [threads, activeId]);
 
+  // ── New DM search ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!newDmOpen) return;
+    if (dmSearchTimer.current) clearTimeout(dmSearchTimer.current);
+    if (!dmSearch.trim()) { setDmResults([]); return; }
+    setDmSearching(true);
+    dmSearchTimer.current = setTimeout(async () => {
+      const r = await searchProfiles(dmSearch);
+      setDmResults(r);
+      setDmSearching(false);
+    }, 300);
+    return () => { if (dmSearchTimer.current) clearTimeout(dmSearchTimer.current); };
+  }, [dmSearch, newDmOpen]);
+
+  useEffect(() => {
+    if (newDmOpen) {
+      setDmSearch(""); setDmResults([]);
+      setTimeout(() => dmSearchRef.current?.focus(), 60);
+    }
+  }, [newDmOpen]);
+
+  const openDmWith = (partner: DmPartner) => {
+    setNewDmOpen(false);
+    setPartners((prev) => prev.some((p) => p.id === partner.id) ? prev : [partner, ...prev]);
+    setActiveId(partner.id);
+  };
+
+  // ── File picker ───────────────────────────────────────────────────────────
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setPendingFile(f);
+    if (f.type.startsWith("image/")) {
+      const url = URL.createObjectURL(f);
+      setPendingPreview(url);
+    } else {
+      setPendingPreview(null);
+    }
+    e.target.value = "";
+  };
+
+  const clearPendingFile = () => {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview(null);
+  };
+
+  // ── Voice recording ──────────────────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      recChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+      setRecSeconds(0);
+      recTimerRef.current = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    } catch {
+      toast.error(isAr ? "تعذّر الوصول للميكروفون" : "Microphone access denied");
+    }
+  };
+
+  const stopRecording = () => {
+    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+    setRecording(false);
+    setRecSeconds(0);
+  };
+
+  const cancelRecording = () => {
+    mediaRecorderRef.current?.stop();
+    stopRecording();
+    recChunksRef.current = [];
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!mediaRecorderRef.current || !activeId || !me) return;
+    const mr = mediaRecorderRef.current;
+    mr.onstop = async () => {
+      const blob = new Blob(recChunksRef.current, { type: mr.mimeType || "audio/webm" });
+      stopRecording();
+      setUploading(true);
+      const attachment = await uploadDmAttachment(blob, me.id);
+      setUploading(false);
+      if (!attachment) {
+        toast.error(isAr ? "فشل رفع التسجيل" : "Voice upload failed");
+        return;
+      }
+      const optimisticId = crypto.randomUUID();
+      const optimistic: DmMessage = {
+        id: optimisticId,
+        senderId: me.id,
+        receiverId: activeId,
+        content: "",
+        createdAt: new Date().toISOString(),
+        readAt: null,
+        attachmentUrl: attachment.url,
+        attachmentName: attachment.name,
+        attachmentType: attachment.type,
+      };
+      setThreads((prev) => ({ ...prev, [activeId]: [...(prev[activeId] ?? []), optimistic] }));
+      setLastMsgs((prev) => ({ ...prev, [activeId]: optimistic }));
+      try {
+        const sent = await sendDm(activeId, "", attachment);
+        if (sent) {
+          setThreads((prev) => ({
+            ...prev,
+            [activeId]: (prev[activeId] ?? []).map((m) => (m.id === optimisticId ? sent : m)),
+          }));
+          setLastMsgs((prev) => ({ ...prev, [activeId]: sent }));
+        }
+      } catch {
+        setFailedIds((prev) => new Set(prev).add(optimisticId));
+        toast.error(isAr ? "فشل إرسال الرسالة" : "Message failed to send");
+      }
+    };
+    mr.stop();
+  };
+
+  const recMmss = `${String(Math.floor(recSeconds / 60)).padStart(2, "0")}:${String(recSeconds % 60).padStart(2, "0")}`;
+
+  // ── Thread search helpers ─────────────────────────────────────────────────
+  const searchMatches = activeThread.reduce<number[]>((acc, msg, i) => {
+    if (searchQuery.trim() && msg.content.toLowerCase().includes(searchQuery.toLowerCase())) acc.push(i);
+    return acc;
+  }, []);
+
+  const scrollToMatch = (idx: number) => {
+    const msgIdx = searchMatches[idx];
+    if (msgIdx === undefined) return;
+    const msg = activeThread[msgIdx];
+    if (!msg) return;
+    const el = msgRefsMap.current.get(msg.id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const navigateSearch = (dir: 1 | -1) => {
+    if (!searchMatches.length) return;
+    const next = (searchMatchIdx + dir + searchMatches.length) % searchMatches.length;
+    setSearchMatchIdx(next);
+    scrollToMatch(next);
+  };
+
+  // Keep current match in view when query changes
+  useEffect(() => {
+    setSearchMatchIdx(0);
+    if (searchMatches.length > 0) scrollToMatch(0);
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (searchOpen) setTimeout(() => threadSearchRef.current?.focus(), 60);
+    else setSearchQuery("");
+  }, [searchOpen]);
+
+  // Reset search state when thread changes
+  useEffect(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }, [activeId]);
+
+  // ── Jitsi helpers ─────────────────────────────────────────────────────────
+  const jitsiRoom = activePartner && me
+    ? `heed-${[me.id, activePartner.id].sort().join("-").slice(0, 32)}`
+    : null;
+
+  const openVoiceCall = () => {
+    if (!jitsiRoom) return;
+    window.open(`https://meet.jit.si/${jitsiRoom}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openVideoCall = () => {
+    if (!jitsiRoom) return;
+    window.open(`https://meet.jit.si/${jitsiRoom}#config.startWithVideoMuted=false`, "_blank", "noopener,noreferrer");
+  };
+
+  // ── Send ──────────────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
-    if (!activeId || !text.trim() || sending) return;
+    if (!activeId || (!text.trim() && !pendingFile) || sending || uploading) return;
     setSending(true);
+
+    // Upload attachment first if any
+    let attachment: { url: string; name: string; type: string } | null = null;
+    if (pendingFile) {
+      setUploading(true);
+      attachment = await uploadDmAttachment(pendingFile, me!.id);
+      setUploading(false);
+      if (!attachment) {
+        toast.error(isAr ? "فشل رفع الملف" : "File upload failed");
+        setSending(false);
+        return;
+      }
+      clearPendingFile();
+    }
+
+    const optimisticId = crypto.randomUUID();
     const optimistic: DmMessage = {
-      id: crypto.randomUUID(),
+      id: optimisticId,
       senderId: me!.id,
       receiverId: activeId,
       content: text.trim(),
       createdAt: new Date().toISOString(),
       readAt: null,
+      attachmentUrl: attachment?.url ?? null,
+      attachmentName: attachment?.name ?? null,
+      attachmentType: attachment?.type ?? null,
     };
     setThreads((prev) => ({ ...prev, [activeId]: [...(prev[activeId] ?? []), optimistic] }));
     setLastMsgs((prev) => ({ ...prev, [activeId]: optimistic }));
     setText("");
-    const sent = await sendDm(activeId, optimistic.content);
-    if (sent) {
-      setThreads((prev) => ({
-        ...prev,
-        [activeId]: (prev[activeId] ?? []).map((m) => (m.id === optimistic.id ? sent : m)),
-      }));
-      setLastMsgs((prev) => ({ ...prev, [activeId]: sent }));
+
+    try {
+      const sent = await sendDm(activeId, optimistic.content, attachment);
+      if (sent) {
+        setThreads((prev) => ({
+          ...prev,
+          [activeId]: (prev[activeId] ?? []).map((m) => (m.id === optimisticId ? sent : m)),
+        }));
+        setLastMsgs((prev) => ({ ...prev, [activeId]: sent }));
+      }
+    } catch {
+      setFailedIds((prev) => new Set(prev).add(optimisticId));
+      toast.error(isAr ? "فشل إرسال الرسالة" : "Message failed to send");
     }
     setSending(false);
     inputRef.current?.focus();
-  }, [activeId, text, sending, me]);
+  }, [activeId, text, pendingFile, sending, uploading, me, isAr]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Resize divider.
+  // ── Resize divider ────────────────────────────────────────────────────────
   const startResize = (e: React.PointerEvent) => {
     e.preventDefault();
     const startX = e.clientX, startW = listWidth;
     const onMove = (ev: PointerEvent) => {
       const delta = ev.clientX - startX;
-      setListWidth(Math.max(240, Math.min(420, isAr ? startW - delta : startW + delta)));
+      setListWidth(Math.max(260, Math.min(480, isAr ? startW - delta : startW + delta)));
     };
-    const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); document.body.style.userSelect = ""; };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.userSelect = "";
+    };
     document.body.style.userSelect = "none";
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -137,77 +479,104 @@ export default function Messages() {
   const activePartner = partners.find((p) => p.id === activeId) ?? null;
   const activeThread = activeId ? (threads[activeId] ?? []) : [];
 
-  // Sort contacts: those with messages first (by last message time), then the rest.
   const sorted = [...partners]
-    .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase()))
+    .filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.email.toLowerCase().includes(search.toLowerCase())
+    )
     .sort((a, b) => {
       const la = lastMsgs[a.id]?.createdAt ?? "";
       const lb = lastMsgs[b.id]?.createdAt ?? "";
       if (la && lb) return lb.localeCompare(la);
-      if (la) return -1;
-      if (lb) return 1;
+      if (la) return -1; if (lb) return 1;
       return a.name.localeCompare(b.name);
     });
 
+  // ── Contact list ──────────────────────────────────────────────────────────
   const contactList = (
-    <div className="flex h-full flex-col border-e border-border/60 bg-card">
-      {/* Header */}
-      <div className="px-4 pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <h1 className="font-display text-xl font-semibold">{isAr ? "الرسائل" : "Messages"}</h1>
+    <div className="flex h-full flex-col bg-card border-e border-border/50">
+      <div className="flex items-center justify-between gap-2 px-4 py-4 border-b border-border/40">
+        <h1 className="font-display text-xl font-bold tracking-tight">DMs</h1>
+        <div className="flex items-center gap-1">
+          <button title={isAr ? "تصفية" : "Filter"} className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground">
+            <Filter className="h-[17px] w-[17px]" />
+          </button>
+          <button
+            title={isAr ? "رسالة جديدة" : "New Message"}
+            onClick={() => setNewDmOpen(true)}
+            className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground"
+          >
+            <Edit3 className="h-[17px] w-[17px]" />
+          </button>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-background/40 px-3 py-2">
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+      </div>
+
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-2 rounded-full bg-secondary/70 px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={isAr ? "ابحث عن شخص…" : "Search…"}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+            placeholder={isAr ? "ابحث أو ابدأ محادثة" : "Search or start new chat"}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
           />
         </div>
       </div>
 
-      {/* Contact list */}
       <div className="flex-1 overflow-y-auto scrollbar-none">
         {sorted.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-            {isAr ? "مفيش أعضاء في مساحات العمل بعد" : "No workspace members yet"}
-          </p>
+          <div className="flex flex-col items-center gap-3 py-16 px-6 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+              <MessageSquare className="h-7 w-7" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isAr ? "اضغط ✏️ لبدء محادثة جديدة" : "Tap ✏️ to start a new chat"}
+            </p>
+          </div>
         ) : (
           sorted.map((p) => {
             const last = lastMsgs[p.id];
             const u = unread[p.id] ?? 0;
             const isMe = last?.senderId === me?.id;
+            const isActive = activeId === p.id;
+            const snippet = last?.attachmentName ? `📎 ${last.attachmentName}` : last?.content;
             return (
               <button
                 key={p.id}
-                onClick={() => { setActiveId(p.id); if (isMobile) {} }}
+                onClick={() => setActiveId(p.id)}
                 className={cn(
-                  "flex w-full items-center gap-3 border-b border-border/20 px-4 py-3 text-start transition",
-                  activeId === p.id ? "bg-primary/10" : "hover:bg-secondary/40",
-                  u > 0 && activeId !== p.id && "bg-primary/[0.04]"
+                  "relative flex w-full items-center gap-3 px-4 py-3 text-start transition-colors",
+                  isActive ? "bg-primary/[0.12]" : "hover:bg-secondary/50"
                 )}
               >
-                <Avatar name={p.name} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className={cn("flex-1 truncate text-sm font-medium", u > 0 && "text-foreground")}>{p.name}</span>
-                    {last && <span className="shrink-0 font-micro text-[10px] text-muted-foreground/60">{hhmm(last.createdAt)}</span>}
-                  </div>
-                  {last ? (
-                    <p dir="auto" className={cn("mt-0.5 truncate text-xs", u > 0 ? "font-medium text-foreground/80" : "text-muted-foreground")}>
-                      {isMe ? (isAr ? "أنت: " : "You: ") : ""}{last.content}
-                    </p>
-                  ) : (
-                    <p className="mt-0.5 font-micro text-[11px] text-muted-foreground/40" dir="ltr">{p.email}</p>
-                  )}
+                {isActive && <span className="absolute start-0 top-2 bottom-2 w-[3px] rounded-e-full bg-primary" />}
+                <div className="relative shrink-0">
+                  <ContactAvatar name={p.name} avatarUrl={p.avatarUrl} />
+                  {u > 0 && <span className="absolute -bottom-0.5 -end-0.5 h-3 w-3 rounded-full border-2 border-card bg-primary" />}
                 </div>
-                {u > 0 && (
-                  <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-primary px-1 font-micro text-[10px] font-bold text-white">
-                    {u > 99 ? "99+" : u}
-                  </span>
-                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className={cn("flex-1 truncate text-sm", u > 0 ? "font-semibold" : "font-medium")}>{p.name}</span>
+                    {last && <span className={cn("shrink-0 text-[11px] tabular-nums", u > 0 ? "font-medium text-primary" : "text-muted-foreground/50")}>{relativeTime(last.createdAt)}</span>}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between gap-1">
+                    {snippet ? (
+                      <p dir="auto" className={cn("flex-1 truncate text-[13px] leading-snug", u > 0 ? "font-medium text-foreground/80" : "text-muted-foreground/60")}>
+                        {isMe && (last?.readAt
+                          ? <CheckCheck className="inline h-3 w-3 text-primary me-0.5" />
+                          : <Check className="inline h-3 w-3 text-muted-foreground/50 me-0.5" />)}
+                        {snippet}
+                      </p>
+                    ) : (
+                      <p className="flex-1 text-[12px] text-muted-foreground/40">{isAr ? "ابدأ المحادثة" : "Start chatting"}</p>
+                    )}
+                    {u > 0 && (
+                      <span className="shrink-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-white">
+                        {u > 99 ? "99+" : u}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </button>
             );
           })
@@ -216,59 +585,203 @@ export default function Messages() {
     </div>
   );
 
+  // ── Thread view ───────────────────────────────────────────────────────────
   const threadView = activePartner ? (
     <div className="flex min-w-0 flex-1 flex-col">
-      {/* Thread header */}
-      <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-        <Avatar name={activePartner.name} size="sm" />
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border/40 bg-card/80 px-4 py-3 backdrop-blur-sm">
+        {isMobile && (
+          <button onClick={() => setActiveId(null)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-secondary">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        <ContactAvatar name={activePartner.name} avatarUrl={activePartner.avatarUrl} size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{activePartner.name}</p>
-          <p className="truncate font-micro text-[11px] text-muted-foreground/60" dir="ltr">{activePartner.email}</p>
+          <p className="truncate text-[14px] font-semibold leading-tight">{activePartner.name}</p>
+          {activePartner.email && (
+            <p className="truncate text-[11px] text-muted-foreground/50" dir="ltr">{activePartner.email}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {[
+            { icon: Phone, label: isAr ? "مكالمة صوتية" : "Voice call", onClick: openVoiceCall },
+            { icon: Video, label: isAr ? "مكالمة فيديو" : "Video call", onClick: openVideoCall },
+            { icon: Search, label: isAr ? "بحث" : "Search in chat", onClick: () => setSearchOpen((o) => !o) },
+            { icon: MoreVertical, label: isAr ? "المزيد" : "More options", onClick: undefined },
+          ].map(({ icon: Icon, label, onClick }) => (
+            <button
+              key={label}
+              title={label}
+              onClick={onClick}
+              className={cn(
+                "grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground",
+                label === (isAr ? "بحث" : "Search in chat") && searchOpen && "bg-primary/10 text-primary"
+              )}
+            >
+              <Icon className="h-[18px] w-[18px]" />
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* Thread search bar */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden border-b border-border/40 bg-card/60"
+          >
+            <div className="flex items-center gap-2 px-4 py-2">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+              <input
+                ref={threadSearchRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") navigateSearch(e.shiftKey ? -1 : 1);
+                  if (e.key === "Escape") setSearchOpen(false);
+                }}
+                placeholder={isAr ? "بحث في المحادثة…" : "Search in conversation…"}
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+              />
+              {searchQuery.trim() && (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">
+                  {searchMatches.length > 0 ? `${searchMatchIdx + 1} / ${searchMatches.length}` : "0 / 0"}
+                </span>
+              )}
+              <button
+                onClick={() => navigateSearch(-1)}
+                disabled={!searchMatches.length}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary disabled:opacity-30"
+                title="Previous"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 10l4-4 4 4"/></svg>
+              </button>
+              <button
+                onClick={() => navigateSearch(1)}
+                disabled={!searchMatches.length}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary disabled:opacity-30"
+                title="Next"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6l4 4 4-4"/></svg>
+              </button>
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none">
-        <div className="mx-auto max-w-2xl space-y-1">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none"
+        style={{ background: "repeating-linear-gradient(transparent,transparent 19px,hsl(var(--border)/0.04) 20px)" }}
+      >
+        <div className="mx-auto max-w-3xl space-y-0.5">
           {activeThread.length === 0 && (
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="py-12 text-center text-sm text-muted-foreground"
-            >
-              {isAr ? `ابدأ محادثة مع ${activePartner.name}` : `Start a conversation with ${activePartner.name}`}
-            </motion.p>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center gap-3 py-16 text-center">
+              <div className="grid h-20 w-20 place-items-center rounded-full bg-primary/10 text-primary">
+                <MessageSquare className="h-9 w-9" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground/80">
+                  {isAr ? `ابدأ محادثة مع ${activePartner.name}` : `Chat with ${activePartner.name}`}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/50">
+                  {isAr ? "رسائلك مشفرة" : "Messages are end-to-end encrypted"}
+                </p>
+              </div>
+            </motion.div>
           )}
 
           {activeThread.map((msg, i) => {
             const mine = msg.senderId === me?.id;
             const prev = activeThread[i - 1];
-            const showDay = !prev || dayStamp(msg.createdAt, isAr) !== dayStamp(prev.createdAt, isAr);
+            const next = activeThread[i + 1];
+            const showDay = !prev || dayStamp(msg.createdAt) !== dayStamp(prev.createdAt);
+            const isFirst = !prev || prev.senderId !== msg.senderId || showDay;
+            const isLast = !next || next.senderId !== msg.senderId;
+            const failed = failedIds.has(msg.id);
             return (
               <div key={msg.id}>
                 {showDay && (
-                  <div className="my-3 flex items-center gap-2">
-                    <div className="flex-1 h-px bg-border/40" />
-                    <span className="shrink-0 font-micro text-[10px] text-muted-foreground/50">{dayStamp(msg.createdAt, isAr)}</span>
-                    <div className="flex-1 h-px bg-border/40" />
+                  <div className="my-4 flex items-center justify-center">
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-muted-foreground/70 shadow-sm">
+                      {dayStamp(msg.createdAt)}
+                    </span>
                   </div>
                 )}
-                <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                <motion.div
+                  initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.14 }}
+                  className={cn("flex", mine ? "justify-end" : "justify-start", isLast ? "mb-2" : "mb-0.5")}
+                >
+                  {!mine && (
+                    <div className={cn("me-2 mt-auto shrink-0", isLast ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                      <ContactAvatar name={activePartner.name} avatarUrl={activePartner.avatarUrl} size="xs" />
+                    </div>
+                  )}
                   <div
                     className={cn(
-                      "max-w-[72%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
+                      "relative max-w-[65%] px-3.5 py-2.5 text-sm shadow-sm",
                       mine
-                        ? "rounded-ee-md bg-primary text-primary-foreground"
-                        : "rounded-es-md bg-secondary text-foreground"
+                        ? failed ? "bg-destructive/80 text-white" : "bg-primary text-primary-foreground"
+                        : "bg-card text-foreground border border-border/40",
+                      mine && isFirst ? "rounded-2xl rounded-ee-sm"
+                        : mine ? "rounded-2xl rounded-e-sm"
+                        : !mine && isFirst ? "rounded-2xl rounded-ss-sm"
+                        : "rounded-2xl rounded-s-sm"
                     )}
                     dir="auto"
                   >
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                    <p className={cn("mt-0.5 text-end font-micro text-[9px]", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
-                      {hhmm(msg.createdAt)}
-                    </p>
+                    {/* Attachment */}
+                    {msg.attachmentUrl && (
+                      isImageType(msg.attachmentType) ? (
+                        <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-2">
+                          <img
+                            src={msg.attachmentUrl}
+                            alt={msg.attachmentName ?? "image"}
+                            className="max-h-56 w-full rounded-lg object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <a
+                          href={msg.attachmentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cn(
+                            "mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition hover:opacity-80",
+                            mine ? "bg-white/20" : "bg-secondary"
+                          )}
+                        >
+                          <FileText className="h-4 w-4 shrink-0" />
+                          <span className="flex-1 truncate">{msg.attachmentName ?? "file"}</span>
+                        </a>
+                      )
+                    )}
+
+                    {/* Text */}
+                    {msg.content && (
+                      <p className="whitespace-pre-wrap leading-[1.45]">{msg.content}</p>
+                    )}
+
+                    {/* Time + tick */}
+                    <div className={cn("mt-1 flex items-center justify-end gap-1", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
+                      {failed && <AlertCircle className="h-3 w-3 text-white" />}
+                      <span className="text-[10px] tabular-nums">{hhmm(msg.createdAt)}</span>
+                      <MsgTick msg={msg} isMine={mine} />
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             );
           })}
@@ -276,82 +789,239 @@ export default function Messages() {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border/60 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl items-end gap-2 rounded-2xl border border-border/60 bg-card/60 p-2 focus-within:border-primary/40">
-          <textarea
-            ref={inputRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-            rows={1}
-            dir="auto"
-            placeholder={isAr ? "اكتب رسالة…" : "Type a message…"}
-            style={{ maxHeight: 120 }}
-            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground/50"
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-            }}
+      {/* Pending file preview */}
+      <AnimatePresence>
+        {pendingFile && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-border/40 bg-card/60 px-4 py-2 overflow-hidden"
+          >
+            <div className="mx-auto flex max-w-3xl items-center gap-3">
+              {pendingPreview ? (
+                <img src={pendingPreview} alt="preview" className="h-12 w-12 rounded-lg object-cover shrink-0" />
+              ) : (
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-secondary">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{pendingFile.name}</p>
+                <p className="text-xs text-muted-foreground/60">{(pendingFile.size / 1024).toFixed(0)} KB</p>
+              </div>
+              <button onClick={clearPendingFile} className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-secondary">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Composer */}
+      <div className="border-t border-border/40 bg-card/80 px-3 py-3 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-3xl items-end gap-2">
+          {/* Emoji picker */}
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <button title={isAr ? "إيموجي" : "Emoji"} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground">
+                <Smile className="h-5 w-5" />
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                side="top" align="start" sideOffset={8}
+                className="z-50 rounded-2xl border border-border/60 bg-card p-2 shadow-2xl"
+              >
+                {EMOJI_ROWS.map((row, ri) => (
+                  <div key={ri} className="flex">
+                    {row.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => setText((t) => t + emoji)}
+                        className="h-9 w-9 rounded-lg text-xl transition hover:bg-secondary active:scale-90"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+
+          {/* File attach */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf,text/plain,application/zip,video/mp4"
+            className="hidden"
+            onChange={handleFileChange}
           />
           <button
+            title={isAr ? "إرفاق ملف" : "Attach file"}
+            onClick={() => fileInputRef.current?.click()}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"
+          >
+            {pendingFile
+              ? <ImageIcon className="h-5 w-5 text-primary" />
+              : <Paperclip className="h-5 w-5" />}
+          </button>
+
+          {/* Text input */}
+          <div className="flex-1 min-w-0 rounded-2xl border border-border/50 bg-secondary/40 px-4 py-2.5 focus-within:border-primary/40 transition-colors">
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              rows={1}
+              dir="auto"
+              placeholder={isAr ? "اكتب رسالة" : "Type a message"}
+              style={{ maxHeight: 140 }}
+              className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 leading-relaxed"
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+              }}
+            />
+          </div>
+
+          {/* Send / Mic */}
+          <button
             onClick={() => void handleSend()}
-            disabled={!text.trim() || sending}
+            disabled={sending || uploading}
+            title={text.trim() || pendingFile ? (isAr ? "إرسال" : "Send") : (isAr ? "رسالة صوتية" : "Voice message")}
             className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-xl transition",
-              text.trim() ? "bg-primary text-primary-foreground hover:opacity-90" : "bg-secondary text-muted-foreground/40"
+              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition-all duration-150",
+              text.trim() || pendingFile
+                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:opacity-90"
+                : "bg-secondary text-muted-foreground/70 hover:bg-secondary/80",
+              (sending || uploading) && "opacity-50"
             )}
           >
-            <ArrowUp className="h-4 w-4" />
+            {uploading
+              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              : text.trim() || pendingFile
+                ? <ArrowUp className="h-5 w-5" />
+                : <Mic className="h-5 w-5" />}
           </button>
         </div>
       </div>
     </div>
   ) : (
-    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 text-center">
-      <div className="grid h-20 w-20 place-items-center rounded-3xl bg-primary/10 text-primary">
-        <MessageSquare className="h-9 w-9" />
+    <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-5 bg-background/30 text-center px-8">
+      <div className="grid h-28 w-28 place-items-center rounded-full border-[3px] border-primary/20 bg-primary/10 text-primary">
+        <MessageSquare className="h-12 w-12" strokeWidth={1.5} />
       </div>
-      <p className="text-sm text-muted-foreground">
-        {isAr ? "اختر شخصاً لبدء المحادثة" : "Select someone to start chatting"}
+      <div>
+        <h2 className="font-display text-2xl font-semibold">Heed DMs</h2>
+        <p className="mt-2 text-sm text-muted-foreground/60 max-w-xs leading-relaxed">
+          {isAr ? "اختر محادثة أو اضغط ✏️ لبدء واحدة جديدة" : "Select a conversation or tap ✏️ to start a new one"}
+        </p>
+      </div>
+      <p className="text-xs text-muted-foreground/40">
+        {isAr ? "رسائلك مشفرة" : "End-to-end encrypted"}
       </p>
     </div>
   );
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      {isMobile ? (
-        activeId ? threadView : <div className="w-full">{contactList}</div>
-      ) : (
-        <>
-          <div style={{ width: listWidth }} className="shrink-0 overflow-hidden">
-            {contactList}
-          </div>
-          <div
-            onPointerDown={startResize}
-            title={isAr ? "اسحب لتغيير العرض" : "Drag to resize"}
-            className="group relative w-1.5 shrink-0 cursor-col-resize"
+  // ── New DM Modal ──────────────────────────────────────────────────────────
+  const newDmModal = (
+    <AnimatePresence>
+      {newDmOpen && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[10vh] backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setNewDmOpen(false); }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.18 }}
+            className="w-full max-w-md rounded-2xl border border-border/60 bg-card shadow-2xl overflow-hidden"
           >
-            <div className="absolute inset-y-0 start-0 w-px bg-border/60 transition-colors group-hover:bg-primary/50" />
-          </div>
-          {threadView}
-        </>
-      )}
-    </div>
-  );
-}
+            <div className="flex items-center gap-3 border-b border-border/40 px-4 py-3.5">
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-primary">
+                <Edit3 className="h-4 w-4" />
+              </div>
+              <h2 className="flex-1 font-display text-[15px] font-semibold">
+                {isAr ? "رسالة جديدة" : "New Message"}
+              </h2>
+              <button onClick={() => setNewDmOpen(false)} className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
-  const sz = size === "sm" ? "h-8 w-8 text-[11px]" : "h-10 w-10 text-[12px]";
+            <div className="border-b border-border/40 px-4 py-3">
+              <div className="flex items-center gap-2 rounded-xl bg-secondary/60 px-3 py-2.5">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+                <input
+                  ref={dmSearchRef}
+                  value={dmSearch}
+                  onChange={(e) => setDmSearch(e.target.value)}
+                  placeholder={isAr ? "ابحث بالاسم أو الإيميل…" : "Search by name or email…"}
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+                />
+                {dmSearching && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />}
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto scrollbar-none">
+              {!dmSearch.trim() ? (
+                <p className="px-5 py-8 text-center text-sm text-muted-foreground/50">
+                  {isAr ? "اكتب اسم أو إيميل للبحث" : "Type a name or email to search"}
+                </p>
+              ) : dmResults.length === 0 && !dmSearching ? (
+                <p className="px-5 py-8 text-center text-sm text-muted-foreground/50">
+                  {isAr ? "مفيش نتايج" : "No results found"}
+                </p>
+              ) : (
+                dmResults.map((p) => (
+                  <button key={p.id} onClick={() => openDmWith(p)} className="flex w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-secondary/60">
+                    <ContactAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{p.name}</p>
+                      {p.email && <p className="truncate text-xs text-muted-foreground/60" dir="ltr">{p.email}</p>}
+                    </div>
+                    <MessageSquare className="h-4 w-4 shrink-0 text-primary/50" />
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
-    <div className={cn("shrink-0 grid place-items-center rounded-full bg-primary/20 font-bold text-primary", sz)}>
-      {initials(name)}
-    </div>
+    <>
+      {newDmModal}
+      <div className="flex h-full overflow-hidden">
+        {isMobile ? (
+          activeId ? threadView : <div className="w-full">{contactList}</div>
+        ) : (
+          <>
+            <div style={{ width: listWidth }} className="shrink-0 overflow-hidden">{contactList}</div>
+            <div
+              onPointerDown={startResize}
+              title={isAr ? "اسحب لتغيير العرض" : "Drag to resize"}
+              className="group relative w-1.5 shrink-0 cursor-col-resize select-none"
+            >
+              <div className="absolute inset-y-0 start-0 w-px bg-border/50 transition-colors group-hover:bg-primary/50" />
+            </div>
+            {threadView}
+          </>
+        )}
+      </div>
+    </>
   );
 }

@@ -60,6 +60,11 @@ type AuthState = {
 
   // Early access
   fetchAccessStatus: () => Promise<void>;
+
+  // Sets up a persistent onAuthStateChange listener (call once at app start).
+  // Returns an unsubscribe function. Handles OAuth redirects where the session
+  // becomes available asynchronously after the page loads.
+  initAuthListener: () => () => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -97,6 +102,31 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           set({ accessStatus: "unknown" });
         }
+      },
+
+      initAuthListener: () => {
+        if (!isSupabaseConfigured()) return () => {};
+        const supabase = getSupabase();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) {
+            const u = session.user;
+            const existing = get().user;
+            // Only update if not already set to this user (avoids redundant work)
+            if (!existing || existing.id !== u.id) {
+              ensureFreshFor(u.id);
+              set({
+                user: {
+                  id: u.id,
+                  email: u.email ?? "",
+                  name: (u.user_metadata?.full_name as string) ?? existing?.name ?? null,
+                  avatarUrl: existing?.avatarUrl ?? (u.user_metadata?.avatar_url as string) ?? null,
+                },
+                isLoading: false,
+              });
+            }
+          }
+        });
+        return () => subscription.unsubscribe();
       },
 
       signInWithGoogle: async () => {

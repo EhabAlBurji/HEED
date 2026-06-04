@@ -64,21 +64,29 @@ export function CanvasNodeView({
   zoom,
   selected,
   connecting,
+  selectedCount,
+  batchDragOff,
   onSelect,
   onStartConnect,
   onOpenTask,
   onCheckpoint,
   onExpand,
+  onDragDelta,
+  onDragCommit,
 }: {
   node: CanvasNode;
   zoom: number;
   selected: boolean;
   connecting: boolean;
+  selectedCount: number;
+  batchDragOff?: { dx: number; dy: number } | null;
   onSelect: (id: string) => void;
   onStartConnect: (id: string, e: ReactPointerEvent) => void;
   onOpenTask: (taskId: string) => void;
   onCheckpoint: () => void;
   onExpand: (content: LightboxContent) => void;
+  onDragDelta?: (id: string, dx: number, dy: number) => void;
+  onDragCommit?: (id: string, dx: number, dy: number) => void;
 }) {
   const { t } = useTranslation();
   const updateNode = useCanvasStore((s) => s.updateNode);
@@ -99,9 +107,12 @@ export function CanvasNodeView({
   const patchData = (patch: Partial<CanvasNode["data"]>) =>
     updateNode(node.id, { data: { ...node.data, ...patch } });
 
+  const isBatch = selected && selectedCount > 1;
+
   const startDrag = (e: ReactPointerEvent) => {
     e.stopPropagation();
-    onSelect(node.id);
+    // In multi-select mode, preserve the selection instead of replacing it.
+    if (!isBatch) onSelect(node.id);
     bringToFront(node.id);
     onCheckpoint();
     dragRef.current = { sx: e.clientX, sy: e.clientY };
@@ -114,10 +125,8 @@ export function CanvasNodeView({
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("[data-nodrag]")) {
-      // interactive area — keep the event from reaching the canvas (which would
-      // capture the pointer and swallow the click), but don't start a drag.
       e.stopPropagation();
-      onSelect(node.id);
+      if (!isBatch) onSelect(node.id);
       return;
     }
     startDrag(e);
@@ -127,13 +136,17 @@ export function CanvasNodeView({
     const dx = (e.clientX - dragRef.current.sx) / zoom;
     const dy = (e.clientY - dragRef.current.sy) / zoom;
     dragOffRef.current = { dx, dy };
-    setDragOff({ dx, dy }); // re-renders only this node — no store write/serialize
+    setDragOff({ dx, dy });
+    if (isBatch) onDragDelta?.(node.id, dx, dy);
   };
   const onPointerUp = (e: ReactPointerEvent) => {
     if (dragRef.current) {
       const { dx, dy } = dragOffRef.current;
       dragRef.current = null;
-      if (dx || dy) updateNode(node.id, { x: node.x + dx, y: node.y + dy }); // single commit
+      if (dx || dy) {
+        updateNode(node.id, { x: node.x + dx, y: node.y + dy });
+        if (isBatch) onDragCommit?.(node.id, dx, dy);
+      }
       setDragOff(null);
     }
     try {
@@ -195,8 +208,12 @@ export function CanvasNodeView({
         width: sizeOff ? Math.max(MIN_W, node.width + sizeOff.dw) : node.width,
         height: sizeOff ? Math.max(MIN_H, node.height + sizeOff.dh) : node.height,
         zIndex: node.z,
-        transform: dragOff ? `translate(${dragOff.dx}px, ${dragOff.dy}px)` : undefined,
-        willChange: dragOff || sizeOff ? "transform, width, height" : undefined,
+        transform: dragOff
+          ? `translate(${dragOff.dx}px, ${dragOff.dy}px)`
+          : batchDragOff
+          ? `translate(${batchDragOff.dx}px, ${batchDragOff.dy}px)`
+          : undefined,
+        willChange: dragOff || sizeOff || batchDragOff ? "transform, width, height" : undefined,
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

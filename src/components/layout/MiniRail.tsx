@@ -10,6 +10,7 @@ import {
   Workflow,
   Settings as SettingsIcon,
   Users,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -23,12 +24,13 @@ import { isAdmin } from "../../lib/admin";
 // =========================================================================
 
 const items = [
-  { to: "/messages",  icon: MessageSquare,    key: "nav.messages", end: true },
-  { to: "/inbox",     icon: Activity,         key: "nav.activity", end: true },
-  { to: "/projects",  icon: FolderKanban,     key: "nav.projects", end: false },
-  { to: "/chat",      icon: Gem,              key: "nav.chat",     end: false },
-  { to: "/boards",    icon: Workflow,         key: "nav.boards",   end: false },
+  { to: "/messages",  icon: MessageSquare,    key: "nav.messages",  end: true },
+  { to: "/inbox",     icon: Activity,         key: "nav.activity",  end: true },
+  { to: "/projects",  icon: FolderKanban,     key: "nav.projects",  end: false },
+  { to: "/chat",      icon: Gem,              key: "nav.chat",      end: false },
+  { to: "/boards",    icon: Workflow,         key: "nav.boards",    end: false },
   { to: "/dashboard", icon: LayoutDashboard,  key: "nav.dashboard", end: false },
+  { to: "/hr",        icon: BriefcaseBusiness, key: "nav.hr",       end: false },
 ];
 
 const itemCls = ({ isActive }: { isActive: boolean }) =>

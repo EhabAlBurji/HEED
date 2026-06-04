@@ -28,6 +28,7 @@ import {
   Copy,
   LogIn,
   Gem,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -49,12 +50,13 @@ import { pullAll } from "../../lib/sync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
-  { to: "/messages",  icon: MessageSquare,    key: "nav.messages",  end: true },
-  { to: "/inbox",     icon: Activity,         key: "nav.activity",  end: true },
-  { to: "/projects",  icon: FolderKanban,     key: "nav.projects",  end: false },
-  { to: "/chat",      icon: Gem,              key: "nav.chat",      end: false },
-  { to: "/boards",    icon: Workflow,         key: "nav.boards",    end: false },
-  { to: "/dashboard", icon: LayoutDashboard,  key: "nav.dashboard", end: false },
+  { to: "/messages",  icon: MessageSquare,      key: "nav.messages",  end: true },
+  { to: "/inbox",     icon: Activity,           key: "nav.activity",  end: true },
+  { to: "/projects",  icon: FolderKanban,       key: "nav.projects",  end: false },
+  { to: "/chat",      icon: Gem,                key: "nav.chat",      end: false },
+  { to: "/boards",    icon: Workflow,           key: "nav.boards",    end: false },
+  { to: "/dashboard", icon: LayoutDashboard,    key: "nav.dashboard", end: false },
+  { to: "/hr",        icon: BriefcaseBusiness,  key: "nav.hr",        end: false },
 ];
 
 const workspaceColors = [

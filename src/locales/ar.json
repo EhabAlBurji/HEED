@@ -13,9 +13,10 @@
     "boards": "Boards",
     "inbox": "البريد الوارد",
     "activity": "النشاط",
-    "messages": "الرسائل",
+    "messages": "DMs",
     "chat": "Heed Chat",
-    "admin": "المستخدمون"
+    "admin": "المستخدمون",
+    "hr": "الموارد البشرية"
   },
   "auth": {
     "login": "تسجيل الدخول",

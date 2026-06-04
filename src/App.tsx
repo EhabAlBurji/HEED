@@ -30,6 +30,7 @@ const Messages     = lazy(() => import("./pages/Messages"));
 const Chat         = lazy(() => import("./pages/Chat"));
 const ShareChat    = lazy(() => import("./pages/ShareChat"));
 const LoginPage    = lazy(() => import("./pages/LoginPage"));
+const HR           = lazy(() => import("./pages/HR"));
 
 export default function App() {
   const fontSize  = useUIStore((s) => s.fontSize);
@@ -51,9 +52,15 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    // Set up persistent auth listener before checking session so that OAuth
+    // redirects (where the session becomes ready asynchronously) are caught.
+    const unsubAuth = useAuthStore.getState().initAuthListener();
     void checkSession();
     startMcpBridge();
-    return () => stopMcpBridge();
+    return () => {
+      unsubAuth();
+      stopMcpBridge();
+    };
   }, [checkSession]);
 
   // Web: auto-reload to the latest deployed build when the tab regains focus,
@@ -210,6 +217,7 @@ export default function App() {
             <Route path="/settings"     element={<Settings />} />
             <Route path="/chat"         element={<Chat />} />
             <Route path="/admin"        element={<AdminUsers />} />
+            <Route path="/hr"           element={<HR />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>

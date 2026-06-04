@@ -18,6 +18,7 @@ export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
   const [groqModel, setGroqModel] = useState(s.groqModel);
   const [ollamaUrl, setOllamaUrl] = useState(s.ollamaUrl);
   const [ollamaModel, setOllamaModel] = useState(s.ollamaModel);
+  const [defaultImageModel, setDefaultImageModel] = useState(s.defaultImageModel ?? "flux");
 
   const [localModels, setLocalModels] = useState<string[]>([]);
   const [probing, setProbing] = useState(false);
@@ -35,7 +36,7 @@ export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
   }, [provider, ollamaUrl]);
 
   const save = () => {
-    s.setSettings({ provider, heedModel, groqApiKey: groqApiKey.trim(), groqModel, ollamaUrl: ollamaUrl.trim(), ollamaModel });
+    s.setSettings({ provider, heedModel, groqApiKey: groqApiKey.trim(), groqModel, ollamaUrl: ollamaUrl.trim(), ollamaModel, defaultImageModel });
     onClose();
   };
 
@@ -157,6 +158,12 @@ export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
               />
             </>
           )}
+
+          {/* Image generation — default model */}
+          <div className="border-t border-border/40 pt-4">
+            <Label className="mb-2">نموذج توليد الصور الافتراضي</Label>
+            <ImageModelPicker value={defaultImageModel} onChange={setDefaultImageModel} />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border/40 px-5 py-3">
@@ -198,6 +205,42 @@ function ModelPicker({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+const IMAGE_MODEL_OPTIONS = [
+  { id: "flux",            label: "FLUX — جودة عالية",   hint: "Pollinations · بدون مفتاح" },
+  { id: "flux-realism",    label: "FLUX — واقعي",         hint: "Pollinations · فوتوغرافي" },
+  { id: "flux-anime",      label: "FLUX — أنمي",          hint: "Pollinations · أنمي" },
+  { id: "flux-3d",         label: "FLUX — ثلاثي الأبعاد", hint: "Pollinations · 3D" },
+  { id: "flux-cablyai",    label: "FLUX — فني",           hint: "Pollinations · artistic" },
+  { id: "sana",            label: "Sana — NVIDIA",        hint: "Pollinations · سريع" },
+  { id: "turbo",           label: "Turbo — سريع",         hint: "Pollinations · SDXL Turbo" },
+  { id: "cf:flux-schnell", label: "CF — FLUX Schnell",    hint: "Cloudflare AI" },
+  { id: "hf:sd21",          label: "HF — SD 2.1",          hint: "Stable Diffusion 2.1" },
+  { id: "hf:sd15",          label: "HF — SD 1.5",          hint: "Stable Diffusion 1.5" },
+  { id: "hf:sdxl",          label: "HF — SDXL",            hint: "Stable Diffusion XL" },
+];
+
+function ImageModelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="grid grid-cols-1 gap-1.5">
+      {IMAGE_MODEL_OPTIONS.map((m) => (
+        <button
+          key={m.id}
+          onClick={() => onChange(m.id)}
+          className={cn(
+            "flex items-center justify-between rounded-lg border px-3 py-2 text-start text-sm transition",
+            value === m.id
+              ? "border-violet-500/50 bg-violet-500/10 text-violet-300"
+              : "border-border/40 bg-background/40 text-foreground hover:bg-secondary"
+          )}
+        >
+          <span className="font-medium">{m.label}</span>
+          <span className="font-micro text-[10px] text-muted-foreground">{m.hint}</span>
+        </button>
+      ))}
     </div>
   );
 }

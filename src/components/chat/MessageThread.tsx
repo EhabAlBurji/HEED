@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, RefreshCw, FileText, Sparkles, Pencil, X, ArrowUp } from "lucide-react";
+import { Check, Copy, RefreshCw, FileText, Sparkles, Pencil, X, ArrowUp, Download, ZoomIn } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Markdown } from "./Markdown";
 import type { ChatAssistant, ChatMsg, Conversation } from "../../stores/chatStore";
@@ -178,7 +178,8 @@ function Bubble({
   const isAr = i18n.language === "ar";
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === "user";
-  const streaming = msg.pending && msg.content.length === 0;
+  const imageGenPending = msg.pending && !!msg.imageGen;
+  const streaming = msg.pending && !msg.imageGen && msg.content.length === 0;
 
   const copy = () => {
     void navigator.clipboard?.writeText(msg.content);
@@ -205,7 +206,12 @@ function Bubble({
             msg.error && "rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive"
           )}
         >
-          {streaming ? (
+          {imageGenPending ? (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-violet-400" />
+              <span className="font-micro text-xs">{isAr ? "جاري توليد الصورة…" : "Generating image…"}</span>
+            </span>
+          ) : streaming ? (
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
               <span className="font-micro text-xs">{isAr ? "بيفكر…" : "Thinking…"}</span>
@@ -215,9 +221,14 @@ function Bubble({
           ) : (
             <>
               <Markdown text={msg.content} />
-              {msg.pending && <span className="ms-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle" />}
+              {msg.pending && !msg.imageGen && <span className="ms-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle" />}
             </>
           )}
+
+          {/* AI-generated images */}
+          {(msg.attachments ?? []).filter((a) => a.kind === "image" && a.url).map((a) => (
+            <GeneratedImage key={a.id} url={a.url!} name={a.name} />
+          ))}
         </div>
 
         {/* row actions (copy / regenerate) — hidden until hover, only when settled */}
@@ -244,6 +255,83 @@ function Bubble({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Generated image with lightbox ──────────────────────────────────────────
+
+function GeneratedImage({ url, name }: { url: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="group relative mt-2 w-fit">
+        <img
+          src={url}
+          alt={name}
+          className="max-w-sm w-full cursor-zoom-in rounded-xl border border-border/20 object-cover transition hover:brightness-90"
+          onClick={() => setOpen(true)}
+        />
+        <button
+          onClick={() => setOpen(true)}
+          className="absolute bottom-2 end-2 grid h-7 w-7 place-items-center rounded-lg bg-black/50 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/70"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {open && <ImageLightbox url={url} name={name} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ImageLightbox({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  const download = () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.slice(0, 60).replace(/[^a-z0-9؀-ۿ ]/gi, "_")}.png`;
+    a.target = "_blank";
+    a.click();
+  };
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Toolbar */}
+      <div
+        className="mb-3 flex items-center gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={download}
+          className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20"
+        >
+          <Download className="h-4 w-4" />
+          تحميل
+        </button>
+        <button
+          onClick={onClose}
+          className="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Image */}
+      <img
+        src={url}
+        alt={name}
+        className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
     </div>
   );
 }

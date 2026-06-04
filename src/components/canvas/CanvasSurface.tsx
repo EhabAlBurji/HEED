@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Boxes, Hand, Maximize, Minus, MousePointer2, Plus } from "lucide-react";
+import { Boxes, Copy, Hand, Maximize, Minus, MousePointer2, Plus, Trash2 } from "lucide-react";
 import {
   useCanvasStore,
   type CanvasNode,
@@ -20,7 +20,7 @@ import { clampZoom, screenToWorld, type Point } from "../../lib/canvasMath";
 import { fileToStorableDataUrl } from "../../lib/imageCompress";
 import { cn } from "../../lib/utils";
 import { CanvasEdges } from "./CanvasEdges";
-import { CanvasNodeView } from "./CanvasNodeView";
+import { CanvasNodeView, NODE_COLORS } from "./CanvasNodeView";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasLightbox, type LightboxContent } from "./CanvasLightbox";
 
@@ -97,6 +97,9 @@ export function CanvasSurface({
   const [tool, setTool] = useState<"hand" | "select">("hand");
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; world: Point } | null>(null);
+  const [clipboard, setClipboard] = useState<CanvasNode[]>([]);
+  const [batchDragId, setBatchDragId] = useState<string | null>(null);
+  const [batchDragOff, setBatchDragOff] = useState<{ dx: number; dy: number } | null>(null);
 
   const selectOne = (id: string) => setSelectedIds(new Set([id]));
   const clearSelection = () => setSelectedIds(new Set());
@@ -167,6 +170,16 @@ export function CanvasSurface({
         if (typing) return;
         e.preventDefault();
         groupSelection();
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "c" || e.key === "C")) {
+        if (typing) return;
+        e.preventDefault();
+        copySelection();
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "v" || e.key === "V")) {
+        if (typing) return;
+        e.preventDefault();
+        pasteSelection();
       }
       // Zoom shortcuts: Cmd/Ctrl + (+/=) zoom in, Cmd/Ctrl + (-/_) zoom out,
       // Cmd/Ctrl + 0 reset. Plain +/- also work for convenience.
@@ -261,6 +274,62 @@ export function CanvasSurface({
     } catch {
       /* ignore */
     }
+  };
+
+  // ── Multi-select batch operations ─────────────────────────────────────────
+  const deleteSelection = () => {
+    if (!selectedIds.size) return;
+    selectedIds.forEach((id) => removeNode(id));
+    clearSelection();
+  };
+
+  const copySelection = () => {
+    const sel = nodes.filter((n) => selectedIds.has(n.id));
+    if (sel.length) setClipboard(sel);
+  };
+
+  const pasteSelection = () => {
+    if (!clipboard.length) return;
+    checkpoint();
+    const newIds = new Set<string>();
+    clipboard.forEach((n) => {
+      const pasted = addNode({
+        project_id: n.project_id,
+        space_id: spaceId,
+        type: n.type,
+        x: n.x + 50,
+        y: n.y + 50,
+        width: n.width,
+        height: n.height,
+        data: { ...n.data },
+      });
+      newIds.add(pasted.id);
+    });
+    setSelectedIds(newIds);
+  };
+
+  const applyColorToSelection = (color: string) => {
+    checkpoint();
+    const colorable = ["sticky", "shape", "frame", "voice"];
+    selectedIds.forEach((id) => {
+      const n = nodes.find((n) => n.id === id);
+      if (n && colorable.includes(n.type)) updateNode(id, { data: { ...n.data, color } });
+    });
+  };
+
+  const handleBatchDragDelta = (nodeId: string, dx: number, dy: number) => {
+    setBatchDragId(nodeId);
+    setBatchDragOff({ dx, dy });
+  };
+
+  const handleBatchDragCommit = (nodeId: string, dx: number, dy: number) => {
+    selectedIds.forEach((id) => {
+      if (id === nodeId) return; // already committed by CanvasNodeView
+      const n = nodes.find((n) => n.id === id);
+      if (n) updateNode(id, { x: n.x + dx, y: n.y + dy });
+    });
+    setBatchDragId(null);
+    setBatchDragOff(null);
   };
 
   // Group the current multi-selection: draw a colored frame behind them.
@@ -421,31 +490,39 @@ export function CanvasSurface({
             style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }}
           />
         )}
-        {nodes.map((n) => (
-          <CanvasNodeView
-            key={n.id}
-            node={n}
-            zoom={vp.zoom}
-            selected={selectedIds.has(n.id)}
-            connecting={Boolean(connectFrom) && connectFrom !== n.id}
-            onSelect={(id) => {
-              selectOne(id);
-              setSelectedEdgeId(null);
-            }}
-            onStartConnect={(id, e) => {
-              setConnectFrom(id);
-              setConnectPt(toWorld(e.clientX, e.clientY));
-              try {
-                containerRef.current?.setPointerCapture(e.pointerId);
-              } catch {
-                /* ignore */
-              }
-            }}
-            onOpenTask={onOpenTask}
-            onCheckpoint={checkpoint}
-            onExpand={setLightbox}
-          />
-        ))}
+        {nodes.map((n) => {
+          const isSelected = selectedIds.has(n.id);
+          const isBatchNonDrag = isSelected && batchDragOff && n.id !== batchDragId;
+          return (
+            <CanvasNodeView
+              key={n.id}
+              node={n}
+              zoom={vp.zoom}
+              selected={isSelected}
+              selectedCount={selectedIds.size}
+              connecting={Boolean(connectFrom) && connectFrom !== n.id}
+              batchDragOff={isBatchNonDrag ? batchDragOff : null}
+              onSelect={(id) => {
+                selectOne(id);
+                setSelectedEdgeId(null);
+              }}
+              onStartConnect={(id, e) => {
+                setConnectFrom(id);
+                setConnectPt(toWorld(e.clientX, e.clientY));
+                try {
+                  containerRef.current?.setPointerCapture(e.pointerId);
+                } catch {
+                  /* ignore */
+                }
+              }}
+              onOpenTask={onOpenTask}
+              onCheckpoint={checkpoint}
+              onExpand={setLightbox}
+              onDragDelta={handleBatchDragDelta}
+              onDragCommit={handleBatchDragCommit}
+            />
+          );
+        })}
       </div>
 
       {nodes.length === 0 && (
@@ -485,17 +562,44 @@ export function CanvasSurface({
         >
           <MousePointer2 className="h-4 w-4" />
         </button>
-        {selectedIds.size >= 2 && (
+        {selectedIds.size >= 1 && (
           <>
             <div className="mx-0.5 h-5 w-px bg-border/60" />
             <button
-              onClick={groupSelection}
-              title={t("canvas.group")}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2 text-primary transition hover:bg-primary/20"
+              onClick={deleteSelection}
+              title={isAr ? "حذف المحدد" : "Delete selected"}
+              className="grid h-7 w-7 place-items-center rounded-md text-destructive transition hover:bg-destructive/10"
             >
-              <Boxes className="h-4 w-4" />
-              <span className="font-micro text-[11px]">{selectedIds.size}</span>
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
+            <button
+              onClick={copySelection}
+              title={isAr ? "نسخ (⌘C)" : "Copy (⌘C)"}
+              className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            {selectedIds.size >= 2 && (
+              <>
+                {NODE_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => applyColorToSelection(c)}
+                    title={isAr ? "تطبيق اللون" : "Apply color"}
+                    className="h-4 w-4 rounded-full border border-white/20 transition hover:scale-110"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <button
+                  onClick={groupSelection}
+                  title={t("canvas.group")}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary/10 px-2 text-primary transition hover:bg-primary/20"
+                >
+                  <Boxes className="h-4 w-4" />
+                  <span className="font-micro text-[11px]">{selectedIds.size}</span>
+                </button>
+              </>
+            )}
           </>
         )}
       </div>

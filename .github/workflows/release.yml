@@ -82,17 +82,38 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # macOS signing: if the Apple Developer secrets exist → real notarized
+      # signing; otherwise fall back to ad-hoc ("-"). We inject the vars via
+      # $GITHUB_ENV from this conditional step so an EMPTY APPLE_CERTIFICATE is
+      # never passed (an empty cert makes tauri's bundler run `security import`
+      # with invalid params and the whole macOS build fails).
+      - name: Configure macOS signing
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]; then
+            echo "::notice::Apple Developer cert found → notarized signing"
+            {
+              echo "APPLE_CERTIFICATE=${{ secrets.APPLE_CERTIFICATE }}"
+              echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}"
+              echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}"
+              echo "APPLE_ID=${{ secrets.APPLE_ID }}"
+              echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"
+              echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::notice::No Apple cert → ad-hoc signing"
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          fi
+
       - name: Build + Release (tauri-action)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS: ad-hoc sign ("-"). We intentionally do NOT pass APPLE_CERTIFICATE
-          # here — an empty/unset cert makes tauri's bundler call `security import`
-          # with invalid params and the build fails. Ad-hoc signing needs no Apple
-          # Developer account; the in-app updater is verified by the minisign key.
-          APPLE_SIGNING_IDENTITY: "-"
+          # APPLE_* signing/notarization vars are injected by the
+          # "Configure macOS signing" step above (real cert → notarize; else ad-hoc).
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Heed ${{ github.ref_name }}"

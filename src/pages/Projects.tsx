@@ -43,7 +43,7 @@ function fmtMins(mins: number) {
 }
 
 
-// ── Edit project modal ────────────────────────────────────────────────────────
+// ── Edit / Settings project modal ────────────────────────────────────────────
 export function EditProjectModal({
   project,
   onClose,
@@ -53,17 +53,25 @@ export function EditProjectModal({
 }) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const updateProject = useTasksStore((s) => s.updateProject);
-  const deleteProject = useTasksStore((s) => s.deleteProject);
-  const navigate      = useNavigate();
+  const updateProject      = useTasksStore((s) => s.updateProject);
+  const deleteProject      = useTasksStore((s) => s.deleteProject);
+  const shareProjectTo     = useTasksStore((s) => s.shareProjectTo);
+  const unshareProjectFrom = useTasksStore((s) => s.unshareProjectFrom);
+  const workspaces         = useWorkspaceStore((s) => s.workspaces);
+  const navigate           = useNavigate();
 
-  const [name,    setName]    = useState(project.name);
-  const [color,   setColor]   = useState(project.color);
-  const [type,    setType]    = useState(project.type);
-  const [iconUrl, setIconUrl] = useState<string | null>(project.iconUrl ?? null);
-  const [confirm, setConfirm] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const fileRef               = useRef<HTMLInputElement>(null);
+  const [tab,         setTab]         = useState<"general" | "sharing">("general");
+  const [name,        setName]        = useState(project.name);
+  const [description, setDescription] = useState(project.description ?? "");
+  const [color,       setColor]       = useState(project.color);
+  const [type,        setType]        = useState(project.type);
+  const [iconUrl,     setIconUrl]     = useState<string | null>(project.iconUrl ?? null);
+  const [confirm,     setConfirm]     = useState(false);
+  const [pickerOpen,  setPickerOpen]  = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const otherWorkspaces = workspaces.filter((w) => w.id !== project.workspace_id);
+  const sharedIds = project.shared_workspace_ids ?? [];
 
   const typeLabel = (tp: "general" | "video" | "design") => {
     if (tp === "video")  return isAr ? "فيديو"  : t("projects.video");
@@ -83,6 +91,7 @@ export function EditProjectModal({
     if (!name.trim()) return;
     updateProject(project.id, {
       name: name.trim(),
+      description: description.trim() || undefined,
       color,
       type,
       icon: Array.from(name.trim())[0].toUpperCase(),
@@ -108,175 +117,221 @@ export function EditProjectModal({
         title={isAr ? "اختر أيقونة المشروع" : "Choose project icon"}
       />
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm mx-4 rounded-3xl border border-border/60 bg-card shadow-2xl p-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Clickable icon — opens avatar picker */}
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="relative group/icon"
-              title={isAr ? "اختر أيقونة" : "Choose icon"}
-            >
-              {isAvatarValue(iconUrl) ? (
-                <Avatar value={iconUrl} size="md" shape="square" />
-              ) : (
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl font-display text-lg font-bold text-white"
-                  style={{ backgroundColor: iconUrl ? undefined : color }}
-                >
-                  {iconUrl ? (
-                    <img src={iconUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    Array.from(name.trim() || project.name)[0]?.toUpperCase() ?? "?"
-                  )}
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition group-hover/icon:opacity-100">
-                <Camera className="h-3.5 w-3.5 text-white" />
-              </div>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <div className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-border/60 bg-card shadow-2xl overflow-hidden">
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
-            <div>
-              <h2 className="font-display text-base font-semibold">
-                {isAr ? "إعدادات المشروع" : "Project Settings"}
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <button
-                  onClick={() => setPickerOpen(true)}
-                  className="font-micro text-[10px] text-primary/80 hover:text-primary transition-colors"
-                >
-                  {isAr ? "تغيير الأيقونة" : "Change icon"}
-                </button>
-                <span className="text-[10px] text-muted-foreground/40">·</span>
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="font-micro text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {isAr ? "رفع صورة" : "Upload"}
-                </button>
-                {iconUrl && (
-                  <>
-                    <span className="text-[10px] text-muted-foreground/40">·</span>
-                    <button
-                      onClick={() => setIconUrl(null)}
-                      className="font-micro text-[10px] text-destructive/60 hover:text-destructive transition-colors"
-                    >
-                      {isAr ? "إزالة" : "Remove"}
-                    </button>
-                  </>
-                )}
+        {/* Modal header */}
+        <div className="flex items-center gap-3 border-b border-border/30 px-5 py-4">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="relative group/icon shrink-0"
+          >
+            {isAvatarValue(iconUrl) ? (
+              <Avatar value={iconUrl} size="md" shape="square" />
+            ) : (
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl font-display text-base font-bold text-white"
+                style={{ backgroundColor: iconUrl ? undefined : color }}
+              >
+                {iconUrl ? <img src={iconUrl} alt="" className="h-full w-full object-cover" /> : Array.from(name.trim() || project.name)[0]?.toUpperCase() ?? "?"}
               </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 opacity-0 transition group-hover/icon:opacity-100">
+              <Camera className="h-3 w-3 text-white" />
             </div>
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-display text-base font-semibold truncate">{project.name}</p>
+            <p className="font-micro text-[10px] text-muted-foreground/60">{isAr ? "إعدادات المشروع" : "Project Settings"}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground/60 hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Name */}
-        <div>
-          <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
-            {isAr ? "الاسم" : t("projects.name")}
-          </label>
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="w-full rounded-xl border border-border/40 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-          />
+        {/* Tabs */}
+        <div className="flex border-b border-border/30 px-5">
+          {(["general", "sharing"] as const).map((t_) => (
+            <button
+              key={t_}
+              onClick={() => setTab(t_)}
+              className={cn(
+                "border-b-2 pb-2.5 pt-3 font-micro text-xs transition",
+                tab === t_
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+                t_ === "sharing" && "ms-4"
+              )}
+            >
+              {t_ === "general" ? (isAr ? "عام" : "General") : (isAr ? "المشاركة" : "Sharing")}
+            </button>
+          ))}
         </div>
 
-        {/* Color */}
-        <div>
-          <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
-            {isAr ? "اللون" : t("projects.color")}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {PROJECT_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={cn(
-                  "h-6 w-6 rounded-full transition-all",
-                  color === c && "ring-2 ring-white/60 ring-offset-1 ring-offset-background scale-110"
-                )}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
+        <div className="max-h-[60vh] overflow-y-auto p-5 space-y-4 scrollbar-none">
+          {/* ── General tab ── */}
+          {tab === "general" && (
+            <>
+              {/* Name */}
+              <div>
+                <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
+                  {isAr ? "الاسم" : t("projects.name")}
+                </label>
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                  className="w-full rounded-xl border border-border/40 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
+                  {isAr ? "الوصف" : "Description"}
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder={isAr ? "وصف مختصر للمشروع…" : "Short project description…"}
+                  className="w-full resize-none rounded-xl border border-border/40 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary/50 placeholder:text-muted-foreground/40"
+                />
+              </div>
+
+              {/* Icon */}
+              <div>
+                <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
+                  {isAr ? "الأيقونة" : "Icon"}
+                </label>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPickerOpen(true)} className="rounded-lg border border-border/40 px-3 py-1.5 font-micro text-xs text-primary hover:bg-secondary transition">
+                    {isAr ? "تغيير" : "Change"}
+                  </button>
+                  <button onClick={() => fileRef.current?.click()} className="rounded-lg border border-border/40 px-3 py-1.5 font-micro text-xs text-muted-foreground hover:bg-secondary transition">
+                    {isAr ? "رفع صورة" : "Upload image"}
+                  </button>
+                  {iconUrl && (
+                    <button onClick={() => setIconUrl(null)} className="rounded-lg border border-destructive/20 px-3 py-1.5 font-micro text-xs text-destructive/70 hover:border-destructive/40 hover:text-destructive transition">
+                      {isAr ? "إزالة" : "Remove"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
+                  {isAr ? "اللون" : t("projects.color")}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {PROJECT_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={cn("h-6 w-6 rounded-full transition-all", color === c && "ring-2 ring-white/60 ring-offset-1 ring-offset-background scale-110")}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Type */}
+              <div>
+                <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
+                  {isAr ? "النوع" : t("projects.type")}
+                </label>
+                <div className="flex gap-2">
+                  {(["general", "video", "design"] as const).map((tp) => (
+                    <button
+                      key={tp}
+                      onClick={() => setType(tp)}
+                      className={cn("flex-1 rounded-full border py-1.5 font-micro text-xs transition", type === tp ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/30")}
+                    >
+                      {typeLabel(tp)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Sharing tab ── */}
+          {tab === "sharing" && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary/70" />
+                <p className="text-sm font-medium">{isAr ? "مشاركة ومزامنة المشروع" : "Share & Sync project"}</p>
+              </div>
+              <p className="font-micro text-[11px] text-muted-foreground/60 leading-relaxed">
+                {isAr
+                  ? "المشروع يفضل في مكانه ويظهر في المساحة التانية — أي تعديل يتزامن تلقائياً."
+                  : "Project stays here and appears in the other workspace — edits sync automatically."}
+              </p>
+              {otherWorkspaces.length === 0 ? (
+                <p className="rounded-xl border border-border/30 p-4 text-center text-sm text-muted-foreground/50">
+                  {isAr ? "مفيش مساحات عمل أخرى" : "No other workspaces"}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {otherWorkspaces.map((ws) => {
+                    const isShared = sharedIds.includes(ws.id);
+                    return (
+                      <button
+                        key={ws.id}
+                        onClick={() => isShared ? unshareProjectFrom(project.id, ws.id) : shareProjectTo(project.id, ws.id)}
+                        className={cn("flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-start transition", isShared ? "border-primary/30 bg-primary/5" : "border-border/40 hover:bg-secondary")}
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white" style={{ backgroundColor: ws.color }}>
+                          {ws.type === "team" ? <Users className="h-3.5 w-3.5" /> : ws.name[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium">{ws.name}</p>
+                          <p className="font-micro text-[10px] text-muted-foreground/50">{ws.type === "team" ? (isAr ? "فريق" : "Team") : (isAr ? "شخصي" : "Personal")}</p>
+                        </div>
+                        {isShared ? (
+                          <div className="flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5">
+                            <Check className="h-3 w-3 text-primary" />
+                            <span className="font-micro text-[10px] text-primary">{isAr ? "مشترك" : "Shared"}</span>
+                          </div>
+                        ) : (
+                          <span className="font-micro text-[10px] text-muted-foreground/40">{isAr ? "اضغط للمشاركة" : "Tap to share"}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Type */}
-        <div>
-          <label className="mb-1.5 block font-micro text-xs text-muted-foreground">
-            {isAr ? "النوع" : t("projects.type")}
-          </label>
-          <div className="flex gap-2">
-            {(["general", "video", "design"] as const).map((tp) => (
-              <button
-                key={tp}
-                onClick={() => setType(tp)}
-                className={cn(
-                  "flex-1 rounded-full border py-1.5 font-micro text-xs transition",
-                  type === tp
-                    ? "border-primary/50 bg-primary/15 text-primary"
-                    : "border-border/60 text-muted-foreground hover:border-primary/30"
-                )}
-              >
-                {typeLabel(tp)}
+        {/* Footer actions */}
+        <div className="border-t border-border/30 px-5 py-4 space-y-3">
+          {tab === "general" && (
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={!name.trim()} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition disabled:opacity-40">
+                {isAr ? "حفظ" : t("common.save")}
               </button>
-            ))}
-          </div>
-        </div>
+              <button onClick={onClose} className="rounded-xl bg-secondary px-4 py-2.5 text-sm text-secondary-foreground hover:bg-secondary/80 transition">
+                {isAr ? "إلغاء" : t("common.cancel")}
+              </button>
+            </div>
+          )}
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={handleSave}
-            disabled={!name.trim()}
-            className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition disabled:opacity-40"
-          >
-            {isAr ? "حفظ" : t("common.save")}
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded-xl bg-secondary px-4 py-2.5 text-sm text-secondary-foreground hover:bg-secondary/80 transition"
-          >
-            {isAr ? "إلغاء" : t("common.cancel")}
-          </button>
-        </div>
-
-        {/* Delete zone */}
-        <div className="border-t border-border/30 pt-3">
+          {/* Danger zone */}
           {confirm ? (
             <div className="space-y-2">
-              <p className="text-xs text-destructive/80">
-                {isAr ? "هيتحذف المشروع وكل مهامه — متوقفش؟" : "Delete project and all its tasks? Can't undo!"}
-              </p>
+              <p className="text-xs text-destructive/80">{isAr ? "هيتحذف المشروع وكل مهامه — متوقفش؟" : "Delete project and all its tasks? Can't undo!"}</p>
               <div className="flex gap-2">
-                <button
-                  onClick={handleDelete}
-                  className="flex-1 rounded-xl bg-destructive/15 py-2 text-xs text-destructive hover:bg-destructive/25 transition"
-                >
-                  {isAr ? "نعم، احذف" : "Yes, delete"}
-                </button>
-                <button
-                  onClick={() => setConfirm(false)}
-                  className="rounded-xl bg-secondary/60 px-3 py-2 text-xs text-muted-foreground hover:bg-secondary"
-                >
-                  {isAr ? "لا" : "No"}
-                </button>
+                <button onClick={handleDelete} className="flex-1 rounded-xl bg-destructive/15 py-2 text-xs text-destructive hover:bg-destructive/25 transition">{isAr ? "نعم، احذف" : "Yes, delete"}</button>
+                <button onClick={() => setConfirm(false)} className="rounded-xl bg-secondary/60 px-3 py-2 text-xs text-muted-foreground hover:bg-secondary">{isAr ? "لا" : "No"}</button>
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setConfirm(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 py-2 text-xs text-destructive/70 hover:border-destructive/40 hover:text-destructive transition"
-            >
+            <button onClick={() => setConfirm(true)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 py-2 text-xs text-destructive/70 hover:border-destructive/40 hover:text-destructive transition">
               <Trash2 className="h-3.5 w-3.5" />
               {isAr ? "حذف المشروع" : "Delete project"}
             </button>

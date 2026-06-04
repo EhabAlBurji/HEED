@@ -51,6 +51,8 @@ export interface ChatMsg {
   pending?: boolean;
   /** True if this message is an error notice rather than a real reply. */
   error?: boolean;
+  /** True for AI-generated image messages (distinct from chat streaming). */
+  imageGen?: boolean;
 }
 
 export interface Conversation {
@@ -107,6 +109,8 @@ type ChatSettings = {
   groqModel: string;
   ollamaUrl: string;
   ollamaModel: string;
+  /** Default image generation model shown in Composer when image mode is active. */
+  defaultImageModel: string;
 };
 
 type ChatState = ChatSettings & {
@@ -140,6 +144,7 @@ export const useChatStore = create<ChatState>()(
       groqModel: PROVIDERS.groq.defaultModel,
       ollamaUrl: DEFAULT_OLLAMA_URL,
       ollamaModel: PROVIDERS.ollama.defaultModel,
+      defaultImageModel: "cf:flux-schnell",
       setSettings: (patch) => set(patch),
 
       // ── assistants ────────────────────────────────────────────────────

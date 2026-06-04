@@ -1,5 +1,5 @@
 import i18n from "./i18n";
-import { imagePromptUrl } from "./imageGen";
+import { imagePromptUrl, generateImageViaProxy, type ImageModel } from "./imageGen";
 import { useChatStore, uidChat, type ChatMsg, type ChatAttachment } from "../stores/chatStore";
 import {
   streamChat,
@@ -20,15 +20,24 @@ function toApiMessage(m: ChatMsg): ChatMessage {
     .join("");
   const text = m.content + fileText;
 
+  // Assistant image-generation replies have empty text + an image attachment.
+  // APIs reject empty-string content, so send a short placeholder instead.
+  if (m.role === "assistant" && !text.trim() && images.length > 0) {
+    return { role: m.role, content: "[generated image]" };
+  }
+
   if (images.length === 0) return { role: m.role, content: text };
 
+  // User messages with attached images → multimodal content parts (vision).
   const parts: ContentPart[] = [];
   if (text.trim()) parts.push({ type: "text", text });
   for (const img of images) parts.push({ type: "image_url", image_url: { url: img.url! } });
   return { role: m.role, content: parts };
 }
 
-const hasImage = (m: ChatMsg) => (m.attachments ?? []).some((a) => a.kind === "image");
+// Only user-attached images trigger vision model — not AI-generated ones.
+const hasImage = (m: ChatMsg) =>
+  m.role === "user" && (m.attachments ?? []).some((a) => a.kind === "image");
 
 // =========================================================================
 // HEED CHAT — send / stop orchestration
@@ -193,8 +202,10 @@ export async function sendChat(
   }
 }
 
-/** Generate an image from a prompt (free, keyless) and add it as an assistant reply. */
-export function generateImage(convId: string, prompt: string): void {
+/** Generate an image from a prompt and add it as an assistant reply.
+ *  model can be a Pollinations model id ("flux", "turbo"…),
+ *  or a prefixed id for other providers ("cf:flux-schnell", "hf:sdxl"…). */
+export async function generateImage(convId: string, prompt: string, model: string = "flux"): Promise<void> {
   const body = prompt.trim();
   if (!body) return;
   const store = useChatStore.getState();
@@ -205,13 +216,56 @@ export function generateImage(convId: string, prompt: string): void {
   store.addMessage(convId, { id: uidChat(), role: "user", content: body, createdAt: Date.now() });
   if (isFirst) store.renameConversation(convId, stripEmoji(body).slice(0, 40));
 
-  store.addMessage(convId, {
-    id: uidChat(),
-    role: "assistant",
-    content: "",
-    attachments: [{ id: uidChat(), kind: "image", name: body, mime: "image/png", url: imagePromptUrl(body) }],
-    createdAt: Date.now(),
-  });
+  const isCF = model.startsWith("cf:");
+  const isHF = model.startsWith("hf:");
+
+  const replyId = uidChat();
+
+  if (!isCF && !isHF) {
+    // Pollinations — URL is ready immediately, but the image takes time to render.
+    // Show a pending bubble until the browser finishes loading the image.
+    const imageUrl = imagePromptUrl(body, undefined, model as ImageModel);
+    const attId = uidChat();
+    store.addMessage(convId, {
+      id: replyId,
+      role: "assistant",
+      content: "",
+      imageGen: true,
+      pending: true,
+      attachments: [{ id: attId, kind: "image", name: body, mime: "image/png", url: imageUrl }],
+      createdAt: Date.now(),
+    });
+    // Pre-load: clear pending once the browser has the image (or fails).
+    const img = new Image();
+    img.onload  = () => useChatStore.getState().updateMessage(convId, replyId, { pending: false });
+    img.onerror = () => useChatStore.getState().updateMessage(convId, replyId, {
+      pending: false,
+      error: true,
+      content: i18n.language === "en"
+        ? "⚠️ Image failed to load — Pollinations may be busy. Try again."
+        : "⚠️ تعذّر تحميل الصورة — Pollinations مشغولة. جرّب تاني.",
+      attachments: undefined,
+    });
+    img.src = imageUrl;
+    return;
+  }
+
+  // CF / HF — async fetch; show a pending bubble while it loads.
+  store.addMessage(convId, { id: replyId, role: "assistant", content: "", imageGen: true, pending: true, createdAt: Date.now() });
+
+  try {
+    const dataUrl = await generateImageViaProxy(body, model);
+    store.updateMessage(convId, replyId, {
+      pending: false,
+      attachments: [{ id: uidChat(), kind: "image", name: body, mime: "image/png", url: dataUrl }],
+    });
+  } catch (e) {
+    store.updateMessage(convId, replyId, {
+      content: `⚠️ ${(e as Error).message || "تعذّر توليد الصورة"}`,
+      pending: false,
+      error: true,
+    });
+  }
 }
 
 /**
