@@ -348,10 +348,11 @@ export async function searchProfiles(query: string): Promise<DmPartner[]> {
   }
 }
 
-// Realtime subscription — fires on any DM INSERT involving me.
+// Realtime subscription — fires on any DM INSERT/UPDATE involving me.
 let dmChannel: RealtimeChannel | null = null;
 let dmReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let dmOnMessage: ((msg: DmMessage) => void) | null = null;
+let dmOnUpdate: ((msg: DmMessage) => void) | null = null;
 
 function connectDmChannel() {
   if (!canSync() || !dmOnMessage) return;
@@ -368,6 +369,17 @@ function connectDmChannel() {
       { event: "INSERT", schema: "public", table: "dm_messages", filter: `receiver_id=eq.${me.id}` },
       (p: { new: Record<string, unknown> }) => dmOnMessage!(rowToMsg(p.new))
     )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "dm_messages" },
+      (p: { new: Record<string, unknown> }) => {
+        const msg = rowToMsg(p.new);
+        // Only process if I'm involved in this conversation
+        if (msg.senderId === me.id || msg.receiverId === me.id) {
+          (dmOnUpdate ?? dmOnMessage!)(msg);
+        }
+      }
+    )
     .subscribe((status: string) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         // Exponential-backoff reconnect: 3s → 10s → 30s
@@ -381,15 +393,20 @@ function connectDmChannel() {
     });
 }
 
-export function subscribeDms(onMessage: (msg: DmMessage) => void): () => void {
+export function subscribeDms(
+  onMessage: (msg: DmMessage) => void,
+  onUpdate?: (msg: DmMessage) => void
+): () => void {
   if (!canSync()) return () => {};
   dmOnMessage = onMessage;
+  dmOnUpdate = onUpdate ?? null;
   connectDmChannel();
   return stopDmSubscription;
 }
 
 export function stopDmSubscription(): void {
   dmOnMessage = null;
+  dmOnUpdate = null;
   if (dmReconnectTimer) { clearTimeout(dmReconnectTimer); dmReconnectTimer = null; }
   if (dmChannel) {
     try { getSupabase().removeChannel(dmChannel); } catch { /* ignore */ }

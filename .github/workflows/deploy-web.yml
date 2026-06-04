@@ -3,6 +3,11 @@ name: Deploy Web (heedapp.co)
 # Builds the landing page + web app and publishes them to the gh-pages branch
 # (which heedapp.co serves) on every push to main. Fully automatic — no manual
 # deploy step needed.
+#
+# Layout on gh-pages:
+#   /            → landing/index.html, landing/auth.html, favicon.svg, heed-logo-full.png
+#   /app/        → Vite web-app build (base=/app/)
+#   /CNAME       → heedapp.co
 
 on:
   push:
@@ -25,19 +30,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      # Skip lifecycle/postinstall scripts so Tauri CLI doesn't try to download
+      # or compile native binaries (only a JS/Vite build is needed here).
+      - name: Install dependencies (no native scripts)
+        run: npm ci --ignore-scripts
 
+      # Build only the Vite web app — no Tauri/Rust involved.
+      # CI=false  → warnings are not treated as errors by CRA-style tooling.
+      # NODE_ENV  → ensures production optimisations in plugins.
+      # TAURI_SIGNING_PRIVATE_KEY → silences any Tauri env-checks that might
+      #   be imported transitively; a placeholder is fine for a web-only build.
       - name: Build web app (served at heedapp.co/app/)
+        env:
+          CI: "false"
+          NODE_ENV: production
+          TAURI_SIGNING_PRIVATE_KEY: placeholder
         run: npx vite build --base=/app/ --outDir dist-web
 
       - name: Assemble site (landing at root + app under /app/)
         run: |
           mkdir -p site/app
-          cp landing/index.html landing/auth.html landing/favicon.svg landing/heed-logo-full.png site/
-          cp -R dist-web/* site/app/
-          # Keep the custom domain on every publish.
+          # Landing pages go at the root of the site.
+          cp landing/index.html \
+             landing/auth.html \
+             landing/favicon.svg \
+             landing/heed-logo-full.png \
+             site/
+          # Web app goes under /app/.
+          cp -R dist-web/. site/app/
+          # Preserve the custom domain on every publish.
           echo 'heedapp.co' > site/CNAME
 
       - name: Publish to gh-pages

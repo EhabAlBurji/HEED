@@ -174,47 +174,61 @@ export default function Messages() {
 
   // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const unsub = subscribeDms((msg) => {
-      // The DM channel only fires for messages where we are the receiver.
-      // Guard against our own messages in case the filter is ever widened.
-      if (msg.senderId === me?.id) return;
-      const partner = msg.senderId;
+    const unsub = subscribeDms(
+      (msg) => {
+        // The DM channel only fires for messages where we are the receiver.
+        // Guard against our own messages in case the filter is ever widened.
+        if (msg.senderId === me?.id) return;
+        const partner = msg.senderId;
 
-      // If we don't know this sender yet, fetch their profile and add them to the list.
-      setPartners((prev) => {
-        if (!prev.some((p) => p.id === partner)) {
-          void fetchPartnerProfile(partner).then((profile) => {
-            if (profile) {
-              setPartners((cur) =>
-                cur.some((p) => p.id === profile.id) ? cur : [profile, ...cur]
-              );
-            }
+        // If we don't know this sender yet, fetch their profile and add them to the list.
+        setPartners((prev) => {
+          if (!prev.some((p) => p.id === partner)) {
+            void fetchPartnerProfile(partner).then((profile) => {
+              if (profile) {
+                setPartners((cur) =>
+                  cur.some((p) => p.id === profile.id) ? cur : [profile, ...cur]
+                );
+              }
+            });
+          }
+          return prev;
+        });
+
+        setLastMsgs((prev) => ({ ...prev, [partner]: msg }));
+        setThreads((prev) => {
+          const existing = prev[partner] ?? [];
+          if (existing.some((m) => m.id === msg.id)) return prev;
+          return { ...prev, [partner]: [...existing, msg] };
+        });
+        if (partner !== activeId) {
+          setUnread((prev) => ({ ...prev, [partner]: (prev[partner] ?? 0) + 1 }));
+        } else {
+          void markThreadRead(partner);
+        }
+
+        // Browser push notification when tab is in background
+        if (canNotify()) {
+          setPartners((cur) => {
+            const partnerName = cur.find((p) => p.id === partner)?.name ?? "Someone";
+            showNotification(partnerName, msg.content || "📎 Attachment", { tag: partner });
+            return cur;
           });
         }
-        return prev;
-      });
-
-      setLastMsgs((prev) => ({ ...prev, [partner]: msg }));
-      setThreads((prev) => {
-        const existing = prev[partner] ?? [];
-        if (existing.some((m) => m.id === msg.id)) return prev;
-        return { ...prev, [partner]: [...existing, msg] };
-      });
-      if (partner !== activeId) {
-        setUnread((prev) => ({ ...prev, [partner]: (prev[partner] ?? 0) + 1 }));
-      } else {
-        void markThreadRead(partner);
-      }
-
-      // Browser push notification when tab is in background
-      if (canNotify()) {
-        setPartners((cur) => {
-          const partnerName = cur.find((p) => p.id === partner)?.name ?? "Someone";
-          showNotification(partnerName, msg.content || "📎 Attachment", { tag: partner });
-          return cur;
+      },
+      (updated) => {
+        // UPDATE: patch the message in threads (reactions changed)
+        setThreads((prev) => {
+          const partner = updated.senderId === me?.id ? updated.receiverId : updated.senderId;
+          const thread = prev[partner];
+          if (!thread) return prev;
+          return {
+            ...prev,
+            [partner]: thread.map((m) => m.id === updated.id ? { ...m, reactions: updated.reactions } : m),
+          };
         });
       }
-    });
+    );
     return unsub;
   }, [me?.id, activeId]);
 
