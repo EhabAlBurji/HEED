@@ -207,7 +207,8 @@ export function RequestFormDrawer({
           {step === "fill" && (
             <div className="p-5 space-y-5">
               {/* Employee selector — HR admin creating for someone */}
-              {isHrAdmin && !editRequest && (
+              {/* Show employee selector when: HR admin submitting for someone, OR user has no linked employee record */}
+              {!editRequest && (isHrAdmin || !currentEmployeeId) && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold">الموظف</label>
                   <select

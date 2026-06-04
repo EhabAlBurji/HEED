@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles, Wand2, Camera, Layers, Paintbrush, Cloud, Globe } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles, Wand2, Camera, Layers, Paintbrush, Cloud, Globe, Bot } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore, type ChatAttachment } from "../../stores/chatStore";
 import { transcribeAudio } from "../../lib/chatProviders";
@@ -15,11 +15,16 @@ import { useTranslation } from "react-i18next";
 const TEXT_EXT = /\.(txt|md|markdown|csv|json|js|jsx|ts|tsx|py|rb|go|rs|java|c|cpp|h|css|html|xml|yml|yaml|sh|sql|php|swift|kt)$/i;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-// Friendly presets → real Groq/Heed model ids. Hidden complexity for the user.
+// Friendly presets → real model ids, grouped by provider.
 const MODEL_PRESETS = [
-  { id: "llama-3.3-70b-versatile", icon: Sparkles, label: { ar: "Heed Auto", en: "Heed Auto" }, hint: { ar: "متوازن — الافتراضي", en: "Balanced — default" } },
-  { id: "llama-3.1-8b-instant",    icon: Zap,      label: { ar: "سريع", en: "Fast" },           hint: { ar: "أسرع رد", en: "Fastest reply" } },
-  { id: "openai/gpt-oss-120b",     icon: Brain,    label: { ar: "تفكير", en: "Thinking" },      hint: { ar: "يفكر أطول لإجابات أعمق", en: "Thinks longer for deeper answers" } },
+  // ── Heed (Groq / Llama) ───────────────────────────────────────────────────
+  { id: "llama-3.3-70b-versatile", icon: Sparkles, group: "heed", label: { ar: "Heed Auto",  en: "Heed Auto"  }, hint: { ar: "متوازن — الافتراضي",        en: "Balanced — default"             } },
+  { id: "llama-3.1-8b-instant",    icon: Zap,      group: "heed", label: { ar: "سريع",        en: "Fast"       }, hint: { ar: "أسرع رد",                   en: "Fastest reply"                  } },
+  { id: "openai/gpt-oss-120b",     icon: Brain,    group: "heed", label: { ar: "تفكير",       en: "Thinking"   }, hint: { ar: "يفكر أطول لإجابات أعمق",   en: "Thinks longer for deeper answers" } },
+  // ── Google Gemini ─────────────────────────────────────────────────────────
+  { id: "gemini-2.0-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini Flash",    en: "Gemini Flash"    }, hint: { ar: "جوجل · جودة عالية · مجاني", en: "Google · high quality · free" } },
+  { id: "gemini-2.0-flash-lite",   icon: Bot,      group: "gemini", label: { ar: "Gemini Flash Lite", en: "Gemini Flash Lite" }, hint: { ar: "جوجل · أسرع · مجاني",      en: "Google · fastest · free"     } },
+  { id: "gemini-1.5-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini 1.5 Flash",  en: "Gemini 1.5 Flash"  }, hint: { ar: "جوجل · كلاسيك",           en: "Google · classic"            } },
 ];
 
 // Image generation presets — grouped by provider.
@@ -90,6 +95,7 @@ export function Composer({
   const lang = isAr ? "ar" : "en";
   const currentModel = provider === "heed" ? heedModel : provider === "groq" ? groqModel : ollamaModel;
   const activePreset = MODEL_PRESETS.find((m) => m.id === currentModel);
+  const isGeminiActive = activePreset?.group === "gemini";
   const activeImagePreset = imageModel ? IMAGE_PRESETS.find((m) => m.id === imageModel) ?? IMAGE_PRESETS[0] : null;
   const setModel = (id: string) => {
     if (provider === "heed") setSettings({ heedModel: id });
@@ -290,7 +296,9 @@ export function Composer({
             >
               {activeImagePreset
                 ? <activeImagePreset.icon className="h-3.5 w-3.5" />
-                : activePreset ? <activePreset.icon className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                : activePreset
+                  ? <activePreset.icon className={cn("h-3.5 w-3.5", isGeminiActive && "text-blue-400")} />
+                  : <Sparkles className="h-3.5 w-3.5" />}
               <span>{activeImagePreset ? activeImagePreset.label[lang] : activePreset ? activePreset.label[lang] : isAr ? "مخصّص" : "Custom"}</span>
               <ChevronDown className={cn("h-3 w-3 transition", modelMenu && "rotate-180")} />
             </button>
@@ -327,13 +335,30 @@ export function Composer({
                   ) : (
                     // ── CHAT MODE: show only chat models ───────────────────
                     <>
-                      {MODEL_PRESETS.map((m) => (
+                      <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Heed</p>
+                      {MODEL_PRESETS.filter((m) => m.group === "heed").map((m) => (
                         <button
                           key={m.id}
                           onClick={() => { setModel(m.id); setModelMenu(false); }}
                           className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition hover:bg-secondary"
                         >
                           <m.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium leading-tight">{m.label[lang]}</span>
+                            <span className="block font-micro text-[10px] text-muted-foreground">{m.hint[lang]}</span>
+                          </span>
+                          {currentModel === m.id && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                        </button>
+                      ))}
+                      <div className="my-1 h-px bg-border/40" />
+                      <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Google Gemini</p>
+                      {MODEL_PRESETS.filter((m) => m.group === "gemini").map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => { setModel(m.id); setModelMenu(false); }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition hover:bg-secondary"
+                        >
+                          <m.icon className="h-4 w-4 shrink-0 text-blue-400" />
                           <span className="min-w-0 flex-1">
                             <span className="block text-sm font-medium leading-tight">{m.label[lang]}</span>
                             <span className="block font-micro text-[10px] text-muted-foreground">{m.hint[lang]}</span>

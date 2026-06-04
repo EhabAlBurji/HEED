@@ -38,12 +38,18 @@ export interface ProviderInfo {
 
 // Models the hosted proxy accepts (must match the Edge Function whitelist).
 const HOSTED_MODELS = [
+  // Groq / Llama
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
   "qwen/qwen3-32b",
   "deepseek-r1-distill-llama-70b",
+  // Google Gemini
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
 ];
 
 export const PROVIDERS: Record<ProviderId, ProviderInfo> = {

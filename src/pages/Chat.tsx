@@ -129,12 +129,14 @@ export default function Chat() {
   useEffect(() => { setActive(null); }, [setActive]);
 
   // Re-render while streaming so the Stop button / composer state stays live.
+  // Only runs during an active stream — not for idle conversations.
+  const streaming = active ? isStreaming(active.id) : false;
   const [, force] = useState(0);
   useEffect(() => {
-    if (!active) return;
+    if (!active || !streaming) return;
     const id = setInterval(() => force((n) => n + 1), 250);
     return () => clearInterval(id);
-  }, [active]);
+  }, [active, streaming]);
 
   const newChat = (assistantId?: string) => {
     if (assistantId) setDraftAssistantId(assistantId);
@@ -162,7 +164,6 @@ export default function Chat() {
     }
   };
 
-  const streaming = active ? isStreaming(active.id) : false;
   const hasThread = !!active && active.messages.length > 0;
   const firstName = (user?.name || user?.email?.split("@")[0] || "").split(" ")[0].trim();
   const greet = (isAr ? GREETINGS_AR : GREETINGS_EN)[greetIdx % GREETINGS_AR.length](firstName);

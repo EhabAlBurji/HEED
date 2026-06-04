@@ -199,6 +199,11 @@ function applyNode(p: { eventType: string; new: unknown; old: unknown }) {
     useCanvasStore.setState({ nodes: s.nodes.filter((n) => n.id !== id), edges: s.edges.filter((e) => e.source !== id && e.target !== id) });
   } else {
     const row = nodeFromRow(p.new as Record<string, unknown>);
+    // Skip if the user is currently dragging this node (pending local push in debounce queue).
+    if (nodeTimers.has(row.id)) return;
+    const local = s.nodes.find((n) => n.id === row.id);
+    // Last-write-wins: only apply if the incoming row is newer than the local one.
+    if (local && local.updated_at > row.updated_at) return;
     useCanvasStore.setState({ nodes: [row, ...s.nodes.filter((n) => n.id !== row.id)] });
   }
 }
@@ -268,7 +273,12 @@ export async function startCanvasSync() {
     .on("postgres_changes", { event: "*", schema: "public", table: "canvas_nodes", filter: `workspace_id=eq.${ws}` }, applyNode)
     .on("postgres_changes", { event: "*", schema: "public", table: "canvas_edges", filter: `workspace_id=eq.${ws}` }, applyEdge)
     .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `workspace_id=eq.${ws}` }, applyBoard)
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Re-pull canvas data on error so changes aren't missed.
+        setTimeout(() => void startCanvasSync(), 5_000);
+      }
+    });
 }
 
 export function stopCanvasSync() {

@@ -312,32 +312,47 @@ export async function searchProfiles(query: string): Promise<DmPartner[]> {
 
 // Realtime subscription — fires on any DM INSERT involving me.
 let dmChannel: RealtimeChannel | null = null;
+let dmReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let dmOnMessage: ((msg: DmMessage) => void) | null = null;
 
-export function subscribeDms(onMessage: (msg: DmMessage) => void): () => void {
-  if (!canSync()) return () => {};
+function connectDmChannel() {
+  if (!canSync() || !dmOnMessage) return;
   const me = useAuthStore.getState().user!;
   const supabase = getSupabase();
-  stopDmSubscription();
+  if (dmChannel) {
+    try { supabase.removeChannel(dmChannel); } catch { /* ignore */ }
+    dmChannel = null;
+  }
   dmChannel = supabase
     .channel("dm:" + me.id)
     .on(
       "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "dm_messages",
-        filter: `receiver_id=eq.${me.id}`,
-      },
-      (p: { new: Record<string, unknown> }) => onMessage(rowToMsg(p.new))
+      { event: "INSERT", schema: "public", table: "dm_messages", filter: `receiver_id=eq.${me.id}` },
+      (p: { new: Record<string, unknown> }) => dmOnMessage!(rowToMsg(p.new))
     )
     .subscribe((status: string) => {
-      if (status === "SUBSCRIBED") console.info("[dmSync] realtime connected");
-      if (status === "CHANNEL_ERROR") console.error("[dmSync] realtime error");
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Exponential-backoff reconnect: 3s → 10s → 30s
+        const delay = dmReconnectTimer ? 10_000 : 3_000;
+        if (dmReconnectTimer) clearTimeout(dmReconnectTimer);
+        dmReconnectTimer = setTimeout(() => {
+          dmReconnectTimer = null;
+          connectDmChannel();
+        }, delay);
+      }
     });
+}
+
+export function subscribeDms(onMessage: (msg: DmMessage) => void): () => void {
+  if (!canSync()) return () => {};
+  dmOnMessage = onMessage;
+  connectDmChannel();
   return stopDmSubscription;
 }
 
 export function stopDmSubscription(): void {
+  dmOnMessage = null;
+  if (dmReconnectTimer) { clearTimeout(dmReconnectTimer); dmReconnectTimer = null; }
   if (dmChannel) {
     try { getSupabase().removeChannel(dmChannel); } catch { /* ignore */ }
     dmChannel = null;

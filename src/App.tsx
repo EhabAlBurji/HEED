@@ -85,33 +85,35 @@ export default function App() {
     };
   }, [user]);
 
-  // Cross-user notifications + shared boards + chat sync: start while signed in.
+  // Cross-user notifications + chat sync: start while signed in.
   useEffect(() => {
-    let cancelled = false;
     if (user && user.id !== "guest") {
       void useAuthStore.getState().fetchAccessStatus();
       startChatSync();
-      void (async () => {
-        await startNotifications();
-        if (cancelled) { stopNotifications(); return; }
-        await startCanvasSync();
-        if (cancelled) stopCanvasSync();
-      })();
+      void startNotifications();
     }
     return () => {
-      cancelled = true;
       stopChatSync();
       stopNotifications();
-      stopCanvasSync();
       stopDmSubscription();
     };
   }, [user]);
 
-  // HR realtime: re-subscribe whenever the active workspace changes.
+  // Canvas sync + HR realtime: re-run whenever the active workspace changes
+  // so boards and HR data always reflect the current workspace in real-time.
   useEffect(() => {
     if (!user || user.id === "guest" || !activeWorkspaceId) return;
-    const unsub = subscribeHRRealtime(activeWorkspaceId);
-    return unsub;
+    let cancelled = false;
+    void (async () => {
+      await startCanvasSync();
+      if (cancelled) stopCanvasSync();
+    })();
+    const unsubHR = subscribeHRRealtime(activeWorkspaceId);
+    return () => {
+      cancelled = true;
+      stopCanvasSync();
+      unsubHR();
+    };
   }, [user, activeWorkspaceId]);
 
   // Deep link OAuth callback: heed://auth-callback?code=...

@@ -5,7 +5,7 @@
 // Call seedDemoData() once; it checks a flag to avoid re-seeding.
 // =========================================================================
 
-import { useHRStore } from "../stores/hrStore";
+import { useHRStore, DEFAULT_REQUEST_TYPES } from "../stores/hrStore";
 import { useTasksStore } from "../stores/tasksStore";
 import { useNotificationsStore } from "../stores/notificationsStore";
 

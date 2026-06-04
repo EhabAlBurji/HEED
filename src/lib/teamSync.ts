@@ -462,10 +462,10 @@ export async function fetchRecentActivity(limit = 80): Promise<void> {
   }
 }
 
-let commentsChannel: RealtimeChannel | null = null;
-
 // Load a task's comments from the server and subscribe to live changes while
 // the task drawer is open. Returns an unsubscribe function.
+// Uses a locally-scoped channel (keyed by taskId) to avoid singleton leaks
+// when multiple task drawers are opened in rapid succession.
 export function watchTaskComments(taskId: string): () => void {
   if (!canSync()) return () => {};
   const sb = getSupabase();
@@ -477,8 +477,8 @@ export function watchTaskComments(taskId: string): () => void {
     .eq("task_id", taskId)
     .then(({ data }) => data?.forEach((r) => upsert(commentFromRow(r as Record<string, unknown>))));
 
-  commentsChannel = sb
-    .channel("comments:" + taskId)
+  const ch = sb
+    .channel("comments:" + taskId + ":" + Date.now())
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "task_comments", filter: `task_id=eq.${taskId}` },
@@ -493,13 +493,6 @@ export function watchTaskComments(taskId: string): () => void {
     .subscribe();
 
   return () => {
-    if (commentsChannel) {
-      try {
-        sb.removeChannel(commentsChannel);
-      } catch {
-        /* ignore */
-      }
-      commentsChannel = null;
-    }
+    try { sb.removeChannel(ch); } catch { /* ignore */ }
   };
 }

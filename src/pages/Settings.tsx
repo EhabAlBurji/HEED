@@ -487,7 +487,7 @@ function GoogleCalendarContent() {
     try {
       await listenForOAuthCode(
         id, sec,
-        (count) => { setStatus("success"); void setTimeout(() => setStatus("idle"), 3000); console.log("synced", count); },
+        (_count) => { setStatus("success"); void setTimeout(() => setStatus("idle"), 3000); },
         (msg)   => { setStatus("error"); setErrorMsg(msg); }
       );
       await startOAuthFlow(id);

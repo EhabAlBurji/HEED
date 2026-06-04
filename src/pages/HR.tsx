@@ -11,6 +11,7 @@ import {
   XCircle,
   User,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useHRStore } from "../stores/hrStore";
@@ -37,7 +38,7 @@ import { EmployeeFormDrawer } from "../components/hr/EmployeeFormDrawer";
 import { RequestFormDrawer } from "../components/hr/RequestFormDrawer";
 import { HRSettings } from "../components/hr/HRSettings";
 import type { HREmployee, HRRequest, HRRequestType } from "../stores/hrStore";
-import { seedDemoData } from "../lib/demoData";
+import { seedDemoData, clearDemoData, isDemoSeeded } from "../lib/demoData";
 
 type Tab = "employees" | "org" | "requests" | "settings";
 type OrgView = "hierarchy" | "departments";
@@ -78,7 +79,7 @@ export default function HR() {
   const [selectedReq, setSelectedReq] = useState<HRRequest | null>(null);
 
   const user = useAuthStore((s) => s.user);
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, workspaces } = useWorkspaceStore();
   const {
     departments, positions, employees, requestTypes, requests, loading,
     updateDepartment, deleteDepartment: deleteDeptStore,
@@ -107,8 +108,17 @@ export default function HR() {
     () => employees.find((e) => e.userId === user?.id && e.workspaceId === activeWorkspaceId) ?? null,
     [employees, user?.id, activeWorkspaceId]
   );
-  const isHrAdmin = currentEmployee?.isHrAdmin ?? false;
-  // When no employee record is linked, workspace owner/admin can still use HR as admin
+
+  // Workspace owner gets full HR admin access even without an employee record
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
+  const isWorkspaceOwner = useMemo(() => {
+    if (!user?.email || !activeWs) return false;
+    return activeWs.members?.some(
+      (m) => m.role === "owner" && m.email?.toLowerCase() === user.email?.toLowerCase()
+    ) ?? activeWs.type === "personal"; // personal workspace owner is always admin
+  }, [user?.email, activeWs]);
+
+  const isHrAdmin = (currentEmployee?.isHrAdmin ?? false) || isWorkspaceOwner;
   const canUseHR = Boolean(user && user.id !== "guest");
 
   // Filter employees for display

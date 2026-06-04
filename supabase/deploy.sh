@@ -3,6 +3,7 @@
 # Usage:
 #   export SUPABASE_ACCESS_TOKEN=sbp_xxx        # from supabase.com/dashboard/account/tokens
 #   export GROQ_API_KEY=gsk_xxx                 # HEED CHAT proxy key (use a FRESH one)
+#   export GOOGLE_AI_KEY=AIza_xxx               # Google Gemini API key (free from aistudio.google.com)
 #   export CF_IMAGE_KEY=xxx                     # Cloudflare API token (image gen)
 #   export CF_ACCOUNT_ID=xxx                    # Cloudflare account ID
 #   export HF_IMAGE_TOKEN=hf_xxx               # Hugging Face token (image gen)
@@ -29,6 +30,7 @@ echo "▸ Setting secrets ..."
 SECRETS=( "ADMIN_EMAILS=${ADMIN_EMAILS:-ehab@om.sa}" )
 [ -n "${RESEND_API_KEY:-}" ]  && SECRETS+=( "RESEND_API_KEY=${RESEND_API_KEY}" )
 [ -n "${GROQ_API_KEY:-}" ]    && SECRETS+=( "GROQ_API_KEY=${GROQ_API_KEY}" )
+[ -n "${GOOGLE_AI_KEY:-}" ]  && SECRETS+=( "GOOGLE_AI_KEY=${GOOGLE_AI_KEY}" )
 [ -n "${CF_IMAGE_KEY:-}" ]    && SECRETS+=( "CF_IMAGE_KEY=${CF_IMAGE_KEY}" )
 [ -n "${CF_ACCOUNT_ID:-}" ]   && SECRETS+=( "CF_ACCOUNT_ID=${CF_ACCOUNT_ID}" )
 [ -n "${HF_IMAGE_TOKEN:-}" ]  && SECRETS+=( "HF_IMAGE_TOKEN=${HF_IMAGE_TOKEN}" )

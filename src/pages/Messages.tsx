@@ -581,7 +581,7 @@ export default function Messages() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-1">
                     <span className={cn("flex-1 truncate text-sm", u > 0 ? "font-semibold" : "font-medium")}>{p.name}</span>
-                    {last && <span className={cn("shrink-0 text-[11px] tabular-nums", u > 0 ? "font-medium text-primary" : "text-muted-foreground/50")}>{relativeTime(last.createdAt)}</span>}
+                    {last && <span className={cn("shrink-0 text-[11px] tabular-nums", u > 0 ? "font-medium text-primary" : "text-muted-foreground/50")}>{relativeTime(last.createdAt, isAr)}</span>}
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-1">
                     {snippet ? (
@@ -730,7 +730,7 @@ export default function Messages() {
             const mine = msg.senderId === me?.id;
             const prev = activeThread[i - 1];
             const next = activeThread[i + 1];
-            const showDay = !prev || dayStamp(msg.createdAt) !== dayStamp(prev.createdAt);
+            const showDay = !prev || dayStamp(msg.createdAt, isAr) !== dayStamp(prev.createdAt, isAr);
             const isFirst = !prev || prev.senderId !== msg.senderId || showDay;
             const isLast = !next || next.senderId !== msg.senderId;
             const failed = failedIds.has(msg.id);
@@ -741,7 +741,7 @@ export default function Messages() {
                 {showDay && (
                   <div className="my-4 flex items-center justify-center">
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-muted-foreground/70 shadow-sm">
-                      {dayStamp(msg.createdAt)}
+                      {dayStamp(msg.createdAt, isAr)}
                     </span>
                   </div>
                 )}

@@ -677,7 +677,12 @@ export function subscribeRealtime(): () => void {
         useMeetingsStore.setState({ meetings: next });
       }
     })
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Re-pull from server so no changes are missed during the gap.
+        setTimeout(() => void pullAll().catch(() => {}), 5_000);
+      }
+    });
 
   return () => {
     void sb.removeChannel(ch);
