@@ -204,27 +204,30 @@ function seedHR(workspaceId: string) {
 function seedProjects(workspaceId: string) {
   const store = useTasksStore.getState();
 
-  // ── Categories ────────────────────────────────────────────────────────
-  const catDev  = store.addCategory({ name: "تطوير", color: "#8B5CF6", type: "general" });
-  const catDes  = store.addCategory({ name: "تصميم", color: "#EC4899", type: "design"  });
-  const catMkt  = store.addCategory({ name: "تسويق", color: "#06B6D4", type: "general" });
-  const catIds  = { dev: catDev.id, design: catDes.id, marketing: catMkt.id };
+  // ── Categories (dedup by name) ─────────────────────────────────────────
+  const findOrAddCategory = (name: string, color: string, type: "general" | "design" | "video") => {
+    const existing = store.categories.find((c) => c.name === name);
+    return existing ?? store.addCategory({ name, color, type });
+  };
+  const catDev = findOrAddCategory("تطوير", "#8B5CF6", "general");
+  const catDes = findOrAddCategory("تصميم", "#EC4899", "design");
+  const catMkt = findOrAddCategory("تسويق", "#06B6D4", "general");
+  const catIds = { dev: catDev.id, design: catDes.id, marketing: catMkt.id };
 
-  // ── Projects ──────────────────────────────────────────────────────────
-  const app = store.addProject({
-    name: "تطبيق Heed",
-    color: "#8B5CF6", icon: "🚀", type: "general", workspace_id: workspaceId, shared_workspace_ids: [],
-  });
-  const brand = store.addProject({
-    name: "الهوية البصرية",
-    color: "#EC4899", icon: "🎨", type: "design", workspace_id: workspaceId, shared_workspace_ids: [],
-  });
-  const campaign = store.addProject({
-    name: "حملة رمضان 2026",
-    color: "#06B6D4", icon: "📢", type: "general", workspace_id: workspaceId, shared_workspace_ids: [],
-  });
+  // ── Projects (dedup by name) ───────────────────────────────────────────
+  const findOrAddProject = (name: string, color: string, icon: string, type: "general" | "design" | "video") => {
+    const existing = store.projects.find((p) => p.name === name && p.workspace_id === workspaceId);
+    return existing ?? store.addProject({ name, color, icon, type, workspace_id: workspaceId, shared_workspace_ids: [] });
+  };
+  const app      = findOrAddProject("تطبيق Heed",      "#8B5CF6", "🚀", "general");
+  const brand    = findOrAddProject("الهوية البصرية",  "#EC4899", "🎨", "design");
+  const campaign = findOrAddProject("حملة رمضان 2026", "#06B6D4", "📢", "general");
 
   const pIds = { app: app.id, brand: brand.id, campaign: campaign.id };
+
+  // Skip tasks if this project already had tasks added (dedup by project)
+  const existingTaskCount = store.tasks.filter((t) => t.workspace_id === workspaceId).length;
+  if (existingTaskCount > 0) return;
 
   // ── Tasks ─────────────────────────────────────────────────────────────
   const addT = (t: Parameters<typeof store.addTask>[0]) => store.addTask({ workspace_id: workspaceId, ...t });

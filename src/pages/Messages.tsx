@@ -15,9 +15,10 @@ import { cn } from "../lib/utils";
 import {
   fetchDmPartners, fetchThread, fetchLastMessages, fetchUnreadCounts,
   sendDm, markThreadRead, subscribeDms, searchProfiles, uploadDmAttachment,
-  fetchPartnerProfile,
+  fetchPartnerProfile, toggleReaction,
   type DmMessage, type DmPartner,
 } from "../lib/dmSync";
+import { showNotification, canNotify } from "../lib/notifications";
 
 // =========================================================================
 // Heed DMs — WhatsApp Web-style DM chat
@@ -157,6 +158,10 @@ export default function Messages() {
   const msgRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
   const threadSearchRef = useRef<HTMLInputElement>(null);
 
+  // Reactions hover (desktop) / long-press (mobile)
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
@@ -199,6 +204,15 @@ export default function Messages() {
         setUnread((prev) => ({ ...prev, [partner]: (prev[partner] ?? 0) + 1 }));
       } else {
         void markThreadRead(partner);
+      }
+
+      // Browser push notification when tab is in background
+      if (canNotify()) {
+        setPartners((cur) => {
+          const partnerName = cur.find((p) => p.id === partner)?.name ?? "Someone";
+          showNotification(partnerName, msg.content || "📎 Attachment", { tag: partner });
+          return cur;
+        });
       }
     });
     return unsub;
@@ -357,6 +371,7 @@ export default function Messages() {
         attachmentUrl: attachment.url,
         attachmentName: attachment.name,
         attachmentType: attachment.type,
+        reactions: {},
       };
       setThreads((prev) => ({ ...prev, [activeId]: [...(prev[activeId] ?? []), optimistic] }));
       setLastMsgs((prev) => ({ ...prev, [activeId]: optimistic }));
@@ -468,6 +483,7 @@ export default function Messages() {
       attachmentUrl: attachment?.url ?? null,
       attachmentName: attachment?.name ?? null,
       attachmentType: attachment?.type ?? null,
+      reactions: {},
     };
     setThreads((prev) => ({ ...prev, [activeId]: [...(prev[activeId] ?? []), optimistic] }));
     setLastMsgs((prev) => ({ ...prev, [activeId]: optimistic }));
@@ -574,7 +590,8 @@ export default function Messages() {
                 key={p.id}
                 onClick={() => setActiveId(p.id)}
                 className={cn(
-                  "relative flex w-full items-center gap-3 px-4 py-3 text-start transition-colors",
+                  "relative flex w-full items-center gap-3 px-4 text-start transition-colors touch-manipulation",
+                  "min-h-[64px] py-3",
                   isActive ? "bg-primary/[0.12]" : "hover:bg-secondary/50"
                 )}
               >
@@ -632,19 +649,21 @@ export default function Messages() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          {/* Desktop: show all 4 buttons; Mobile: show only MoreVertical */}
           {[
-            { icon: Phone, label: isAr ? "مكالمة صوتية" : "Voice call", onClick: openVoiceCall },
-            { icon: Video, label: isAr ? "مكالمة فيديو" : "Video call", onClick: openVideoCall },
-            { icon: Search, label: isAr ? "بحث" : "Search in chat", onClick: () => setSearchOpen((o) => !o) },
-            { icon: MoreVertical, label: isAr ? "المزيد" : "More options", onClick: undefined },
-          ].map(({ icon: Icon, label, onClick }) => (
+            { icon: Phone, label: isAr ? "مكالمة صوتية" : "Voice call", onClick: openVoiceCall, mobileHide: true },
+            { icon: Video, label: isAr ? "مكالمة فيديو" : "Video call", onClick: openVideoCall, mobileHide: true },
+            { icon: Search, label: isAr ? "بحث" : "Search in chat", onClick: () => setSearchOpen((o) => !o), mobileHide: true },
+            { icon: MoreVertical, label: isAr ? "المزيد" : "More options", onClick: undefined, mobileHide: false },
+          ].map(({ icon: Icon, label, onClick, mobileHide }) => (
             <button
               key={label}
               title={label}
               onClick={onClick}
               className={cn(
-                "grid h-8 w-8 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground",
-                label === (isAr ? "بحث" : "Search in chat") && searchOpen && "bg-primary/10 text-primary"
+                "grid h-9 w-9 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground touch-manipulation",
+                label === (isAr ? "بحث" : "Search in chat") && searchOpen && "bg-primary/10 text-primary",
+                mobileHide && isMobile && "hidden"
               )}
             >
               <Icon className="h-[18px] w-[18px]" />
@@ -741,6 +760,8 @@ export default function Messages() {
             const failed = failedIds.has(msg.id);
             const isSearchMatch = searchMatches.includes(i);
             const isCurrentSearchMatch = searchMatches[searchMatchIdx] === i;
+            const reactionEntries = Object.entries(msg.reactions ?? {}).filter(([, users]) => users.length > 0);
+            const isPickerOpen = hoveredMsgId === msg.id;
             return (
               <div key={msg.id} ref={(el) => { if (el) msgRefsMap.current.set(msg.id, el); else msgRefsMap.current.delete(msg.id); }}>
                 {showDay && (
@@ -754,69 +775,174 @@ export default function Messages() {
                   initial={{ opacity: 0, y: 4, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.14 }}
-                  className={cn("flex", mine ? "justify-end" : "justify-start", isLast ? "mb-2" : "mb-0.5")}
+                  className={cn("group/msg flex", mine ? "justify-end" : "justify-start", isLast ? "mb-2" : "mb-0.5")}
+                  onMouseEnter={() => !isMobile && setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => !isMobile && setHoveredMsgId(null)}
                 >
                   {!mine && (
                     <div className={cn("me-2 mt-auto shrink-0", isLast ? "opacity-100" : "opacity-0 pointer-events-none")}>
                       <ContactAvatar name={activePartner.name} avatarUrl={activePartner.avatarUrl} size="xs" />
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      "relative max-w-[65%] px-3.5 py-2.5 text-sm shadow-sm",
-                      mine
-                        ? failed ? "bg-destructive/80 text-white" : "bg-primary text-primary-foreground"
-                        : "bg-card text-foreground border border-border/40",
-                      mine && isFirst ? "rounded-2xl rounded-ee-sm"
-                        : mine ? "rounded-2xl rounded-e-sm"
-                        : !mine && isFirst ? "rounded-2xl rounded-ss-sm"
-                        : "rounded-2xl rounded-s-sm",
-                      isSearchMatch && !isCurrentSearchMatch && "ring-1 ring-yellow-400/60",
-                      isCurrentSearchMatch && "ring-2 ring-yellow-400"
-                    )}
-                    dir="auto"
-                  >
-                    {/* Attachment */}
-                    {msg.attachmentUrl && (
-                      msg.attachmentType?.startsWith("audio/") ? (
-                        <audio controls src={msg.attachmentUrl} className="w-full max-w-xs mt-1 mb-1" />
-                      ) : isImageType(msg.attachmentType) ? (
-                        <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-2">
-                          <img
-                            src={msg.attachmentUrl}
-                            alt={msg.attachmentName ?? "image"}
-                            className="max-h-56 w-full rounded-lg object-cover"
-                          />
-                        </a>
-                      ) : (
-                        <a
-                          href={msg.attachmentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={cn(
-                            "mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition hover:opacity-80",
-                            mine ? "bg-white/20" : "bg-secondary"
-                          )}
-                        >
-                          <FileText className="h-4 w-4 shrink-0" />
-                          <span className="flex-1 truncate">{msg.attachmentName ?? "file"}</span>
-                        </a>
-                      )
-                    )}
+                  <div className="relative flex flex-col">
+                    <div
+                      className={cn(
+                        "relative max-w-[65%] px-3.5 py-2.5 text-sm shadow-sm",
+                        mine
+                          ? failed ? "bg-destructive/80 text-white" : "bg-primary text-primary-foreground"
+                          : "bg-card text-foreground border border-border/40",
+                        mine && isFirst ? "rounded-2xl rounded-ee-sm"
+                          : mine ? "rounded-2xl rounded-e-sm"
+                          : !mine && isFirst ? "rounded-2xl rounded-ss-sm"
+                          : "rounded-2xl rounded-s-sm",
+                        isSearchMatch && !isCurrentSearchMatch && "ring-1 ring-yellow-400/60",
+                        isCurrentSearchMatch && "ring-2 ring-yellow-400"
+                      )}
+                      dir="auto"
+                      onTouchStart={() => {
+                        longPressTimer.current = setTimeout(() => setHoveredMsgId(msg.id), 500);
+                      }}
+                      onTouchEnd={() => {
+                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                      }}
+                      onTouchMove={() => {
+                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                      }}
+                    >
+                      {/* Reaction quick-pick */}
+                      <AnimatePresence>
+                        {isPickerOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.85, y: 4 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, y: 4 }}
+                            transition={{ duration: 0.12 }}
+                            className={cn(
+                              "absolute -top-10 z-20 flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-1 shadow-xl",
+                              mine ? "end-0" : "start-0"
+                            )}
+                          >
+                            {["❤️","😂","👍","😮","😢","🙏"].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => {
+                                  setHoveredMsgId(null);
+                                  // Optimistic local toggle
+                                  setThreads((prev) => {
+                                    const thread = prev[activeId!] ?? [];
+                                    return {
+                                      ...prev,
+                                      [activeId!]: thread.map((m) => {
+                                        if (m.id !== msg.id) return m;
+                                        const current = m.reactions ?? {};
+                                        const users = current[emoji] ?? [];
+                                        const newUsers = users.includes(me!.id)
+                                          ? users.filter((id) => id !== me!.id)
+                                          : [...users, me!.id];
+                                        const newReactions = { ...current };
+                                        if (newUsers.length === 0) delete newReactions[emoji];
+                                        else newReactions[emoji] = newUsers;
+                                        return { ...m, reactions: newReactions };
+                                      }),
+                                    };
+                                  });
+                                  void toggleReaction(msg.id, emoji);
+                                }}
+                                className="text-lg transition hover:scale-125 active:scale-90 touch-manipulation"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                    {/* Text */}
-                    {msg.content && (
-                      <p className="whitespace-pre-wrap leading-[1.45]">
-                        {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
-                      </p>
-                    )}
+                      {/* Attachment */}
+                      {msg.attachmentUrl && (
+                        msg.attachmentType?.startsWith("audio/") ? (
+                          <audio controls src={msg.attachmentUrl} className="w-full max-w-xs mt-1 mb-1" />
+                        ) : isImageType(msg.attachmentType) ? (
+                          <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-2">
+                            <img
+                              src={msg.attachmentUrl}
+                              alt={msg.attachmentName ?? "image"}
+                              className="max-h-56 w-full rounded-lg object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            href={msg.attachmentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={cn(
+                              "mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition hover:opacity-80",
+                              mine ? "bg-white/20" : "bg-secondary"
+                            )}
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 truncate">{msg.attachmentName ?? "file"}</span>
+                          </a>
+                        )
+                      )}
 
-                    {/* Time + tick */}
-                    <div className={cn("mt-1 flex items-center justify-end gap-1", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
-                      {failed && <AlertCircle className="h-3 w-3 text-white" />}
-                      <span className="text-[10px] tabular-nums">{hhmm(msg.createdAt)}</span>
-                      <MsgTick msg={msg} isMine={mine} />
+                      {/* Text */}
+                      {msg.content && (
+                        <p className="whitespace-pre-wrap leading-[1.45]">
+                          {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
+                        </p>
+                      )}
+
+                      {/* Time + tick */}
+                      <div className={cn("mt-1 flex items-center justify-end gap-1", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
+                        {failed && <AlertCircle className="h-3 w-3 text-white" />}
+                        <span className="text-[10px] tabular-nums">{hhmm(msg.createdAt)}</span>
+                        <MsgTick msg={msg} isMine={mine} />
+                      </div>
                     </div>
+
+                    {/* Reaction pills */}
+                    {reactionEntries.length > 0 && (
+                      <div className={cn("mt-1 flex flex-wrap gap-1", mine ? "justify-end" : "justify-start")}>
+                        {reactionEntries.map(([emoji, users]) => {
+                          const iReacted = users.includes(me?.id ?? "");
+                          return (
+                            <button
+                              key={emoji}
+                              onClick={() => {
+                                setThreads((prev) => {
+                                  const thread = prev[activeId!] ?? [];
+                                  return {
+                                    ...prev,
+                                    [activeId!]: thread.map((m) => {
+                                      if (m.id !== msg.id) return m;
+                                      const current = m.reactions ?? {};
+                                      const currentUsers = current[emoji] ?? [];
+                                      const newUsers = currentUsers.includes(me!.id)
+                                        ? currentUsers.filter((id) => id !== me!.id)
+                                        : [...currentUsers, me!.id];
+                                      const newReactions = { ...current };
+                                      if (newUsers.length === 0) delete newReactions[emoji];
+                                      else newReactions[emoji] = newUsers;
+                                      return { ...m, reactions: newReactions };
+                                    }),
+                                  };
+                                });
+                                void toggleReaction(msg.id, emoji);
+                              }}
+                              className={cn(
+                                "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition touch-manipulation",
+                                iReacted
+                                  ? "border-primary/40 bg-primary/10 text-primary"
+                                  : "border-border/50 bg-card text-foreground/70 hover:border-primary/30"
+                              )}
+                            >
+                              <span>{emoji}</span>
+                              <span className="tabular-nums">{users.length}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </div>
@@ -909,7 +1035,8 @@ export default function Messages() {
                   </Popover.Trigger>
                   <Popover.Portal>
                     <Popover.Content
-                      side="top" align="start" sideOffset={8}
+                      side="top" align="center" sideOffset={8}
+                      avoidCollisions
                       className="z-50 rounded-2xl border border-border/60 bg-card p-2 shadow-2xl"
                     >
                       {EMOJI_ROWS.map((row, ri) => (
@@ -962,8 +1089,8 @@ export default function Messages() {
                     rows={1}
                     dir="auto"
                     placeholder={isAr ? "اكتب رسالة" : "Type a message"}
-                    style={{ maxHeight: 140 }}
-                    className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/40 leading-relaxed"
+                    style={{ maxHeight: 140, fontSize: "16px" }}
+                    className="w-full resize-none bg-transparent outline-none placeholder:text-muted-foreground/40 leading-relaxed"
                     onInput={(e) => {
                       const el = e.currentTarget;
                       el.style.height = "auto";

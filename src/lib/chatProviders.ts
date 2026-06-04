@@ -58,7 +58,7 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     label: "Heed — جاهز · مجاني",
     online: true,
     models: HOSTED_MODELS,
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "gemini-2.0-flash",
   },
   groq: {
     id: "groq",

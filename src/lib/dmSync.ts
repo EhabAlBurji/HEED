@@ -16,6 +16,7 @@ export type DmMessage = {
   attachmentUrl: string | null;
   attachmentName: string | null;
   attachmentType: string | null;
+  reactions: Record<string, string[]>;
 };
 
 export type DmPartner = {
@@ -45,7 +46,44 @@ function rowToMsg(r: Record<string, unknown>): DmMessage {
     attachmentUrl: (r.attachment_url as string) ?? null,
     attachmentName: (r.attachment_name as string) ?? null,
     attachmentType: (r.attachment_type as string) ?? null,
+    reactions: (r.reactions as Record<string, string[]>) ?? {},
   };
+}
+
+// Toggle a reaction emoji on a message.
+// Adds my userId if not present, removes it if already there.
+export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    // Fetch current reactions for this message
+    const { data, error } = await sb()
+      .from("dm_messages")
+      .select("reactions")
+      .eq("id", messageId)
+      .single();
+    if (error) throw error;
+    const current: Record<string, string[]> = (data?.reactions as Record<string, string[]>) ?? {};
+    const users = current[emoji] ?? [];
+    let newUsers: string[];
+    if (users.includes(me.id)) {
+      newUsers = users.filter((id) => id !== me.id);
+    } else {
+      newUsers = [...users, me.id];
+    }
+    const newReactions = { ...current };
+    if (newUsers.length === 0) {
+      delete newReactions[emoji];
+    } else {
+      newReactions[emoji] = newUsers;
+    }
+    await sb()
+      .from("dm_messages")
+      .update({ reactions: newReactions })
+      .eq("id", messageId);
+  } catch (err) {
+    console.error("[dmSync] toggleReaction:", err);
+  }
 }
 
 // Fetch all DM partners:

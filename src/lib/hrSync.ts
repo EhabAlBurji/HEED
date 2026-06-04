@@ -7,6 +7,7 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { showNotification } from "./notifications";
 
 // HR tables are not yet in the generated Database types, so we use a typed
 // helper to avoid `never` inference on `.from()` calls.
@@ -502,6 +503,21 @@ export function subscribeHRRealtime(workspaceId: string): () => void {
         const next = store.requests.slice();
         if (idx >= 0) next[idx] = req; else next.push(req);
         store.setRequests(next);
+
+        // Notify when an HR request status changes to approved or rejected
+        if (p.eventType === "UPDATE") {
+          const oldStatus = p.old?.status as string | undefined;
+          const newStatus = req.status;
+          if (newStatus !== oldStatus && (newStatus === "approved" || newStatus === "rejected")) {
+            const statusLabel: Record<string, string> = {
+              approved: "✅ موافق عليه",
+              rejected: "❌ مرفوض",
+            };
+            const requestType = store.requestTypes.find((rt) => rt.id === req.typeId);
+            const typeName = requestType?.nameAr ?? requestType?.nameEn ?? "";
+            showNotification("طلب HR", `${statusLabel[newStatus]} — ${typeName}`);
+          }
+        }
       }
     })
     .subscribe();

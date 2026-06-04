@@ -269,9 +269,15 @@ export const useChatStore = create<ChatState>()(
         const missingBuiltins = BUILTIN_ASSISTANTS.filter(
           (b) => !saved.some((a) => a.id === b.id)
         );
+        // Migrate: if user had the old llama default, switch to Gemini Flash.
+        const heedModel =
+          p.heedModel === "llama-3.3-70b-versatile" || !p.heedModel
+            ? "gemini-2.0-flash"
+            : p.heedModel;
         return {
           ...current,
           ...p,
+          heedModel,
           groqApiKey: "",  // always start blank — never read from storage
           assistants: [...missingBuiltins, ...saved],
         };

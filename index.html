@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Heed</title>
+    <!-- Apply saved theme before first paint — prevents flash of wrong theme. Default = dark. -->
+    <script>
+      try {
+        var s = localStorage.getItem("heed-ui-store");
+        var t = s ? JSON.parse(s)?.state?.theme : "dark";
+        if (t === "dark" || !t) document.documentElement.classList.add("dark");
+      } catch(e) { document.documentElement.classList.add("dark"); }
+    </script>
     <!-- App icon: browser-tab favicon + iOS/Android home-screen shortcut -->
     <link rel="icon" type="image/png" href="./heed-icon.png" />
     <link rel="apple-touch-icon" href="./heed-icon.png" />

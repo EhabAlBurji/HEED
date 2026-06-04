@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { X, User, Save, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, User, Save, Trash2, Link, Link2Off, Search } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button, Input } from "../ui/primitives";
 import type { HREmployee, HRDepartment, HRPosition } from "../../stores/hrStore";
+import { searchProfiles, type DmPartner } from "../../lib/dmSync";
 
 type Mode = "create" | "edit";
 
@@ -41,6 +42,7 @@ type FormState = {
   location: string;
   status: HREmployee["status"];
   isHrAdmin: boolean;
+  userId: string | null;
 };
 
 const empty: FormState = {
@@ -57,6 +59,7 @@ const empty: FormState = {
   location: "",
   status: "active",
   isHrAdmin: false,
+  userId: null,
 };
 
 function empToForm(e: HREmployee): FormState {
@@ -74,6 +77,7 @@ function empToForm(e: HREmployee): FormState {
     location: e.location ?? "",
     status: e.status,
     isHrAdmin: e.isHrAdmin,
+    userId: e.userId ?? null,
   };
 }
 
@@ -92,14 +96,55 @@ export function EmployeeFormDrawer({
   const [form, setForm] = useState<FormState>(empty);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Link-to-account state
+  const [accountSearch, setAccountSearch] = useState("");
+  const [accountResults, setAccountResults] = useState<DmPartner[]>([]);
+  const [accountSearching, setAccountSearching] = useState(false);
+  const [linkedAccount, setLinkedAccount] = useState<DmPartner | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (open) {
       setForm(employee ? empToForm(employee) : empty);
       setConfirmDelete(false);
+      setAccountSearch("");
+      setAccountResults([]);
+      setLinkedAccount(null);
     }
   }, [open, employee]);
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
+
+  // Debounced profile search
+  const handleAccountSearchChange = (value: string) => {
+    setAccountSearch(value);
+    setAccountResults([]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!value.trim()) return;
+    searchTimerRef.current = setTimeout(async () => {
+      setAccountSearching(true);
+      try {
+        const results = await searchProfiles(value.trim());
+        setAccountResults(results);
+      } finally {
+        setAccountSearching(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectAccount = (partner: DmPartner) => {
+    set({ userId: partner.id });
+    setLinkedAccount(partner);
+    setAccountSearch("");
+    setAccountResults([]);
+  };
+
+  const handleUnlinkAccount = () => {
+    set({ userId: null });
+    setLinkedAccount(null);
+    setAccountSearch("");
+    setAccountResults([]);
+  };
 
   // Filter positions by selected department
   const filteredPositions = form.departmentId
@@ -115,7 +160,7 @@ export function EmployeeFormDrawer({
     if (!form.name.trim()) return;
     onSave({
       workspaceId,
-      userId: employee?.userId ?? null,
+      userId: form.userId,
       employeeNo: form.employeeNo || null,
       name: form.name.trim(),
       nameEn: form.nameEn || null,
@@ -336,6 +381,80 @@ export function EmployeeFormDrawer({
                 />
               </div>
             </label>
+          </Section>
+
+          {/* Section: ربط بحساب */}
+          <Section title="ربط بحساب Heed">
+            {/* Currently linked */}
+            {form.userId ? (
+              <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5">
+                <Link className="h-4 w-4 shrink-0 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-primary leading-tight">
+                    {linkedAccount?.name ?? "حساب مرتبط"}
+                  </p>
+                  {linkedAccount?.email && (
+                    <p className="truncate text-[11px] text-muted-foreground" dir="ltr">
+                      {linkedAccount.email}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUnlinkAccount}
+                  className="flex items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive transition hover:bg-destructive/10"
+                >
+                  <Link2Off className="h-3 w-3" />
+                  إلغاء الربط
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="relative">
+                  <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+                  <Input
+                    value={accountSearch}
+                    onChange={(e) => handleAccountSearchChange(e.target.value)}
+                    placeholder="ابحث بالبريد الإلكتروني لربط حساب Heed"
+                    dir="ltr"
+                    className="ps-8"
+                  />
+                  {accountSearching && (
+                    <span className="absolute end-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground animate-pulse">
+                      ...
+                    </span>
+                  )}
+                </div>
+                {accountResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-xl border border-border/60 bg-card shadow-lg overflow-hidden">
+                    {accountResults.map((partner) => (
+                      <button
+                        key={partner.id}
+                        type="button"
+                        onClick={() => handleSelectAccount(partner)}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-start transition hover:bg-secondary/60"
+                      >
+                        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                          {partner.avatarUrl ? (
+                            <img src={partner.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+                          ) : (
+                            (partner.name?.[0] ?? partner.email?.[0] ?? "؟").toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium leading-tight">{partner.name}</p>
+                          <p className="truncate text-[11px] text-muted-foreground" dir="ltr">{partner.email}</p>
+                        </div>
+                        <Link className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground/70">
+              ربط الموظف بحساب Heed يتيح له تقديم الطلبات وتلقي الإشعارات. هذا الحقل اختياري.
+            </p>
           </Section>
         </div>
 

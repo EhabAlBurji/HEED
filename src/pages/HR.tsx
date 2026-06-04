@@ -12,6 +12,7 @@ import {
   User,
   Loader2,
   RefreshCw,
+  Link,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useHRStore } from "../stores/hrStore";
@@ -298,13 +299,13 @@ export default function HR() {
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-border/50 bg-card/50 px-4">
+      <div className="flex items-center gap-1 border-b border-border/50 bg-card/50 px-4 overflow-x-auto scrollbar-none">
         {TAB_ITEMS.map(({ key, labelAr, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={cn(
-              "relative flex items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-medium transition border-b-2 -mb-px",
+              "relative flex shrink-0 items-center gap-2 rounded-t-lg px-4 py-3 text-sm font-medium transition border-b-2 -mb-px touch-manipulation",
               tab === key
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/40"
@@ -355,7 +356,7 @@ export default function HR() {
               )}
             </div>
 
-            {/* Employee table */}
+            {/* Employee list — cards on mobile, table on desktop */}
             <div className="flex-1 overflow-auto">
               {filteredEmployees.length === 0 ? (
                 <EmptyState
@@ -365,87 +366,140 @@ export default function HR() {
                   action={isHrAdmin ? { label: "إضافة أول موظف", onClick: () => { setSelectedEmp(null); setEmpFormOpen(true); } } : undefined}
                 />
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border/40">
-                    <tr>
-                      <th className="py-3 pe-4 ps-6 text-start text-xs font-semibold text-muted-foreground/70">الموظف</th>
-                      <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">القسم</th>
-                      <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">المسمى الوظيفي</th>
-                      <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">المدير المباشر</th>
-                      <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">تاريخ الالتحاق</th>
-                      <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">الموقع</th>
-                      <th className="py-3 ps-4 pe-6 text-start text-xs font-semibold text-muted-foreground/70">الحالة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/30">
+                <>
+                  {/* Mobile: card grid */}
+                  <div className="grid grid-cols-1 gap-3 p-4 sm:hidden">
                     {filteredEmployees.map((emp) => {
                       const dept = departments.find((d) => d.id === emp.departmentId);
                       const pos = positions.find((p) => p.id === emp.positionId);
-                      const manager = wsEmployees.find((e) => e.id === emp.managerId);
                       const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("");
                       const statusCfg = EMP_STATUS[emp.status];
                       return (
-                        <tr
+                        <button
                           key={emp.id}
                           onClick={() => { setSelectedEmp(emp); setEmpFormOpen(true); }}
-                          className="cursor-pointer transition hover:bg-secondary/40"
+                          className="flex w-full items-center gap-3 rounded-2xl border border-border/50 bg-card px-4 py-3.5 text-start transition hover:border-primary/30 touch-manipulation"
                         >
-                          <td className="py-3 pe-4 ps-6">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white ring-2 ring-border/30"
-                                style={{ backgroundColor: dept?.color ?? "#0A4EFF" }}
-                              >
-                                {emp.avatarUrl ? (
-                                  <img src={emp.avatarUrl} alt={emp.name} className="h-9 w-9 rounded-full object-cover" />
-                                ) : (
-                                  initials || <User className="h-4 w-4" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium leading-tight">{emp.name}</p>
-                                {emp.employeeNo && (
-                                  <p className="font-mono text-[11px] text-muted-foreground">#{emp.employeeNo}</p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            {dept ? (
+                          <div
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-white ring-2 ring-border/30"
+                            style={{ backgroundColor: dept?.color ?? "#0A4EFF" }}
+                          >
+                            {emp.avatarUrl ? (
+                              <img src={emp.avatarUrl} alt={emp.name} className="h-11 w-11 rounded-full object-cover" />
+                            ) : (
+                              initials || <User className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{emp.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{pos?.name ?? "—"}</p>
+                            {dept && (
                               <span
-                                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                                className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium text-white"
                                 style={{ backgroundColor: dept.color + "cc" }}
                               >
                                 {dept.name}
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-muted-foreground">
-                            {pos?.name ?? <span className="text-muted-foreground/30">—</span>}
-                          </td>
-                          <td className="py-3 px-4 text-muted-foreground">
-                            {manager?.name ?? <span className="text-muted-foreground/30">—</span>}
-                          </td>
-                          <td className="py-3 px-4 text-muted-foreground" dir="ltr">
-                            {emp.hireDate
-                              ? new Date(emp.hireDate).toLocaleDateString("ar-SA")
-                              : <span className="text-muted-foreground/30">—</span>}
-                          </td>
-                          <td className="py-3 px-4 text-muted-foreground">
-                            {emp.location ?? <span className="text-muted-foreground/30">—</span>}
-                          </td>
-                          <td className="py-3 ps-4 pe-6">
-                            <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-medium", statusCfg.color)}>
-                              {statusCfg.label}
-                            </span>
-                          </td>
-                        </tr>
+                          </div>
+                          <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium", statusCfg.color)}>
+                            {statusCfg.label}
+                          </span>
+                        </button>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+
+                  {/* Desktop: table */}
+                  <table className="hidden w-full text-sm sm:table">
+                    <thead className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border/40">
+                      <tr>
+                        <th className="py-3 pe-4 ps-6 text-start text-xs font-semibold text-muted-foreground/70">الموظف</th>
+                        <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">القسم</th>
+                        <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">المسمى الوظيفي</th>
+                        <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">المدير المباشر</th>
+                        <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">تاريخ الالتحاق</th>
+                        <th className="py-3 px-4 text-start text-xs font-semibold text-muted-foreground/70">الموقع</th>
+                        <th className="py-3 ps-4 pe-6 text-start text-xs font-semibold text-muted-foreground/70">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {filteredEmployees.map((emp) => {
+                        const dept = departments.find((d) => d.id === emp.departmentId);
+                        const pos = positions.find((p) => p.id === emp.positionId);
+                        const manager = wsEmployees.find((e) => e.id === emp.managerId);
+                        const initials = emp.name.split(" ").slice(0, 2).map((w) => w[0]).join("");
+                        const statusCfg = EMP_STATUS[emp.status];
+                        return (
+                          <tr
+                            key={emp.id}
+                            onClick={() => { setSelectedEmp(emp); setEmpFormOpen(true); }}
+                            className="cursor-pointer transition hover:bg-secondary/40"
+                          >
+                            <td className="py-3 pe-4 ps-6">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white ring-2 ring-border/30"
+                                  style={{ backgroundColor: dept?.color ?? "#0A4EFF" }}
+                                >
+                                  {emp.avatarUrl ? (
+                                    <img src={emp.avatarUrl} alt={emp.name} className="h-9 w-9 rounded-full object-cover" />
+                                  ) : (
+                                    initials || <User className="h-4 w-4" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-medium leading-tight">{emp.name}</p>
+                                    {emp.userId && (
+                                      <span title="مرتبط بحساب Heed" className="shrink-0">
+                                        <Link className="h-3 w-3 text-primary/60" />
+                                      </span>
+                                    )}
+                                  </div>
+                                  {emp.employeeNo && (
+                                    <p className="font-mono text-[11px] text-muted-foreground">#{emp.employeeNo}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              {dept ? (
+                                <span
+                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium text-white"
+                                  style={{ backgroundColor: dept.color + "cc" }}
+                                >
+                                  {dept.name}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {pos?.name ?? <span className="text-muted-foreground/30">—</span>}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {manager?.name ?? <span className="text-muted-foreground/30">—</span>}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground" dir="ltr">
+                              {emp.hireDate
+                                ? new Date(emp.hireDate).toLocaleDateString("ar-SA")
+                                : <span className="text-muted-foreground/30">—</span>}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {emp.location ?? <span className="text-muted-foreground/30">—</span>}
+                            </td>
+                            <td className="py-3 ps-4 pe-6">
+                              <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-medium", statusCfg.color)}>
+                                {statusCfg.label}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
               )}
             </div>
           </div>

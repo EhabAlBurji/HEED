@@ -17,6 +17,7 @@ import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
 import { startChatSync, stopChatSync } from "./lib/chatSync";
 import { subscribeHRRealtime } from "./lib/hrSync";
 import { stopDmSubscription } from "./lib/dmSync";
+import { requestNotificationPermission } from "./lib/notifications";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 import { EarlyAccessGate } from "./components/auth/EarlyAccessGate";
 import { isAdmin } from "./lib/admin";
@@ -93,6 +94,7 @@ export default function App() {
       void useAuthStore.getState().fetchAccessStatus();
       startChatSync();
       void startNotifications();
+      void requestNotificationPermission();
     }
     return () => {
       stopChatSync();
