@@ -415,7 +415,7 @@ export async function reviewHRRequest(
   id: string,
   status: "approved" | "rejected",
   notes: string | null,
-  reviewedBy: string
+  reviewedBy: string | null   // null when reviewer has no employee record (workspace owner)
 ): Promise<void> {
   const now = new Date().toISOString();
   const patch = { status, notes, reviewedBy, reviewedAt: now };

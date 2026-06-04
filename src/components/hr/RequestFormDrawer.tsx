@@ -81,7 +81,6 @@ export function RequestFormDrawer({
     (editRequest.status !== "pending" || (!isOwner && !isHrAdmin))
   );
   const isPending = editRequest?.status === "pending";
-  const canEdit = Boolean(editRequest && isPending && (isOwner || isHrAdmin));
 
   useEffect(() => {
     if (!open) return;
@@ -244,7 +243,7 @@ export function RequestFormDrawer({
                       field={field}
                       value={formData[field.key] ?? ""}
                       onChange={(v) => setField(field.key, v)}
-                      readOnly={isViewMode && !canEdit}
+                      readOnly={isViewMode}
                     />
               ))}
 
@@ -254,7 +253,7 @@ export function RequestFormDrawer({
                   attachments={attachments}
                   onAdd={() => fileInputRef.current?.click()}
                   onRemove={(i) => setAttachments((a) => a.filter((_, idx) => idx !== i))}
-                  readOnly={isViewMode && !canEdit}
+                  readOnly={isViewMode}
                 />
               )}
               <input
