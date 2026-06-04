@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Users,
   GitBranch,
   InboxIcon,
   Settings2,
+  BarChart2,
   Plus,
   Search,
   Clock,
@@ -13,7 +14,29 @@ import {
   Loader2,
   RefreshCw,
   Link,
+  TrendingUp,
+  FileText,
+  UserCheck,
+  List,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  LineChart,
+  Line,
+} from "recharts";
 import { cn } from "../lib/utils";
 import { useHRStore } from "../stores/hrStore";
 import { useAuthStore } from "../stores/authStore";
@@ -41,7 +64,7 @@ import { HRSettings } from "../components/hr/HRSettings";
 import type { HREmployee, HRRequest, HRRequestType } from "../stores/hrStore";
 import { seedDemoData, clearDemoData, isDemoSeeded } from "../lib/demoData";
 
-type Tab = "employees" | "org" | "requests" | "settings";
+type Tab = "employees" | "org" | "requests" | "settings" | "analytics";
 type OrgView = "hierarchy" | "departments";
 type StatusFilter = "all" | "pending" | "approved" | "rejected" | "cancelled";
 
@@ -50,6 +73,7 @@ const TAB_ITEMS: { key: Tab; labelAr: string; icon: React.ElementType }[] = [
   { key: "org", labelAr: "الهيكل التنظيمي", icon: GitBranch },
   { key: "requests", labelAr: "الطلبات", icon: InboxIcon },
   { key: "settings", labelAr: "الإعدادات", icon: Settings2 },
+  { key: "analytics", labelAr: "التحليلات", icon: BarChart2 },
 ];
 
 const STATUS_CONFIG = {
@@ -74,6 +98,8 @@ export default function HR() {
   const [reqStatusFilter, setReqStatusFilter] = useState<StatusFilter>("all");
   const [reqEmpFilter, setReqEmpFilter] = useState("");
   const [reqScope, setReqScope] = useState<"mine" | "all">("mine");
+  const [calendarView, setCalendarView] = useState(false);
+  const [calViewDate, setCalViewDate] = useState(() => new Date());
   const [empFormOpen, setEmpFormOpen] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<HREmployee | null>(null);
   const [reqFormOpen, setReqFormOpen] = useState(false);
@@ -262,9 +288,10 @@ export default function HR() {
   };
 
   const handleReview = async (id: string, status: "approved" | "rejected", notes: string) => {
-    if (currentEmployee) {
-      await reviewHRRequest(id, status, notes, currentEmployee.id);
-    }
+    // Workspace owners without an employee record can still approve — pass null as reviewerId
+    // so the status change succeeds even if no hr_employees row is linked.
+    const reviewerId = currentEmployee?.id ?? null;
+    await reviewHRRequest(id, status, notes, reviewerId);
     setReqFormOpen(false);
     setSelectedReq(null);
   };
@@ -608,6 +635,20 @@ export default function HR() {
 
                 <div className="flex-1" />
 
+                {/* Calendar / List toggle */}
+                <button
+                  onClick={() => setCalendarView((v) => !v)}
+                  title={calendarView ? "عرض القائمة" : "عرض التقويم"}
+                  className={cn(
+                    "grid h-8 w-8 place-items-center rounded-xl border transition",
+                    calendarView
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/50 bg-background/60 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  )}
+                >
+                  {calendarView ? <List className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}
+                </button>
+
                 {/* زر "طلب جديد" يظهر لأي مستخدم مسجّل — يختار الموظف داخل النموذج */}
                 {canUseHR && (
                   <button
@@ -658,62 +699,81 @@ export default function HR() {
               </div>
             </div>
 
-            {/* Requests list */}
-            <div className="flex-1 overflow-auto p-4">
-              {filteredRequests.length === 0 ? (
-                <EmptyState
-                  icon={InboxIcon}
-                  title="لا توجد طلبات"
-                  description={reqStatusFilter !== "all" ? "لا توجد طلبات بهذه الحالة" : "لا توجد طلبات حتى الآن"}
-                  action={currentEmployee ? { label: "تقديم طلب", onClick: () => { setSelectedReq(null); setReqFormOpen(true); } } : undefined}
-                />
-              ) : (
-                <div className="space-y-2 max-w-3xl mx-auto">
-                  {filteredRequests.map((req) => {
-                    const emp = wsEmployees.find((e) => e.id === req.employeeId);
-                    const type = requestTypes.find((rt) => rt.id === req.typeId);
-                    const statusCfg = STATUS_CONFIG[req.status];
-                    const initials = emp?.name.split(" ").slice(0, 2).map((w) => w[0]).join("") ?? "؟";
-                    return (
-                      <button
-                        key={req.id}
-                        onClick={() => { setSelectedReq(req); setReqFormOpen(true); }}
-                        className="flex w-full items-center gap-4 rounded-2xl border border-border/50 bg-card px-4 py-3.5 text-start transition hover:border-primary/30 hover:shadow-sm"
-                      >
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                          {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{type?.nameAr ?? "طلب"}</span>
-                            {req.status === "pending" && (
-                              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-                                بانتظار المراجعة
-                              </span>
-                            )}
-                          </div>
-                          <p className="truncate text-xs text-muted-foreground mt-0.5">
-                            {emp?.name ?? "موظف غير معروف"} ·{" "}
-                            <span dir="ltr">
-                              {new Date(req.createdAt).toLocaleDateString("ar-SA")}
-                            </span>
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-                            statusCfg.color
-                          )}
+            {/* Requests list / calendar */}
+            {calendarView ? (
+              <LeaveCalendar
+                requests={wsRequests}
+                employees={wsEmployees}
+                calViewDate={calViewDate}
+                onChangeMonth={setCalViewDate}
+                onSelectRequest={(req) => { setSelectedReq(req); setReqFormOpen(true); }}
+              />
+            ) : (
+              <div className="flex-1 overflow-auto p-4">
+                {filteredRequests.length === 0 ? (
+                  <EmptyState
+                    icon={InboxIcon}
+                    title="لا توجد طلبات"
+                    description={reqStatusFilter !== "all" ? "لا توجد طلبات بهذه الحالة" : "لا توجد طلبات حتى الآن"}
+                    action={currentEmployee ? { label: "تقديم طلب", onClick: () => { setSelectedReq(null); setReqFormOpen(true); } } : undefined}
+                  />
+                ) : (
+                  <div className="space-y-2 max-w-3xl mx-auto">
+                    {filteredRequests.map((req) => {
+                      const emp = wsEmployees.find((e) => e.id === req.employeeId);
+                      const type = requestTypes.find((rt) => rt.id === req.typeId);
+                      const statusCfg = STATUS_CONFIG[req.status];
+                      const initials = emp?.name.split(" ").slice(0, 2).map((w) => w[0]).join("") ?? "؟";
+                      return (
+                        <button
+                          key={req.id}
+                          onClick={() => { setSelectedReq(req); setReqFormOpen(true); }}
+                          className="flex w-full items-center gap-4 rounded-2xl border border-border/50 bg-card px-4 py-3.5 text-start transition hover:border-primary/30 hover:shadow-sm"
                         >
-                          {statusCfg.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">{type?.nameAr ?? "طلب"}</span>
+                              {req.status === "pending" && (
+                                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                                  بانتظار المراجعة
+                                </span>
+                              )}
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground mt-0.5">
+                              {emp?.name ?? "موظف غير معروف"} ·{" "}
+                              <span dir="ltr">
+                                {new Date(req.createdAt).toLocaleDateString("ar-SA")}
+                              </span>
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+                              statusCfg.color
+                            )}
+                          >
+                            {statusCfg.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+        )}
+
+        {/* ─── Analytics tab ────────────────────────────────────────── */}
+        {tab === "analytics" && (
+          <HRAnalytics
+            employees={wsEmployees}
+            departments={departments.filter((d) => d.workspaceId === activeWorkspaceId)}
+            requests={wsRequests}
+          />
         )}
 
         {/* ─── Settings tab (HR admin only) ─────────────────────────── */}
@@ -771,6 +831,465 @@ export default function HR() {
         onSubmit={handleSubmitRequest}
         onReview={isHrAdmin ? handleReview : undefined}
       />
+    </div>
+  );
+}
+
+// ── Leave Calendar Component ──────────────────────────────────────────────
+
+const CAL_ARABIC_MONTHS = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
+
+const CAL_DAY_SHORT = ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"];
+
+// Pill colours cycling through a palette for different employees
+const PILL_COLORS = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-violet-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-cyan-500",
+  "bg-orange-500",
+  "bg-pink-500",
+];
+
+function getLeaveRange(req: HRRequest): { start: Date; end: Date } | null {
+  const d = req.data as Record<string, unknown>;
+  // Support both snake_case (start_date) and camelCase (startDate)
+  const startStr = (d.start_date ?? d.startDate) as string | undefined;
+  const endStr   = (d.end_date   ?? d.endDate)   as string | undefined;
+  if (!startStr || !endStr) return null;
+  const start = new Date(startStr);
+  const end   = new Date(endStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  return { start, end };
+}
+
+function sameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+function LeaveCalendar({
+  requests,
+  employees,
+  calViewDate,
+  onChangeMonth,
+  onSelectRequest,
+}: {
+  requests: HRRequest[];
+  employees: HREmployee[];
+  calViewDate: Date;
+  onChangeMonth: (d: Date) => void;
+  onSelectRequest: (req: HRRequest) => void;
+}) {
+  const [popoverDay, setPopoverDay] = useState<Date | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverDay(null);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const year  = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  // Calendar starts on Sunday (0); offset = day-of-week of 1st
+  const startOffset = firstDay.getDay(); // 0=Sun … 6=Sat
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Build 6-row × 7-col grid of Date | null
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  // Only approved leave requests with a date range
+  const leaveRequests = requests.filter((r) => r.status === "approved" && getLeaveRange(r) !== null);
+
+  // Map employeeId -> colour index (stable per unique employee)
+  const empColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const req of leaveRequests) {
+      if (req.employeeId && !map.has(req.employeeId)) {
+        map.set(req.employeeId, idx % PILL_COLORS.length);
+        idx++;
+      }
+    }
+    return map;
+  }, [leaveRequests]);
+
+  // Which requests fall on a given day
+  function requestsOnDay(day: Date): HRRequest[] {
+    return leaveRequests.filter((req) => {
+      const range = getLeaveRange(req);
+      if (!range) return false;
+      // Normalise to midnight for comparison
+      const start = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
+      const end   = new Date(range.end.getFullYear(),   range.end.getMonth(),   range.end.getDate());
+      const d     = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      return d >= start && d <= end;
+    });
+  }
+
+  const today = new Date();
+  const popoverRequests = popoverDay ? requestsOnDay(popoverDay) : [];
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Month nav */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-card/20">
+        <button
+          onClick={() => onChangeMonth(new Date(year, month - 1, 1))}
+          className="grid h-8 w-8 place-items-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        <h3 className="text-sm font-semibold">
+          {CAL_ARABIC_MONTHS[month]} {year}
+        </h3>
+        <button
+          onClick={() => onChangeMonth(new Date(year, month + 1, 1))}
+          className="grid h-8 w-8 place-items-center rounded-xl border border-border/50 bg-background/60 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 border-b border-border/30 bg-secondary/20 text-center">
+        {CAL_DAY_SHORT.map((d) => (
+          <div key={d} className="py-2 text-[10px] font-semibold text-muted-foreground/70">{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="flex-1 overflow-auto">
+        <div className="grid grid-cols-7 divide-x divide-y divide-border/20 rtl:divide-x-reverse" style={{ gridAutoRows: "minmax(72px, 1fr)" }}>
+          {cells.map((day, i) => {
+            if (!day) {
+              return <div key={`empty-${i}`} className="bg-secondary/10" />;
+            }
+            const isToday = sameDay(day, today);
+            const dayRequests = requestsOnDay(day);
+            const isPopoverOpen = popoverDay ? sameDay(day, popoverDay) : false;
+
+            return (
+              <div
+                key={day.toISOString()}
+                onClick={() => {
+                  if (dayRequests.length > 0) {
+                    setPopoverDay(isPopoverOpen ? null : day);
+                  }
+                }}
+                className={cn(
+                  "relative flex flex-col gap-0.5 p-1.5 transition",
+                  dayRequests.length > 0 ? "cursor-pointer hover:bg-primary/5" : "cursor-default",
+                  isPopoverOpen && "ring-2 ring-inset ring-primary/30 bg-primary/5"
+                )}
+              >
+                {/* Day number */}
+                <span
+                  className={cn(
+                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium self-end leading-none",
+                    isToday ? "bg-primary text-white font-bold" : "text-foreground/80"
+                  )}
+                >
+                  {day.getDate()}
+                </span>
+
+                {/* Leave pills */}
+                <div className="flex flex-col gap-0.5 mt-0.5">
+                  {dayRequests.slice(0, 3).map((req) => {
+                    const emp = employees.find((e) => e.id === req.employeeId);
+                    const initials = emp?.name.split(" ").slice(0, 2).map((w) => w[0]).join("") ?? "؟";
+                    const colorCls = PILL_COLORS[empColorMap.get(req.employeeId ?? "") ?? 0];
+                    return (
+                      <span
+                        key={req.id}
+                        className={cn(
+                          "truncate rounded px-1 text-[9px] font-semibold text-white leading-4",
+                          colorCls
+                        )}
+                        title={emp?.name}
+                      >
+                        {initials}
+                      </span>
+                    );
+                  })}
+                  {dayRequests.length > 3 && (
+                    <span className="text-[9px] text-muted-foreground ps-0.5">+{dayRequests.length - 3}</span>
+                  )}
+                </div>
+
+                {/* Popover */}
+                {isPopoverOpen && (
+                  <div
+                    ref={popoverRef}
+                    className="absolute top-full start-0 z-50 mt-1 w-52 rounded-2xl border border-border/60 bg-card shadow-xl p-3 space-y-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-[11px] font-semibold text-muted-foreground mb-1">
+                      {day.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" })}
+                    </p>
+                    {popoverRequests.map((req) => {
+                      const emp = employees.find((e) => e.id === req.employeeId);
+                      const colorCls = PILL_COLORS[empColorMap.get(req.employeeId ?? "") ?? 0];
+                      const range = getLeaveRange(req);
+                      return (
+                        <button
+                          key={req.id}
+                          onClick={() => { setPopoverDay(null); onSelectRequest(req); }}
+                          className="flex w-full items-center gap-2 rounded-xl border border-border/40 bg-background/60 px-2.5 py-2 text-start transition hover:border-primary/30 hover:bg-primary/5"
+                        >
+                          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white", colorCls)}>
+                            {emp?.name.split(" ").slice(0, 2).map((w) => w[0]).join("") ?? "؟"}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-[11px] font-medium leading-tight">{emp?.name ?? "موظف"}</p>
+                            {range && (
+                              <p className="text-[9px] text-muted-foreground leading-tight" dir="ltr">
+                                {range.start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                                {" → "}
+                                {range.end.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      {leaveRequests.length === 0 && (
+        <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+          لا توجد إجازات موافق عليها هذا الشهر
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Analytics Component ───────────────────────────────────────────────────
+
+const ARABIC_MONTHS = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
+
+const STATUS_BAR_COLORS: Record<string, string> = {
+  pending:   "#f59e0b",
+  approved:  "#10b981",
+  rejected:  "#ef4444",
+  cancelled: "#9ca3af",
+};
+
+const STATUS_LABELS_AR: Record<string, string> = {
+  pending:   "في الانتظار",
+  approved:  "موافق",
+  rejected:  "مرفوض",
+  cancelled: "ملغي",
+};
+
+function HRAnalytics({
+  employees,
+  departments,
+  requests,
+}: {
+  employees: import("../stores/hrStore").HREmployee[];
+  departments: import("../stores/hrStore").HRDepartment[];
+  requests: import("../stores/hrStore").HRRequest[];
+}) {
+  // ── Chart 1: Employees by Department ──────────────────────────────────
+  const deptPieData = useMemo(() => {
+    return departments
+      .map((d) => ({
+        name: d.name,
+        value: employees.filter((e) => e.departmentId === d.id).length,
+        color: d.color,
+      }))
+      .filter((d) => d.value > 0);
+  }, [departments, employees]);
+
+  // ── Chart 2: Requests by Status ────────────────────────────────────────
+  const statusBarData = useMemo(() => {
+    return (["pending", "approved", "rejected", "cancelled"] as const).map((s) => ({
+      status: STATUS_LABELS_AR[s],
+      count: requests.filter((r) => r.status === s).length,
+      fill: STATUS_BAR_COLORS[s],
+    }));
+  }, [requests]);
+
+  // ── Chart 3: Requests over last 6 months ──────────────────────────────
+  const lineData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const count = requests.filter((r) => {
+        const rd = new Date(r.createdAt);
+        return rd.getFullYear() === year && rd.getMonth() === month;
+      }).length;
+      return { month: ARABIC_MONTHS[month], count };
+    });
+  }, [requests]);
+
+  // ── Key stats ─────────────────────────────────────────────────────────
+  const totalEmployees = employees.length;
+  const activeEmployees = employees.filter((e) => e.status === "active").length;
+  const pendingRequests = requests.filter((r) => r.status === "pending").length;
+  const now = new Date();
+  const thisMonthRequests = requests.filter((r) => {
+    const d = new Date(r.createdAt);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+
+  const statCards = [
+    { label: "إجمالي الموظفين", value: totalEmployees, icon: Users, color: "bg-blue-50 text-blue-600" },
+    { label: "الموظفون النشطون", value: activeEmployees, icon: UserCheck, color: "bg-emerald-50 text-emerald-600" },
+    { label: "الطلبات المعلقة", value: pendingRequests, icon: Clock, color: "bg-amber-50 text-amber-600" },
+    { label: "طلبات هذا الشهر", value: thisMonthRequests, icon: FileText, color: "bg-purple-50 text-purple-600" },
+  ];
+
+  return (
+    <div className="flex-1 overflow-auto p-4 space-y-4">
+      {/* ── Stats cards row ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {statCards.map(({ label, value, icon: Icon, color }) => (
+          <div
+            key={label}
+            className="rounded-2xl border border-border/50 bg-card px-5 py-4 flex items-center gap-4"
+          >
+            <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${color}`}>
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold leading-tight">{value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Two charts side by side ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Pie: Employees by Department */}
+        <div className="rounded-2xl border border-border/50 bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">الموظفون حسب القسم</h3>
+          </div>
+          {deptPieData.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+              لا توجد بيانات
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={deptPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={75}
+                  labelLine={false}
+                >
+                  {deptPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Bar: Requests by Status */}
+        <div className="rounded-2xl border border-border/50 bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">الطلبات حسب الحالة</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={statusBarData} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="status"
+                tick={{ fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                {statusBarData.map((entry, index) => (
+                  <Cell key={`cell-bar-${index}`} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Line chart: Requests over time ──────────────────────────── */}
+      <div className="rounded-2xl border border-border/50 bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">الطلبات خلال آخر 6 أشهر</h3>
+        </div>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={lineData} margin={{ top: 4, right: 16, left: -20, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="#0A4EFF"
+              strokeWidth={2}
+              dot={{ r: 4, fill: "#0A4EFF" }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

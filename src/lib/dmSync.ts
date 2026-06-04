@@ -174,16 +174,22 @@ export async function fetchDmPartners(): Promise<DmPartner[]> {
 }
 
 // Load the last N messages between me and a partner.
-export async function fetchThread(partnerId: string, limit = 80): Promise<DmMessage[]> {
+// Pass `before` (ISO timestamp) to fetch older messages for pagination.
+export async function fetchThread(partnerId: string, limit = 80, before?: string): Promise<DmMessage[]> {
   if (!canSync()) return [];
   const me = useAuthStore.getState().user!;
   try {
-    const { data, error } = await sb()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (sb() as any)
       .from("dm_messages")
       .select("*")
       .or(`and(sender_id.eq.${me.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${me.id})`)
       .order("created_at", { ascending: false })
       .limit(limit);
+    if (before) {
+      query = query.lt("created_at", before);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     if (!data) return [];
     return (data as Record<string, unknown>[]).map(rowToMsg).reverse();
@@ -412,4 +418,26 @@ export function stopDmSubscription(): void {
     try { getSupabase().removeChannel(dmChannel); } catch { /* ignore */ }
     dmChannel = null;
   }
+}
+
+// Supabase Realtime Presence — track who is online in a workspace.
+export function subscribePresence(
+  workspaceId: string,
+  myUserId: string,
+  onUpdate: (onlineIds: Set<string>) => void
+): () => void {
+  if (!isSupabaseConfigured()) return () => {};
+  const supabase = getSupabase();
+  const channel = supabase.channel(`presence:${workspaceId}`)
+    .on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<{ userId: string }>();
+      const ids = new Set(Object.values(state).flat().map((p) => p.userId));
+      onUpdate(ids);
+    })
+    .subscribe(async (status: string) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ userId: myUserId, online_at: new Date().toISOString() });
+      }
+    });
+  return () => { supabase.removeChannel(channel); };
 }
