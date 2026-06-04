@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, X, Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useNotificationsStore } from "../stores/notificationsStore";
 
 const useI = () => {
   const { i18n } = useTranslation();
@@ -44,6 +45,16 @@ export function UpdateChecker() {
         setInfo(update as unknown as UpdateInfo);
         // Don't interrupt an in-progress download/install.
         setPhase((p) => (p === "downloading" || p === "ready" ? p : "available"));
+        // Drop a notice in the top bell (deduped per version).
+        const title = `تحديث جديد متاح · Update available v${update.version}`;
+        const notifs = useNotificationsStore.getState().notifications;
+        if (!notifs.some((n) => n.title === title)) {
+          useNotificationsStore.getState().add({
+            type: "info",
+            title,
+            body: "افتح الإعدادات لتثبيت التحديث · Open Settings to install",
+          });
+        }
       } catch (e) {
         // Updater unavailable (dev build, no signing key, offline) — silent.
         // eslint-disable-next-line no-console

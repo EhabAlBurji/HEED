@@ -13,6 +13,7 @@ import { PROVIDERS, listOllamaModels, type ProviderId } from "../../lib/chatProv
 export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
   const s = useChatStore();
   const [provider, setProvider] = useState<ProviderId>(s.provider);
+  const [heedModel, setHeedModel] = useState(s.heedModel);
   const [groqApiKey, setGroqApiKey] = useState(s.groqApiKey);
   const [groqModel, setGroqModel] = useState(s.groqModel);
   const [ollamaUrl, setOllamaUrl] = useState(s.ollamaUrl);
@@ -34,8 +35,14 @@ export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
   }, [provider, ollamaUrl]);
 
   const save = () => {
-    s.setSettings({ provider, groqApiKey: groqApiKey.trim(), groqModel, ollamaUrl: ollamaUrl.trim(), ollamaModel });
+    s.setSettings({ provider, heedModel, groqApiKey: groqApiKey.trim(), groqModel, ollamaUrl: ollamaUrl.trim(), ollamaModel });
     onClose();
+  };
+
+  const meta: Record<ProviderId, { name: string; sub: string }> = {
+    heed: { name: "Heed", sub: "جاهز · مجاني · بدون مفتاح" },
+    groq: { name: "Groq", sub: "أونلاين · مفتاحك الخاص" },
+    ollama: { name: "Ollama", sub: "أوفلاين · محلي · خصوصية" },
   };
 
   return (
@@ -55,27 +62,39 @@ export function ChatSettingsModal({ onClose }: { onClose: () => void }) {
           {/* Provider picker */}
           <div>
             <Label className="mb-2">المحرّك</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {(Object.values(PROVIDERS)).map((p) => (
                 <button
                   key={p.id}
                   onClick={() => setProvider(p.id)}
                   className={cn(
-                    "flex flex-col items-start gap-1 rounded-xl border p-3 text-start transition",
+                    "flex flex-col items-start gap-1 rounded-xl border p-2.5 text-start transition",
                     provider === p.id ? "border-primary bg-primary/5" : "border-border/50 hover:bg-secondary"
                   )}
                 >
                   <span className="flex items-center gap-1.5 text-sm font-medium">
                     {p.online ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-amber-500" />}
-                    {p.id === "groq" ? "Groq" : "Ollama"}
+                    {meta[p.id].name}
                   </span>
-                  <span className="font-micro text-[10px] text-muted-foreground">
-                    {p.online ? "أونلاين · مجاني · سريع" : "أوفلاين · محلي · خصوصية"}
+                  <span className="font-micro text-[10px] leading-tight text-muted-foreground">
+                    {meta[p.id].sub}
                   </span>
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Hosted (Heed) config — no key, just model */}
+          {provider === "heed" && (
+            <>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+                <p className="font-micro text-[11px] text-muted-foreground">
+                  الوضع ده مجاني وجاهز — مش محتاج تحط أي مفتاح. بيشتغل عبر خادم Heed.
+                </p>
+              </div>
+              <ModelPicker value={heedModel} onChange={setHeedModel} suggestions={PROVIDERS.heed.models} />
+            </>
+          )}
 
           {/* Groq config */}
           {provider === "groq" && (

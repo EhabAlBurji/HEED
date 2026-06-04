@@ -71,50 +71,50 @@
 
 @layer base {
   :root {
-    /* Light theme — default (neutral off-white, not lavender) */
-    --background:          240 8%   96%;    /* #F4F4F6 cool off-white */
-    --foreground:          210 38%  15%;    /* #172935 deep navy ink */
+    /* Light theme — Google-style: clean white surfaces + Google-blue accent */
+    --background:          220 20%  98%;    /* #F8F9FB clean cool white */
+    --foreground:          220 22%  14%;    /* #1F2229 ink */
     --card:                0   0%   100%;
-    --card-foreground:     210 38%  15%;
+    --card-foreground:     220 22%  14%;
     --popover:             0   0%   100%;
-    --popover-foreground:  210 38%  15%;
-    --primary:             257 76%  54%;    /* #6735E1 vivid violet */
+    --popover-foreground:  220 22%  14%;
+    --primary:             214 82%  51%;    /* #1A73E8 Google blue */
     --primary-foreground:  0   0%   100%;
-    --secondary:           240 8%   92%;    /* #E8E8EC neutral chip */
-    --secondary-foreground: 210 38%  20%;
-    --muted:               240 8%   92%;
-    --muted-foreground:    210 8%   48%;    /* slate-ish muted */
-    --accent:              257 90%  94%;    /* #ECE4FD soft violet wash */
-    --accent-foreground:   257 76%  44%;
-    --destructive:         0   75%   58%;
+    --secondary:           220 14%  94%;    /* #EBEEF2 neutral chip */
+    --secondary-foreground: 220 20%  22%;
+    --muted:               220 14%  94%;
+    --muted-foreground:    220 9%   46%;    /* slate-ish muted */
+    --accent:              214 90%  95%;    /* #E8F0FE soft blue wash */
+    --accent-foreground:   214 82%  42%;
+    --destructive:         4   75%   56%;
     --destructive-foreground: 0 0% 100%;
-    --border:              240 8%   88%;    /* #DDDDE1 visible separator */
-    --input:               240 8%   88%;
-    --ring:                257 76%  54%;
+    --border:              220 14%  89%;    /* visible separator */
+    --input:               220 14%  89%;
+    --ring:                214 82%  51%;
     --radius:              1.25rem;
   }
 
   .dark {
-    /* Deep navy midnight inspired by ryswift's #172935 ink */
-    --background:          210 38%   9%;    /* #0F1B26 base */
-    --foreground:          210 16%  92%;    /* off-white, eye-friendly */
-    --card:                210 32%  13%;    /* #172935 elevated card */
-    --card-foreground:     210 16%  92%;
-    --popover:             210 30%  15%;
-    --popover-foreground:  210 16%  92%;
-    --primary:             257 80%  66%;    /* brighter vivid violet on dark */
+    /* Gemini-inspired: deep near-black surfaces + Google-blue accent */
+    --background:          220 9%    6%;    /* #0E0F11 near-black base */
+    --foreground:          220 14%  93%;    /* soft off-white */
+    --card:                220 7%   11%;    /* #1A1B1E elevated surface */
+    --card-foreground:     220 14%  93%;
+    --popover:             220 7%   13%;
+    --popover-foreground:  220 14%  93%;
+    --primary:             217 89%  61%;    /* #4285F4 Google blue */
     --primary-foreground:  0   0%   100%;
-    --secondary:           210 24%  17%;    /* second-tier surface */
-    --secondary-foreground: 210 14%  85%;
-    --muted:               210 24%  17%;
-    --muted-foreground:    210 10%  68%;
-    --accent:              257 40%  26%;    /* deep purple chip */
-    --accent-foreground:   257 90%  88%;
-    --destructive:         0   72%  62%;
+    --secondary:           220 6%   16%;    /* #26272A second-tier surface */
+    --secondary-foreground: 220 12%  88%;
+    --muted:               220 6%   16%;
+    --muted-foreground:    220 9%   64%;
+    --accent:              217 45%  22%;    /* deep blue chip */
+    --accent-foreground:   217 90%  86%;
+    --destructive:         4   72%  60%;
     --destructive-foreground: 0 0% 98%;
-    --border:              210 20%  22%;    /* visible separators */
-    --input:               210 20%  22%;
-    --ring:                257 80%  66%;
+    --border:              220 7%   18%;    /* subtle separators */
+    --input:               220 7%   18%;
+    --ring:                217 89%  61%;
   }
 }
 

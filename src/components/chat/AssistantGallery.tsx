@@ -26,7 +26,10 @@ export function AssistantGallery({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border/40 px-5 py-3">
-          <h3 className="font-display text-base font-bold">المساعدين</h3>
+          <div>
+            <h3 className="font-display text-base font-bold">HEDs</h3>
+            <p className="font-micro text-[10px] text-muted-foreground">مساعدين مخصّصين بشخصيات خاصة</p>
+          </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
@@ -41,8 +44,8 @@ export function AssistantGallery({
               <Plus className="h-5 w-5" />
             </span>
             <span>
-              <span className="block text-sm font-semibold">إنشاء مساعد</span>
-              <span className="block font-micro text-[11px] text-muted-foreground">صمّم Custom GPT خاص بيك</span>
+              <span className="block text-sm font-semibold">إنشاء HED</span>
+              <span className="block font-micro text-[11px] text-muted-foreground">صمّم مساعد خاص بيك</span>
             </span>
           </button>
 

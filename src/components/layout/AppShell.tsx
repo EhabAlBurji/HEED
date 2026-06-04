@@ -1,12 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { TopBar } from "./TopBar";
 import { Sidebar } from "./Sidebar";
+import { MiniRail } from "./MiniRail";
 import { GlobalSearch } from "../search/GlobalSearch";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
+  const location = useLocation();
+  // On the Chat page (desktop) collapse the full nav to a slim icon rail so
+  // HEED CHAT gets the full-width, ChatGPT-style canvas.
+  const chatMode = !isMobile && location.pathname.startsWith("/chat");
   // Sidebar visibility. Open by default on desktop, hidden on phones. Resyncs
   // whenever we cross the breakpoint; manual toggles persist within a size.
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
@@ -20,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[420px]"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% -10%, rgba(97,48,181,0.12) 0%, transparent 70%)",
+            "radial-gradient(ellipse 70% 50% at 50% -10%, rgba(66,133,244,0.10) 0%, transparent 70%)",
         }}
       />
       <TopBar onToggleSidebar={() => setSidebarOpen((v) => !v)} />
@@ -45,6 +51,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Sidebar onNavigate={() => setSidebarOpen(false)} />
             </div>
           </>
+        ) : chatMode ? (
+          <MiniRail />
         ) : (
           sidebarOpen && <Sidebar />
         )}

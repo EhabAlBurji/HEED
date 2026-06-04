@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Camera, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw,
-  Trash2, Unlink, X, Check, Save, ChevronDown,
+  AlertTriangle, Camera, Download, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw,
+  Trash2, Unlink, X, Check, Save, ChevronDown, Sparkles, CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
 import { useMeetingsStore } from "../stores/meetingsStore";
 import {
@@ -20,6 +21,8 @@ import {
 import { useAuthStore } from "../stores/authStore";
 import { cn } from "../lib/utils";
 import { Avatar, AvatarPickerModal } from "../components/Avatar";
+import { resetAllStores } from "../lib/resetStores";
+import { downloadBackup } from "../lib/backup";
 
 // ── Color palette swatches ─────────────────────────────────────────────────
 const COLOR_SWATCHES = [
@@ -998,7 +1001,212 @@ function ProfileSection() {
   );
 }
 
+// ── Reset / clear local cache ──────────────────────────────────────────────
+// Destructive action: wipes all on-device data and reloads from the cloud.
+// Guarded by a confirmation dialog with a short countdown + a backup option.
+function ResetSection() {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+
+  // Restart a short countdown each time the dialog opens, so the user can't
+  // reflexively confirm a destructive action — it pauses them for a moment.
+  useEffect(() => {
+    if (!confirmOpen) return;
+    setCountdown(3);
+    const id = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [confirmOpen]);
+
+  const doReset = () => {
+    [
+      "heed:tasks", "heed:canvas", "heed:schedule", "heed:meetings",
+      "heed:workspaces", "heed:notifications", "heed:chat",
+    ].forEach((k) => localStorage.removeItem(k));
+    resetAllStores();
+    location.reload();
+  };
+
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-destructive/8 p-4">
+      <p className="text-sm font-medium text-destructive">{isAr ? "إعادة الضبط" : "Reset"}</p>
+      <p className="mt-1 font-micro text-xs text-muted-foreground">
+        {isAr
+          ? "بيمسح كل البيانات المحلية على الجهاز ويعيد التحميل من السحابة. خُد نسخة احتياطية الأول للأمان."
+          : "Wipes all on-device data and reloads from the cloud. Download a backup first to be safe."}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => downloadBackup()}
+          className="inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {isAr ? "نسخة احتياطية" : "Download backup"}
+        </button>
+        <button
+          onClick={() => setConfirmOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm text-destructive transition hover:border-destructive/60 hover:bg-destructive/20"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          {isAr ? "إعادة الضبط" : "Reset"}
+        </button>
+      </div>
+
+      {/* Confirm reset dialog — red, with backup + countdown guard */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmOpen(false)}
+          />
+          <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl border border-destructive/40 bg-card p-6 shadow-2xl">
+            <div className="flex items-center gap-2.5 text-destructive">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <h3 className="text-base font-semibold">
+                {isAr ? "تأكيد إعادة الضبط" : "Confirm reset"}
+              </h3>
+            </div>
+            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {isAr
+                ? "⚠️ ده هيمسح كل البيانات المحلية على الجهاز. لو مأخدتش نسخة احتياطية ومفيش نسخة على السحابة، البيانات هتضيع."
+                : "⚠️ This deletes all local data on this device. If you haven't backed up and there's no cloud copy, it will be lost."}
+            </p>
+            <button
+              onClick={() => downloadBackup()}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {isAr ? "تحميل نسخة احتياطية أولاً" : "Download backup first"}
+            </button>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={doReset}
+                disabled={countdown > 0}
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {countdown > 0
+                  ? (isAr ? `استنى… ${countdown}` : `Wait… ${countdown}`)
+                  : (isAr ? "نعم، امسح كل حاجة" : "Yes, wipe everything")}
+              </button>
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 rounded-xl bg-secondary py-2.5 text-sm text-secondary-foreground transition hover:bg-secondary/80"
+              >
+                {isAr ? "إلغاء" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Settings page ────────────────────────────────────────────────────────
+// Build-time app version (kept in sync with package.json / tauri.conf.json).
+const APP_VERSION = "0.1.39";
+const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+function AboutSection() {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+  const tr = <T,>(ar: T, en: T) => (isAr ? ar : en);
+
+  const [version, setVersion] = useState(APP_VERSION);
+  const [phase, setPhase] = useState<"idle" | "checking" | "latest" | "available" | "downloading">("idle");
+  const [pending, setPending] = useState<{ version: string; downloadAndInstall: (cb: (e: { event: string; data?: { chunkLength?: number; contentLength?: number } }) => void) => Promise<void> } | null>(null);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    void import("@tauri-apps/api/app").then(({ getVersion }) => getVersion().then(setVersion).catch(() => {}));
+  }, []);
+
+  const check = async () => {
+    if (!isTauri()) {
+      toast.message(tr("التحديثات متاحة في تطبيق سطح المكتب فقط", "Updates are available in the desktop app only"));
+      return;
+    }
+    setPhase("checking");
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (!update) { setPhase("latest"); return; }
+      setPending(update as unknown as typeof pending);
+      setPhase("available");
+    } catch (e) {
+      toast.error(tr("تعذّر فحص التحديثات", "Couldn't check for updates") + ": " + (e as Error).message);
+      setPhase("idle");
+    }
+  };
+
+  const install = async () => {
+    if (!pending) return;
+    setPhase("downloading");
+    try {
+      await pending.downloadAndInstall(() => {});
+      const { relaunch } = await import("@tauri-apps/plugin-process");
+      await relaunch();
+    } catch (e) {
+      toast.error(tr("فشل التثبيت", "Install failed") + ": " + (e as Error).message);
+      setPhase("available");
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card/40 p-5">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h2 className="text-lg font-medium">{tr("حول التطبيق", "About")}</h2>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-foreground/80">
+            Heed <span className="font-mono">v{version}</span>
+          </p>
+          <p className="mt-0.5 font-micro text-[11px] text-muted-foreground">
+            {phase === "latest"
+              ? tr("إنت على آخر إصدار ✓", "You're on the latest version ✓")
+              : phase === "available" && pending
+              ? tr(`تحديث جديد متاح: v${pending.version}`, `Update available: v${pending.version}`)
+              : tr("النسخة الحالية المثبّتة", "Currently installed version")}
+          </p>
+        </div>
+
+        {phase === "available" ? (
+          <button
+            onClick={() => void install()}
+            className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
+            <Download className="h-4 w-4" /> {tr("حدّث الآن", "Update now")}
+          </button>
+        ) : phase === "downloading" ? (
+          <span className="flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin" /> {tr("بحمّل…", "Downloading…")}
+          </span>
+        ) : (
+          <button
+            onClick={() => void check()}
+            disabled={phase === "checking"}
+            className="flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm transition hover:bg-secondary disabled:opacity-50"
+          >
+            {phase === "checking" ? <RefreshCw className="h-4 w-4 animate-spin" /> : phase === "latest" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <RefreshCw className="h-4 w-4" />}
+            {phase === "checking" ? tr("بفحص…", "Checking…") : tr("فحص التحديثات", "Check for updates")}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Settings() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
@@ -1086,27 +1294,11 @@ export default function Settings() {
         <McpContent />
       </CollapsibleSection>
 
-      {/* Clear local cache — re-pulls everything from the cloud */}
-      <div className="rounded-xl border border-border/40 bg-background/20 p-4">
-        <p className="text-sm font-medium">{isAr ? "مسح الكاش المحلي" : "Clear local cache"}</p>
-        <p className="mt-1 font-micro text-xs text-muted-foreground">
-          {isAr
-            ? "بيمسح النسخة المحلية ويعيد التحميل من السحابة. بياناتك أونلاين فمش بتضيع."
-            : "Wipes the on-device copy and reloads from the cloud. Your data is online, so nothing is lost."}
-        </p>
-        <button
-          onClick={() => {
-            ["heed:tasks", "heed:canvas", "heed:schedule", "heed:meetings", "heed:workspaces", "heed:notifications"].forEach(
-              (k) => localStorage.removeItem(k)
-            );
-            location.reload();
-          }}
-          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          {isAr ? "مسح وإعادة التحميل" : "Clear & reload"}
-        </button>
-      </div>
+      {/* About — version + check for updates */}
+      <AboutSection />
+
+      {/* Reset — wipes local data, re-pulls from the cloud (with backup + confirm) */}
+      <ResetSection />
 
       {/* Sign out — always at the bottom */}
       <div className="pb-4">

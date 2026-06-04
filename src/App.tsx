@@ -175,7 +175,8 @@ export default function App() {
       <ErrorBoundary>
         <Suspense fallback={<AppLoader />}>
           <Routes>
-            <Route path="/"             element={<Dashboard />} />
+            <Route path="/"             element={<Inbox />} />
+            <Route path="/dashboard"    element={<Dashboard />} />
             <Route path="/projects"     element={<Projects />} />
             <Route path="/projects/:id" element={<ProjectBoard />} />
             <Route path="/boards"       element={<Boards />} />

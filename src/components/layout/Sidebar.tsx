@@ -26,7 +26,7 @@ import {
   Trash2,
   Copy,
   LogIn,
-  Sparkles,
+  Gem,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -48,11 +48,11 @@ import { pullAll } from "../../lib/sync";
 import { isAdmin } from "../../lib/admin";
 
 const navItems = [
-  { to: "/",         icon: LayoutDashboard, key: "nav.dashboard",  end: true },
-  { to: "/inbox",    icon: InboxIcon,        key: "nav.inbox",     end: false },
-  { to: "/chat",     icon: Sparkles,         key: "nav.chat",      end: false },
-  { to: "/projects", icon: FolderKanban,     key: "nav.projects",  end: false },
-  { to: "/boards",   icon: Workflow,         key: "nav.boards",    end: false },
+  { to: "/",          icon: InboxIcon,        key: "nav.inbox",     end: true },
+  { to: "/projects",  icon: FolderKanban,     key: "nav.projects",  end: false },
+  { to: "/chat",      icon: Gem,              key: "nav.chat",      end: false },
+  { to: "/boards",    icon: Workflow,         key: "nav.boards",    end: false },
+  { to: "/dashboard", icon: LayoutDashboard,  key: "nav.dashboard", end: false },
 ];
 
 const workspaceColors = [
@@ -219,7 +219,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* ── Brand logo at top ──────────── */}
       <div className="px-5 pt-5 pb-3">
         <div className="flex items-center gap-2.5">
-          <HeedLogo className="h-9 w-9 text-primary drop-shadow-[0_4px_12px_rgba(103,53,225,0.25)]" />
+          <HeedLogo className="h-9 w-9 text-primary drop-shadow-[0_4px_12px_hsl(var(--primary)/0.25)]" />
           <span className="font-display text-lg font-bold tracking-tight text-foreground">
             Heed
           </span>
@@ -572,7 +572,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-primary text-white shadow-[0_4px_16px_rgba(103,53,225,0.25)]"
+                    ? "bg-primary text-white shadow-[0_4px_16px_hsl(var(--primary)/0.25)]"
                     : "text-foreground/70 hover:bg-secondary hover:text-foreground",
                 )
               }
@@ -586,7 +586,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                   />
                   <span className="leading-none">{t(key)}</span>
-                  {to === "/inbox" && inboxUnread > 0 && (
+                  {to === "/" && inboxUnread > 0 && (
                     <span
                       className={cn(
                         "ms-auto grid h-5 min-w-5 place-items-center rounded-full px-1 font-micro text-[10px] font-bold",
@@ -610,7 +610,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "bg-primary text-white shadow-[0_4px_16px_rgba(103,53,225,0.25)]"
+                  ? "bg-primary text-white shadow-[0_4px_16px_hsl(var(--primary)/0.25)]"
                   : "text-foreground/70 hover:bg-secondary hover:text-foreground",
               )
             }
@@ -767,7 +767,7 @@ function AttentionCard() {
       </p>
       <button
         onClick={() => navigate("/projects")}
-        className="mt-2.5 w-full rounded-full bg-primary py-2 text-xs font-semibold text-white shadow-[0_4px_12px_rgba(103,53,225,0.3)] transition hover:opacity-95"
+        className="mt-2.5 w-full rounded-full bg-primary py-2 text-xs font-semibold text-white shadow-[0_4px_12px_hsl(var(--primary)/0.3)] transition hover:opacity-95"
       >
         View Alerts
       </button>

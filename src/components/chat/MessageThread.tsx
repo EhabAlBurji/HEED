@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Check, Copy, RefreshCw, FileText, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Markdown } from "./Markdown";
 import type { ChatAssistant, ChatMsg, Conversation } from "../../stores/chatStore";
@@ -40,7 +41,6 @@ export function MessageThread({
           <Bubble
             key={m.id}
             msg={m}
-            assistant={assistant}
             isLast={i === msgs.length - 1}
             convId={conversation.id}
           />
@@ -50,7 +50,7 @@ export function MessageThread({
   );
 }
 
-function EmptyState({
+export function EmptyState({
   assistant,
   onStarter,
 }: {
@@ -59,8 +59,8 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-4xl">
-        {assistant.emoji}
+      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-primary">
+        <Sparkles className="h-7 w-7" />
       </div>
       <h2 className="mt-4 font-display text-xl font-bold">{assistant.name}</h2>
       {assistant.description && (
@@ -71,6 +71,7 @@ function EmptyState({
           {assistant.starters.slice(0, 4).map((s, i) => (
             <button
               key={i}
+              dir="auto"
               onClick={() => onStarter(s)}
               className="rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 text-start text-sm text-foreground/80 transition hover:border-primary/40 hover:bg-secondary"
             >
@@ -85,15 +86,15 @@ function EmptyState({
 
 function Bubble({
   msg,
-  assistant,
   isLast,
   convId,
 }: {
   msg: ChatMsg;
-  assistant: ChatAssistant;
   isLast: boolean;
   convId: string;
 }) {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === "user";
   const streaming = msg.pending && msg.content.length === 0;
@@ -106,30 +107,52 @@ function Bubble({
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-          {msg.content}
-        </div>
+      <div className="flex flex-col items-end gap-1.5">
+        {msg.attachments && msg.attachments.length > 0 && (
+          <div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+            {msg.attachments.map((a) =>
+              a.kind === "image" ? (
+                <img
+                  key={a.id}
+                  src={a.url}
+                  alt={a.name}
+                  className="h-28 w-28 rounded-xl border border-border/40 object-cover"
+                />
+              ) : (
+                <div key={a.id} className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-card/60 px-2.5 py-1.5">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <span className="max-w-[160px] truncate font-micro text-[11px]">{a.name}</span>
+                </div>
+              )
+            )}
+          </div>
+        )}
+        {msg.content && (
+          <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-start text-sm text-primary-foreground">
+            {msg.content}
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="group flex gap-3">
-      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-lg">
-        {assistant.emoji}
+      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Sparkles className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div
+          dir="auto"
           className={cn(
-            "text-sm",
+            "text-start text-sm",
             msg.error && "rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive"
           )}
         >
           {streaming ? (
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-              <span className="font-micro text-xs">بيفكر…</span>
+              <span className="font-micro text-xs">{isAr ? "بيفكر…" : "Thinking…"}</span>
             </span>
           ) : msg.error ? (
             <span className="whitespace-pre-wrap">{msg.content}</span>
@@ -150,7 +173,7 @@ function Bubble({
                 className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground transition hover:bg-secondary hover:text-foreground"
               >
                 {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                {copied ? "اتنسخ" : "نسخ"}
+                {isAr ? (copied ? "اتنسخ" : "نسخ") : (copied ? "Copied" : "Copy")}
               </button>
             )}
             {isLast && (
@@ -159,7 +182,7 @@ function Bubble({
                 className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground transition hover:bg-secondary hover:text-foreground"
               >
                 <RefreshCw className="h-3 w-3" />
-                إعادة
+                {isAr ? "إعادة" : "Retry"}
               </button>
             )}
           </div>

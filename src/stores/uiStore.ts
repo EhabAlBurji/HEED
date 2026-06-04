@@ -32,7 +32,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       fontSize: "md",
       setFontSize: (fontSize) => set({ fontSize }),
-      theme: "light",
+      theme: "dark",
       setTheme: (theme) => set({ theme }),
       isTray: false,
       setIsTray: (isTray) => set({ isTray }),

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Copy } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -13,7 +14,7 @@ import { cn } from "../../lib/utils";
 export function Markdown({ text }: { text: string }) {
   const blocks = splitFences(text);
   return (
-    <div className="space-y-2 leading-relaxed">
+    <div dir="auto" className="space-y-2 leading-relaxed">
       {blocks.map((b, i) =>
         b.type === "code" ? (
           <CodeBlock key={i} lang={b.lang} code={b.content} />
@@ -44,6 +45,8 @@ function splitFences(text: string): Segment[] {
 }
 
 function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void navigator.clipboard?.writeText(code);
@@ -61,7 +64,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground transition hover:bg-secondary hover:text-foreground"
         >
           {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-          {copied ? "اتنسخ" : "نسخ"}
+          {isAr ? (copied ? "اتنسخ" : "نسخ") : (copied ? "Copied" : "Copy")}
         </button>
       </div>
       <pre className="overflow-x-auto p-3 text-[13px] leading-relaxed">

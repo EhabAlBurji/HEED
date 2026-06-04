@@ -147,7 +147,7 @@ export default function LoginPage() {
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(103,53,225,0.10) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(139,92,246,0.10) 0%, transparent 70%)",
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(66,133,244,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 45% at 50% 100%, rgba(66,133,244,0.14) 0%, transparent 70%)",
         }}
       />
 
@@ -157,15 +157,15 @@ export default function LoginPage() {
       {/* ── Centered hero ── */}
       <div className="relative z-10 flex w-full max-w-[640px] flex-col items-center text-center">
         {/* Logo tile */}
-        <div className="mb-6 shadow-[0_8px_32px_rgba(103,53,225,0.18)] rounded-2xl">
+        <div className="mb-6 shadow-[0_8px_32px_rgba(66,133,244,0.22)] rounded-2xl">
           <HeedLogo className="h-16 w-16 text-primary" />
         </div>
 
         {/* Big title */}
-        <h1 className="font-display text-5xl font-bold tracking-tight leading-[1.05]">
+        <h1 className="font-display text-5xl font-medium tracking-tight leading-[1.05]">
           {tr("مساعدك الشخصي", "Your Personal")}
           <br />
-          <span className="bg-gradient-to-l from-brand-violet-light via-primary to-brand-violet-light bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[#4285F4] via-[#669df6] to-[#4285F4] bg-clip-text text-transparent">
             {tr("للإنتاجية بالذكاء الاصطناعي", "AI Productivity Co-Pilot")}
           </span>
         </h1>
@@ -430,7 +430,7 @@ function FloatingMockups() {
         style={{ animation: "floatB 8s ease-in-out infinite" }}
       >
         <div className="w-[130px] rounded-2xl border border-border bg-card p-2.5 shadow-xl rotate-[4deg]">
-          <div className="mb-1.5 h-16 w-full rounded-xl bg-gradient-to-br from-brand-violet-light to-primary" />
+          <div className="mb-1.5 h-16 w-full rounded-xl bg-gradient-to-br from-primary/50 to-primary" />
           <div className="h-1.5 w-2/3 rounded-full bg-muted" />
         </div>
       </div>
@@ -445,7 +445,7 @@ function FloatingMockups() {
             {[40, 65, 30, 85, 55, 70].map((h, i) => (
               <div
                 key={i}
-                className="flex-1 rounded-t-md bg-gradient-to-t from-primary to-brand-violet-light"
+                className="flex-1 rounded-t-md bg-gradient-to-t from-primary to-primary/50"
                 style={{ height: `${h}%` }}
               />
             ))}
@@ -475,7 +475,7 @@ function FloatingMockups() {
                 className="aspect-square rounded-[3px]"
                 style={{
                   background: [4, 8, 12, 15].includes(i)
-                    ? "var(--tw-prose-bullets, #6735E1)"
+                    ? "hsl(var(--primary))"
                     : "hsl(var(--muted))",
                 }}
               />

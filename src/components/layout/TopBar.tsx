@@ -126,8 +126,16 @@ function RoundButton({
   );
 }
 
+function notifStamp(iso: string, isAr: boolean) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString(isAr ? "ar" : "en", { day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
 function NotificationBell() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const notifications = useNotificationsStore((s) => s.notifications);
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
   const remove = useNotificationsStore((s) => s.remove);
@@ -201,10 +209,11 @@ function NotificationBell() {
                 )}
               >
                 <div className="flex items-start gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: n.read ? "transparent" : "var(--tw-prose-bullets, #6735E1)" }} />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: n.read ? "transparent" : "hsl(var(--primary))" }} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{n.title}</p>
                     {n.body && <p className="mt-0.5 font-micro text-xs text-muted-foreground">{n.body}</p>}
+                    <p className="mt-1 font-micro text-[10px] text-muted-foreground/50">{notifStamp(n.created_at, isAr)}</p>
                     {n.type === "workspace_invite" && n.workspace && (
                       <div className="mt-2 flex gap-2">
                         <button
