@@ -10,8 +10,7 @@ import { runVoiceAgent } from "../lib/voiceAgent";
 
 // =========================================================================
 // HEED Voice Agent — centered bottom Siri-style orb.
-// Tap OR say the wake word "هيد" / "Hey Heed" (via continuous microphone
-// permission) to start. After speaking it stops automatically on silence,
+// Tap to start. After speaking it stops automatically on silence,
 // the agent processes the request, speaks the confirmation back, then shows
 // a toast notification.
 // =========================================================================
@@ -43,7 +42,6 @@ export function VoiceAgent() {
   const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
-
   const tr = useCallback((ar: string, en: string) => (isAr ? ar : en), [isAr]);
 
   // Auto-stop on ~1.8 s silence using AudioWorklet / ScriptProcessor.
@@ -158,16 +156,18 @@ export function VoiceAgent() {
   // Pulsing rings when recording.
   const rings = phase === "recording" ? [0.6, 1.1, 1.6] : [];
 
+  const isActive = phase !== "idle";
+
   return (
-    <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 flex flex-col items-center gap-2">
-      {/* Status label + confirm buttons */}
+    <div className="fixed bottom-5 end-5 z-40 flex flex-col items-end gap-2" dir="auto">
+      {/* Status label + confirm buttons — only when active */}
       <AnimatePresence>
         {label && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="max-w-xs rounded-2xl border border-border/60 bg-card/95 px-4 py-2.5 text-center text-xs shadow-xl backdrop-blur"
+            initial={{ opacity: 0, y: 6, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="max-w-[260px] rounded-2xl border border-border/60 bg-card/95 px-4 py-2.5 text-center text-xs shadow-xl backdrop-blur"
             dir="auto"
           >
             <p className="text-foreground/90">{label}</p>
@@ -191,38 +191,40 @@ export function VoiceAgent() {
         )}
       </AnimatePresence>
 
-      {/* Main orb */}
+      {/* Orb — small & subtle when idle, full-size when active */}
       <div className="relative flex items-center justify-center">
         {rings.map((scale, i) => (
           <motion.div
             key={i}
             className="absolute rounded-full bg-primary/20"
-            style={{ width: 56, height: 56 }}
+            style={{ width: 44, height: 44 }}
             animate={{ scale, opacity: [0.4, 0] }}
             transition={{ duration: 1.4, delay: i * 0.35, repeat: Infinity, ease: "easeOut" }}
           />
         ))}
-        <button
+        <motion.button
           onClick={handleClick}
-          title={tr("الوكيل الصوتي — Heed", "Voice agent — Heed")}
+          title={tr("Navi — المساعد الصوتي", "Navi — Voice assistant")}
+          animate={{ width: isActive ? 52 : 38, height: isActive ? 52 : 38 }}
+          transition={{ type: "spring", stiffness: 300, damping: 24 }}
           className={cn(
-            "relative grid h-14 w-14 place-items-center rounded-full text-white shadow-[0_8px_32px_rgba(26,115,232,0.45)] transition-all",
+            "relative grid place-items-center rounded-full text-white transition-shadow",
             phase === "recording"
-              ? "bg-destructive scale-110"
+              ? "bg-destructive shadow-[0_4px_20px_rgba(239,68,68,0.5)] scale-110"
               : phase === "thinking"
-              ? "bg-primary/80"
+              ? "bg-primary/80 shadow-[0_4px_20px_rgba(26,115,232,0.4)]"
               : phase === "done"
-              ? "bg-emerald-500"
+              ? "bg-emerald-500 shadow-[0_4px_20px_rgba(16,185,129,0.4)]"
               : phase === "error"
-              ? "bg-destructive"
-              : "bg-gradient-to-br from-[#4285F4] to-[#1A73E8] hover:scale-105 hover:shadow-[0_12px_40px_rgba(26,115,232,0.55)]"
+              ? "bg-destructive shadow-[0_4px_20px_rgba(239,68,68,0.4)]"
+              : "bg-gradient-to-br from-[#4285F4] to-[#1A73E8] shadow-[0_4px_16px_rgba(26,115,232,0.35)] hover:shadow-[0_6px_24px_rgba(26,115,232,0.5)] hover:scale-110"
           )}
         >
-          {phase === "thinking" ? <Loader2 className="h-6 w-6 animate-spin" />
-            : phase === "done" ? <Check className="h-6 w-6" />
-            : phase === "error" ? <X className="h-6 w-6" />
-            : <Mic className={cn("h-6 w-6", phase === "recording" && "scale-110")} />}
-        </button>
+          {phase === "thinking" ? <Loader2 className="h-4 w-4 animate-spin" />
+            : phase === "done" ? <Check className="h-4 w-4" />
+            : phase === "error" ? <X className="h-4 w-4" />
+            : <Mic className={cn("h-4 w-4", phase === "recording" && "scale-110")} />}
+        </motion.button>
       </div>
     </div>
   );

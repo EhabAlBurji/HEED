@@ -25,6 +25,8 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasLightbox, type LightboxContent } from "./CanvasLightbox";
 
 // Node types offered in the right-click menu + draggable from the toolbar.
+const GROUP_COLORS = ["#6735E1", "#1A73E8", "#0F9D58", "#F4B400", "#DB4437", "#E91E63", "#00BCD4"];
+
 const NODE_ITEMS: { type: CanvasNodeType; labelKey: string; data?: CanvasNode["data"] }[] = [
   { type: "text", labelKey: "canvas.nText" },
   { type: "sticky", labelKey: "canvas.nSticky" },
@@ -53,7 +55,8 @@ export function CanvasSurface({
   topCenter?: ReactNode;
   topRight?: ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
   const allNodes = useCanvasStore((s) => s.nodes);
   const allEdges = useCanvasStore((s) => s.edges);
   const addNode = useCanvasStore((s) => s.addNode);
@@ -278,7 +281,7 @@ export function CanvasSurface({
       y: minY,
       width: maxX - minX,
       height: maxY - minY,
-      data: { title: t("canvas.groupName"), color: "#6735E1" },
+      data: { title: t("canvas.groupName"), color: GROUP_COLORS[Math.floor(Math.random() * GROUP_COLORS.length)] },
     });
     // push the frame behind the grouped nodes
     updateNode(frame.id, { z: minZ - 1 });
@@ -474,7 +477,7 @@ export function CanvasSurface({
         </button>
         <button
           onClick={() => setTool("select")}
-          title={t("canvas.select")}
+          title={isAr ? "تحديد (اسحب لتحديد أكثر من عنصر، ثم ⌘G للتجميع)" : "Select (drag to multi-select, then ⌘G to group)"}
           className={cn(
             "grid h-7 w-7 place-items-center rounded-md transition",
             tool === "select" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"

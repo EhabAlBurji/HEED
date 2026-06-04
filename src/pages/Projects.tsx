@@ -326,7 +326,7 @@ function ShareProjectButton({ project }: { project: Project }) {
           "flex h-7 w-7 items-center justify-center rounded-lg transition-all",
           isSharedAnywhere
             ? "bg-primary/15 text-primary opacity-100"
-            : "bg-transparent text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10"
+            : "bg-transparent text-muted-foreground/50 opacity-35 group-hover:opacity-100 hover:text-primary hover:bg-primary/10"
         )}
         title={isAr ? "مشاركة المشروع" : t("tasks.shareProject")}
       >
@@ -772,7 +772,7 @@ function SortableProjectCard({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(project); }}
-              className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground/40 opacity-0 transition group-hover/proj:opacity-100 hover:text-foreground"
+              className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground/40 opacity-35 transition group-hover/proj:opacity-100 hover:text-foreground"
               title={isAr ? "إعدادات المشروع" : "Project settings"}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
