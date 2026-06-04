@@ -109,7 +109,9 @@ function OrgNode({
   onSelect?: (emp: HREmployee) => void;
 }) {
   const [expanded, setExpanded] = useState(depth < 2);
-  const reports = allEmployees.filter((e) => e.managerId === employee.id);
+  // Guard against hierarchy cycles (A manages B manages A) by capping depth.
+  const MAX_DEPTH = 12;
+  const reports = depth < MAX_DEPTH ? allEmployees.filter((e) => e.managerId === employee.id) : [];
   const dept = departments.find((d) => d.id === employee.departmentId);
   const pos = positions.find((p) => p.id === employee.positionId);
   const hasReports = reports.length > 0;

@@ -170,7 +170,10 @@ export default function Messages() {
   // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const unsub = subscribeDms((msg) => {
-      const partner = msg.senderId === me?.id ? msg.receiverId : msg.senderId;
+      // The DM channel only fires for messages where we are the receiver.
+      // Guard against our own messages in case the filter is ever widened.
+      if (msg.senderId === me?.id) return;
+      const partner = msg.senderId;
 
       // If we don't know this sender yet, fetch their profile and add them to the list.
       setPartners((prev) => {
@@ -226,9 +229,11 @@ export default function Messages() {
     return () => clearInterval(id);
   }, [activeId]);
 
+  // Scroll to bottom only when the active thread gets new messages (not when background threads update).
+  const activeThreadLen = activeId ? (threads[activeId]?.length ?? 0) : 0;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [threads, activeId]);
+  }, [activeThreadLen, activeId]);
 
   // ── New DM search ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -435,7 +440,7 @@ export default function Messages() {
 
   // ── Send ──────────────────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
-    if (!activeId || (!text.trim() && !pendingFile) || sending || uploading) return;
+    if (!activeId || (!text.trim() && !pendingFile) || sending || uploading || !me) return;
     setSending(true);
 
     // Upload attachment first if any

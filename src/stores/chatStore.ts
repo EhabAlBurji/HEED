@@ -255,8 +255,14 @@ export const useChatStore = create<ChatState>()(
     {
       name: "heed:chat",
       storage: safeJSONStorage(),
-      // Persist everything, but re-seed any built-in assistants the user
-      // doesn't have yet (so updates ship new built-ins without wiping custom).
+      // Never persist the Groq API key — it lives in memory only (sessionStorage
+      // is also unsafe given XSS; the user re-enters it each session from Settings).
+      partialize: (s) => {
+        const { groqApiKey: _key, ...rest } = s;
+        return rest;
+      },
+      // Re-seed any built-in assistants the user doesn't have yet so updates
+      // ship new built-ins without wiping custom ones.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<ChatState>;
         const saved = p.assistants ?? [];
@@ -266,6 +272,7 @@ export const useChatStore = create<ChatState>()(
         return {
           ...current,
           ...p,
+          groqApiKey: "",  // always start blank — never read from storage
           assistants: [...missingBuiltins, ...saved],
         };
       },

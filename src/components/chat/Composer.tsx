@@ -157,6 +157,15 @@ export function Composer({
 
   const removeAtt = (id: string) => setAtts((a) => a.filter((x) => x.id !== id));
 
+  // Stop recording and release the mic when the component unmounts mid-recording.
+  useEffect(() => {
+    return () => {
+      if (recRef.current && recRef.current.state !== "inactive") {
+        recRef.current.stop();
+      }
+    };
+  }, []);
+
   // ── Voice ──────────────────────────────────────────────────────────────────
   const toggleRecord = async () => {
     if (recording) { recRef.current?.stop(); return; }

@@ -61,10 +61,12 @@ export default function App() {
     // redirects (where the session becomes ready asynchronously) are caught.
     const unsubAuth = useAuthStore.getState().initAuthListener();
     void checkSession();
-    startMcpBridge();
+    // MCP bridge polls Tauri IPC — only useful in the native app, not on the web.
+    const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (inTauri) startMcpBridge();
     return () => {
       unsubAuth();
-      stopMcpBridge();
+      if (inTauri) stopMcpBridge();
     };
   }, [checkSession]);
 
@@ -223,24 +225,24 @@ export default function App() {
 
   return (
     <AppShell>
-      <ErrorBoundary>
-        <Suspense fallback={<AppLoader />}>
-          <Routes>
-            <Route path="/"             element={<Messages />} />
-            <Route path="/messages"     element={<Messages />} />
-            <Route path="/inbox"        element={<Inbox />} />
-            <Route path="/dashboard"    element={<Dashboard />} />
-            <Route path="/projects"     element={<Projects />} />
-            <Route path="/projects/:id" element={<ProjectBoard />} />
-            <Route path="/boards"       element={<Boards />} />
-            <Route path="/boards/:id"   element={<BoardView />} />
-            <Route path="/settings"     element={<Settings />} />
-            <Route path="/chat"         element={<Chat />} />
-            <Route path="/admin"        element={<AdminUsers />} />
-            <Route path="/hr"           element={<HR />} />
-          </Routes>
-        </Suspense>
-      </ErrorBoundary>
+      <Suspense fallback={<AppLoader />}>
+        <Routes>
+          {/* Each route wrapped in its own ErrorBoundary so one broken page
+              can't crash the sidebar or the rest of the app. */}
+          <Route path="/"             element={<ErrorBoundary><Messages /></ErrorBoundary>} />
+          <Route path="/messages"     element={<ErrorBoundary><Messages /></ErrorBoundary>} />
+          <Route path="/inbox"        element={<ErrorBoundary><Inbox /></ErrorBoundary>} />
+          <Route path="/dashboard"    element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+          <Route path="/projects"     element={<ErrorBoundary><Projects /></ErrorBoundary>} />
+          <Route path="/projects/:id" element={<ErrorBoundary><ProjectBoard /></ErrorBoundary>} />
+          <Route path="/boards"       element={<ErrorBoundary><Boards /></ErrorBoundary>} />
+          <Route path="/boards/:id"   element={<ErrorBoundary><BoardView /></ErrorBoundary>} />
+          <Route path="/settings"     element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+          <Route path="/chat"         element={<ErrorBoundary><Chat /></ErrorBoundary>} />
+          <Route path="/admin"        element={<ErrorBoundary><AdminUsers /></ErrorBoundary>} />
+          <Route path="/hr"           element={<ErrorBoundary><HR /></ErrorBoundary>} />
+        </Routes>
+      </Suspense>
       <UpdateChecker />
       <VoiceAgent />
     </AppShell>

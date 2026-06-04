@@ -79,7 +79,7 @@ const edgeFromRow = (r: Record<string, unknown>): CanvasEdge => ({
   target: r.target as string,
   label: (r.label as string) ?? undefined,
   created_at: r.created_at as string,
-  updated_at: (r.created_at as string),
+  updated_at: (r.updated_at as string) ?? (r.created_at as string),
 });
 
 function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {

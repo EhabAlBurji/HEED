@@ -77,6 +77,7 @@ export default function HR() {
   const [selectedEmp, setSelectedEmp] = useState<HREmployee | null>(null);
   const [reqFormOpen, setReqFormOpen] = useState(false);
   const [selectedReq, setSelectedReq] = useState<HRRequest | null>(null);
+  const [demoSeeded, setDemoSeeded] = useState(isDemoSeeded);
 
   const user = useAuthStore((s) => s.user);
   const { activeWorkspaceId, workspaces } = useWorkspaceStore();
@@ -87,14 +88,35 @@ export default function HR() {
     updateRequestType, deleteEmployee: deleteEmpStore,
   } = useHRStore();
 
-  // Seed demo data on first load (no-op if already seeded)
+  // Seed demo data only if the workspace has no real employees yet.
+  // This prevents overwriting production data on first HR page visit.
   useEffect(() => {
-    if (activeWorkspaceId) {
-      // Seed after a short delay so request types are populated first
-      const t = setTimeout(() => seedDemoData(activeWorkspaceId), 800);
-      return () => clearTimeout(t);
-    }
-  }, [activeWorkspaceId]);
+    if (!activeWorkspaceId || user?.id === "guest") return;
+    const t = setTimeout(() => {
+      const hasRealData = employees.some((e) => e.workspaceId === activeWorkspaceId);
+      if (!hasRealData && !isDemoSeeded()) {
+        seedDemoData(activeWorkspaceId);
+        setDemoSeeded(true);
+      }
+    }, 900);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspaceId, user?.id]);
+
+  const handleResetDemo = () => {
+    clearDemoData();
+    // Clear HR store
+    const hrStore = useHRStore.getState();
+    hrStore.setEmployees([]);
+    hrStore.setDepartments([]);
+    hrStore.setPositions([]);
+    hrStore.setRequests([]);
+    // Re-seed after brief delay
+    setTimeout(() => {
+      seedDemoData(activeWorkspaceId);
+      setDemoSeeded(true);
+    }, 100);
+  };
 
   // Load HR data when component mounts or workspace changes
   useEffect(() => {
@@ -259,9 +281,20 @@ export default function HR() {
             {departments.filter((d) => d.workspaceId === activeWorkspaceId).length} قسم
           </p>
         </div>
-        {loading && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        )}
+        <div className="flex items-center gap-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {/* Demo reset — only shown when demo data is active */}
+          {demoSeeded && (
+            <button
+              onClick={handleResetDemo}
+              title="إعادة تحميل البيانات التجريبية"
+              className="flex items-center gap-1.5 rounded-xl border border-border/50 bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              إعادة الديمو
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────── */}
