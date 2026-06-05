@@ -16,6 +16,7 @@ import { startNotifications, stopNotifications } from "./lib/teamSync";
 import { startCanvasSync, stopCanvasSync } from "./lib/canvasSync";
 import { startChatSync, stopChatSync } from "./lib/chatSync";
 import { subscribeHRRealtime } from "./lib/hrSync";
+import { supabaseUrl, supabaseAnonKey, getSupabase } from "./lib/supabase";
 import { stopDmSubscription } from "./lib/dmSync";
 import { requestNotificationPermission } from "./lib/notifications";
 import { useWorkspaceStore } from "./stores/workspaceStore";
@@ -104,6 +105,24 @@ export default function App() {
       startChatSync();
       void startNotifications();
       void requestNotificationPermission();
+      // Fire-and-forget: send today's task reminder digest for this user on login.
+      void (async () => {
+        try {
+          const { data } = await getSupabase().auth.getSession();
+          const token = data.session?.access_token || supabaseAnonKey;
+          await fetch(`${supabaseUrl}/functions/v1/remind-tasks`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: supabaseAnonKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ userId: user.id }),
+          });
+        } catch {
+          // Non-critical — ignore errors silently
+        }
+      })();
     }
     return () => {
       stopChatSync();

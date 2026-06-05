@@ -4,6 +4,7 @@ import {
   AlertTriangle, Camera, Download, Eye, EyeOff, LogOut, Pencil, Plus, RefreshCw,
   Trash2, Unlink, X, Check, Save, ChevronDown, Sparkles, CheckCircle2,
 } from "lucide-react";
+import { getNotifPrefs, setNotifPrefs, type NotifPrefs } from "../lib/notifPrefs";
 import { toast } from "sonner";
 import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
 import { useMeetingsStore } from "../stores/meetingsStore";
@@ -786,6 +787,68 @@ function McpContent() {
   );
 }
 
+// ── Toggle switch (knob sliding, dir=ltr) ─────────────────────────────────────
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      dir="ltr"
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+        checked ? "bg-primary" : "bg-secondary"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200",
+          checked ? "translate-x-5" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
+
+// ── Notifications section ─────────────────────────────────────────────────────
+function NotificationsSection() {
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+
+  const [prefs, setPrefsState] = useState<NotifPrefs>(() => getNotifPrefs());
+
+  function toggle(key: keyof NotifPrefs) {
+    const next = { ...prefs, [key]: !prefs[key] };
+    setPrefsState(next);
+    setNotifPrefs(next);
+  }
+
+  const rows: { key: keyof NotifPrefs; labelAr: string; labelEn: string }[] = [
+    { key: "dms",   labelAr: "رسائل مباشرة جديدة",        labelEn: "New direct messages" },
+    { key: "hr",    labelAr: "طلبات HR",                  labelEn: "HR requests" },
+    { key: "tasks", labelAr: "مهام مُسندة إليك",           labelEn: "Tasks assigned to you" },
+    { key: "email", labelAr: "إشعارات البريد الإلكتروني",  labelEn: "Email notifications" },
+  ];
+
+  return (
+    <CollapsibleSection
+      title={isAr ? "الإشعارات" : "Notifications"}
+      subtitle={isAr ? "تحكّم في الإشعارات التي تصلك" : "Control which notifications you receive"}
+      icon="🔔"
+    >
+      <div className="divide-y divide-border/30">
+        {rows.map(({ key, labelAr, labelEn }) => (
+          <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+            <span className="text-sm">{isAr ? labelAr : labelEn}</span>
+            <ToggleSwitch checked={prefs[key]} onChange={() => toggle(key)} />
+          </div>
+        ))}
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 // ── Profile section ───────────────────────────────────────────────────────────
 function ProfileSection() {
   const { t, i18n } = useTranslation();
@@ -1244,6 +1307,9 @@ export default function Settings() {
           ))}
         </div>
       </section>
+
+      {/* Notifications */}
+      <NotificationsSection />
 
       {/* Categories — collapsible */}
       <CollapsibleSection

@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "./supabase";
 import { useAuthStore } from "../stores/authStore";
+import { getNotifPrefs } from "./notifPrefs";
 
 // =========================================================================
 // Heed DM — Supabase sync helpers
@@ -262,6 +263,7 @@ export async function uploadDmAttachment(
 
 // Fire-and-forget: notify the DM receiver via Edge Function (email).
 function notifyDm(receiverId: string, senderName: string, preview: string): void {
+  if (!getNotifPrefs().email) return;
   const appUrl = window.location.origin;
   fetch(`${supabaseUrl}/functions/v1/notify-dm`, {
     method: "POST",
@@ -514,4 +516,42 @@ export function unpinMessage(partnerId: string): void {
   try {
     localStorage.removeItem(`heed-pin-${partnerId}`);
   } catch { /* best-effort */ }
+}
+
+// ── User custom status ────────────────────────────────────────────────────────
+
+/** Update the current user's status emoji + text in their profile. */
+export async function setMyStatus(emoji: string, text: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    const { error } = await sb()
+      .from("profiles")
+      .update({ status_emoji: emoji, status_text: text })
+      .eq("id", me.id);
+    if (error) throw error;
+  } catch (err) {
+    console.error("[dmSync] setMyStatus:", err);
+    throw err;
+  }
+}
+
+/** Fetch a partner's current status. Returns null when unavailable. */
+export async function getPartnerStatus(userId: string): Promise<{ emoji: string; text: string } | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const { data } = await sb()
+      .from("profiles")
+      .select("status_emoji, status_text")
+      .eq("id", userId)
+      .single();
+    if (!data) return null;
+    const r = data as { status_emoji: string | null; status_text: string | null };
+    const emoji = r.status_emoji ?? "";
+    const text = r.status_text ?? "";
+    if (!emoji && !text) return null;
+    return { emoji, text };
+  } catch {
+    return null;
+  }
 }

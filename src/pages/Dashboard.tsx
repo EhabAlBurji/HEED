@@ -4,12 +4,17 @@ import { CalendarClock, Clock, RefreshCw, Video, Users, Plus, X, ExternalLink, C
 import { useGoogleCalendarStore } from "../stores/googleCalendarStore";
 import { useUIStore } from "../stores/uiStore";
 import { syncGoogleCalendar } from "../lib/googleCalendarSync";
-import { useTasksStore, isoDate } from "../stores/tasksStore";
+import { useTasksStore, isoDate, type Task } from "../stores/tasksStore";
 import { useAuthStore } from "../stores/authStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useMeetingsStore } from "../stores/meetingsStore";
+import { useNotificationsStore } from "../stores/notificationsStore";
+import { useHRStore } from "../stores/hrStore";
 import { cn } from "../lib/utils";
 import { PRIORITY_HEX as PRIORITY_COLORS } from "../lib/taskMeta";
+import ActivityFeed from "../components/ActivityFeed";
+import { TaskCalendar } from "../components/tasks/TaskCalendar";
+import { TaskDetailDrawer } from "../components/tasks/TaskDetailDrawer";
 
 // recharts is heavy → load it only when the Dashboard actually paints charts.
 const WeeklyBar = lazy(() => import("../components/dashboard/Charts").then((m) => ({ default: m.WeeklyBar })));
@@ -25,6 +30,7 @@ export default function Dashboard() {
   const allTasks    = useTasksStore((s) => s.tasks);
   const allProjects = useTasksStore((s) => s.projects);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
+  const [calendarTaskId, setCalendarTaskId] = useState<string | null>(null);
 
   // Filter by active workspace
   const tasks    = useMemo(() => allTasks.filter((t) => (t.workspace_id ?? "personal") === activeWorkspaceId), [allTasks, activeWorkspaceId]);
@@ -127,6 +133,37 @@ export default function Dashboard() {
 
   const isAr = i18n.language === "ar";
 
+  // ── Team quick-stats ──────────────────────────────────────────────────────
+  const notifications = useNotificationsStore((s) => s.notifications);
+  const hrRequests    = useHRStore((s) => s.requests);
+  const allWorkspaces = useWorkspaceStore((s) => s.workspaces);
+  const wsMembers     = useMemo(() => {
+    const ws = allWorkspaces.find((w) => w.id === activeWorkspaceId);
+    return ws?.members ?? [];
+  }, [allWorkspaces, activeWorkspaceId]);
+
+  const teamStats = useMemo(() => {
+    const todayStr = isoDateStr(new Date());
+
+    // Tasks finished today
+    const doneToday = tasks.filter(
+      (t) => t.status === "done" && t.completed_at && t.completed_at.slice(0, 10) === todayStr
+    ).length;
+
+    // Active workspace members (owner + members)
+    const activeMembers = 1 + wsMembers.length; // include self
+
+    // Unread notifications (proxy for pending DMs / mentions)
+    const pendingDMs = notifications.filter((n) => !n.read).length;
+
+    // HR requests pending in active workspace
+    const pendingHR = hrRequests.filter(
+      (r) => r.workspaceId === activeWorkspaceId && r.status === "pending"
+    ).length;
+
+    return { doneToday, activeMembers, pendingDMs, pendingHR };
+  }, [tasks, wsMembers, notifications, hrRequests, activeWorkspaceId]);
+
   const greeting = () => {
     const h = new Date().getHours();
     if (isAr) {
@@ -194,6 +231,66 @@ export default function Dashboard() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Team quick-stats row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {
+            label: isAr ? "مهام مكتملة اليوم" : "Done today",
+            value: teamStats.doneToday || "—",
+            icon: "✅",
+            color: "bg-emerald-500/10 text-emerald-400",
+          },
+          {
+            label: isAr ? "أعضاء نشطون" : "Active members",
+            value: teamStats.activeMembers,
+            icon: "👥",
+            color: "bg-blue-500/10 text-blue-400",
+          },
+          {
+            label: isAr ? "إشعارات غير مقروءة" : "Unread alerts",
+            value: teamStats.pendingDMs || "—",
+            icon: "💬",
+            color: "bg-violet-500/10 text-violet-400",
+          },
+          {
+            label: isAr ? "طلبات HR قيد الانتظار" : "HR requests pending",
+            value: teamStats.pendingHR || "—",
+            icon: "📋",
+            color: "bg-orange-500/10 text-orange-400",
+          },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card/40 px-4 py-3"
+          >
+            <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl text-base", s.color)}>
+              {s.icon}
+            </span>
+            <div className="min-w-0">
+              <p className="font-micro text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+                {s.label}
+              </p>
+              <p className="font-display text-xl font-bold tabular-nums leading-tight">
+                {s.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Team activity feed */}
+      <div className="rounded-2xl border border-border/50 bg-card/40 overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border/40 px-4 py-3">
+          <span className="text-base">🏃</span>
+          <h2 className="text-sm font-semibold">
+            {isAr ? "نشاط الفريق" : "Team Activity"}
+          </h2>
+        </div>
+        <div className="max-h-96 overflow-y-auto scrollbar-none">
+          <ActivityFeed />
+        </div>
       </div>
 
       {noData ? (
@@ -279,10 +376,31 @@ export default function Dashboard() {
           </div>
         </>
       )}
+
+      {/* ── Task Calendar ─────────────────────────────────────────────────── */}
+      <div>
+        <p className="mb-3 font-micro text-[11px] uppercase tracking-widest text-muted-foreground/70">
+          {isAr ? "المهام على التقويم" : "Tasks on calendar"}
+        </p>
+        <TaskCalendar
+          tasks={tasks}
+          isAr={isAr}
+          onTaskClick={(task: Task) => {
+            // Open the task detail drawer; fall back to navigating to projects
+            setCalendarTaskId(task.id);
+          }}
+        />
+      </div>
     </div>
     </div>
 
     <TodayMeetingsSidebar isAr={isAr} activeWorkspaceId={activeWorkspaceId} />
+
+    {/* Task detail drawer — opened when a calendar task chip is clicked */}
+    <TaskDetailDrawer
+      taskId={calendarTaskId}
+      onClose={() => setCalendarTaskId(null)}
+    />
     </div>
   );
 }

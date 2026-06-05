@@ -8,6 +8,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "./supabase";
 import { showNotification } from "./notifications";
+import { getNotifPrefs } from "./notifPrefs";
 
 // HR tables are not yet in the generated Database types, so we use a typed
 // helper to avoid `never` inference on `.from()` calls.
@@ -417,6 +418,7 @@ function notifyHRStatus(
   requestTypeName: string,
   status: string
 ): void {
+  if (!getNotifPrefs().email) return;
   const appUrl = window.location.origin;
   fetch(`${supabaseUrl}/functions/v1/notify-hr`, {
     method: "POST",
@@ -542,7 +544,7 @@ export function subscribeHRRealtime(workspaceId: string): () => void {
         if (p.eventType === "INSERT" && currentEmp?.isHrAdmin) {
           const submitter = store.employees.find((e) => e.id === req.employeeId);
           const submitterName = submitter?.name ?? "موظف";
-          showNotification("طلب جديد بانتظار مراجعتك", `${typeName} — ${submitterName}`);
+          showNotification("طلب جديد بانتظار مراجعتك", `${typeName} — ${submitterName}`, { kind: "hr" });
         }
 
         // Employee: notify when their own request is approved or rejected
@@ -551,7 +553,7 @@ export function subscribeHRRealtime(workspaceId: string): () => void {
           const newStatus = req.status;
           if (newStatus !== oldStatus && (newStatus === "approved" || newStatus === "rejected")) {
             const label = newStatus === "approved" ? "✅ موافق عليه" : "❌ مرفوض";
-            showNotification(`${label}`, `${typeName}`);
+            showNotification(`${label}`, `${typeName}`, { kind: "hr" });
           }
         }
       }

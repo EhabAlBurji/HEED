@@ -18,6 +18,7 @@ import {
   sendDm, markThreadRead, subscribeDms, searchProfiles, uploadDmAttachment,
   fetchPartnerProfile, toggleReaction, subscribePresence, editDm, deleteDm,
   getPinnedMessage, pinMessage, unpinMessage,
+  setMyStatus, getPartnerStatus,
   type DmMessage, type DmPartner,
 } from "../lib/dmSync";
 import {
@@ -221,6 +222,15 @@ export default function Messages() {
 
   // Pinned message (per-partner, localStorage)
   const [pinnedMsgId, setPinnedMsgId] = useState<string | null>(null);
+
+  // Partner status
+  const [partnerStatus, setPartnerStatus] = useState<{ emoji: string; text: string } | null>(null);
+
+  // My status editor popover
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const [statusEmoji, setStatusEmoji] = useState("");
+  const [statusText, setStatusText] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
 
   // Edit / delete state for DMs
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
@@ -549,7 +559,7 @@ export default function Messages() {
         if (canNotify()) {
           setPartners((cur) => {
             const partnerName = cur.find((p) => p.id === partner)?.name ?? "Someone";
-            showNotification(partnerName, msg.content || "📎 Attachment", { tag: partner });
+            showNotification(partnerName, msg.content || "📎 Attachment", { tag: partner, kind: "dm" });
             return cur;
           });
         }
@@ -587,6 +597,13 @@ export default function Messages() {
     // Load persisted pinned message for this partner
     setPinnedMsgId(getPinnedMessage(activeId));
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch partner status when thread opens ────────────────────────────────
+  useEffect(() => {
+    setPartnerStatus(null);
+    if (!activeId) return;
+    void getPartnerStatus(activeId).then(setPartnerStatus);
+  }, [activeId]);
 
   // ── Polling fallback (every 15s) for missed realtime events ──────────────
   useEffect(() => {
@@ -1248,11 +1265,17 @@ export default function Messages() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold leading-tight">{activePartner.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground/50" dir="ltr">
-            {onlineIds.has(activePartner.id)
-              ? (isAr ? "متصل الآن" : "online")
-              : (activePartner.email || "")}
-          </p>
+          {partnerStatus ? (
+            <p className="truncate text-[11px] text-muted-foreground/60">
+              {partnerStatus.emoji} {partnerStatus.text}
+            </p>
+          ) : (
+            <p className="truncate text-[11px] text-muted-foreground/50" dir="ltr">
+              {onlineIds.has(activePartner.id)
+                ? (isAr ? "متصل الآن" : "online")
+                : (activePartner.email || "")}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {/* Desktop: show all 4 buttons; Mobile: show only MoreVertical */}
@@ -1260,7 +1283,6 @@ export default function Messages() {
             { icon: Phone, label: isAr ? "مكالمة صوتية" : "Voice call", onClick: openVoiceCall, mobileHide: true },
             { icon: Video, label: isAr ? "مكالمة فيديو" : "Video call", onClick: openVideoCall, mobileHide: true },
             { icon: Search, label: isAr ? "بحث" : "Search in chat", onClick: () => setSearchOpen((o) => !o), mobileHide: true },
-            { icon: MoreVertical, label: isAr ? "المزيد" : "More options", onClick: undefined, mobileHide: false },
           ].map(({ icon: Icon, label, onClick, mobileHide }) => (
             <button
               key={label}
@@ -1275,6 +1297,91 @@ export default function Messages() {
               <Icon className="h-[18px] w-[18px]" />
             </button>
           ))}
+          {/* MoreVertical with status popover */}
+          <Popover.Root open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+            <Popover.Trigger asChild>
+              <button
+                title={isAr ? "المزيد" : "More options"}
+                className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground touch-manipulation"
+              >
+                <MoreVertical className="h-[18px] w-[18px]" />
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                side="bottom"
+                align="end"
+                sideOffset={6}
+                className="z-50 w-72 rounded-2xl border border-border/60 bg-card p-4 shadow-2xl"
+              >
+                <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {isAr ? "تغيير حالتك" : "Set your status"}
+                </p>
+                {/* Quick emoji options */}
+                <div className="mb-3 flex gap-2">
+                  {["🟢", "💼", "🎯", "😴", "🏖️", "🔕"].map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => setStatusEmoji(e)}
+                      className={cn(
+                        "grid h-9 w-9 place-items-center rounded-xl text-lg transition hover:bg-secondary",
+                        statusEmoji === e && "bg-primary/15 ring-1 ring-primary/40"
+                      )}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+                {/* Text input */}
+                <input
+                  value={statusText}
+                  onChange={(e) => setStatusText(e.target.value.slice(0, 50))}
+                  placeholder={isAr ? "ماذا تفعل؟" : "What are you up to?"}
+                  maxLength={50}
+                  className="w-full rounded-xl border border-border/40 bg-background/40 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 mb-3"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setSavingStatus(true);
+                      try {
+                        await setMyStatus(statusEmoji, statusText);
+                        setStatusPopoverOpen(false);
+                        toast.success(isAr ? "تم حفظ الحالة" : "Status updated");
+                      } catch {
+                        toast.error(isAr ? "فشل حفظ الحالة" : "Failed to update status");
+                      }
+                      setSavingStatus(false);
+                    }}
+                    disabled={savingStatus}
+                    className="flex-1 rounded-xl bg-primary/20 py-2 text-sm text-primary hover:bg-primary/30 transition disabled:opacity-50"
+                  >
+                    {savingStatus ? "…" : (isAr ? "حفظ" : "Save")}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setSavingStatus(true);
+                      try {
+                        await setMyStatus("", "");
+                        setStatusPopoverOpen(false);
+                        setStatusEmoji("");
+                        setStatusText("");
+                        toast.success(isAr ? "تم مسح الحالة" : "Status cleared");
+                      } catch {
+                        toast.error(isAr ? "فشل" : "Failed");
+                      }
+                      setSavingStatus(false);
+                    }}
+                    disabled={savingStatus}
+                    className="flex-1 rounded-xl bg-secondary/60 py-2 text-sm text-muted-foreground hover:bg-secondary transition disabled:opacity-50"
+                  >
+                    {isAr ? "مسح" : "Clear"}
+                  </button>
+                </div>
+                <Popover.Arrow className="fill-card" />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
         </div>
       </div>
 

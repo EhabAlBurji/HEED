@@ -28,6 +28,7 @@ supabase functions deploy list-users     --project-ref "$REF"
 supabase functions deploy chat           --project-ref "$REF"
 supabase functions deploy transcribe     --project-ref "$REF"
 supabase functions deploy image          --project-ref "$REF"
+supabase functions deploy remind-tasks  --project-ref "$REF"
 
 echo "▸ Setting secrets ..."
 SECRETS=( "ADMIN_EMAILS=${ADMIN_EMAILS:-ehab@om.sa}" )
