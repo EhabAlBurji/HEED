@@ -82,11 +82,16 @@ Deno.serve(async (req) => {
 
   let upstream: Response;
   try {
-    upstream = await callProvider(model, isGemini);
-
-    // Any Gemini error → fall back to Llama silently.
-    if (isGemini && !upstream.ok) {
-      upstream = await callProvider(DEFAULT_MODEL, false);
+    if (isGemini) {
+      try {
+        upstream = await callProvider(model, true);
+        if (!upstream.ok) throw new Error(`gemini ${upstream.status}`);
+      } catch {
+        // Gemini failed for any reason — fall back to Llama silently.
+        upstream = await callProvider(DEFAULT_MODEL, false);
+      }
+    } else {
+      upstream = await callProvider(model, false);
     }
   } catch (e) {
     return json({ error: "upstream fetch failed", detail: String(e) }, 502);
