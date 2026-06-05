@@ -5,12 +5,17 @@ import { Sidebar } from "./Sidebar";
 import { MiniRail } from "./MiniRail";
 import { GlobalSearch } from "../search/GlobalSearch";
 import { PwaInstallBanner } from "../PwaInstallBanner";
+import { OnboardingModal, useOnboarding } from "../OnboardingModal";
+import { useAuthStore } from "../../stores/authStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+  const isLoggedIn = !!user && user.id !== "guest";
+  const { show: showOnboarding, complete: completeOnboarding } = useOnboarding();
   // On the Chat page (desktop) collapse the full nav to a slim icon rail so
   // HEED CHAT gets the full-width, ChatGPT-style canvas.
   const chatMode = !isMobile && location.pathname.startsWith("/chat");
@@ -60,6 +65,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
       <PwaInstallBanner />
+      {isLoggedIn && showOnboarding && (
+        <OnboardingModal onDone={completeOnboarding} />
+      )}
     </div>
   );
 }

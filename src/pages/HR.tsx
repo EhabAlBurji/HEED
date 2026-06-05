@@ -21,7 +21,18 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const bom = "﻿"; // UTF-8 BOM for Arabic in Excel
+  const csv = bom + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 import {
   ResponsiveContainer,
   PieChart,
@@ -296,6 +307,27 @@ export default function HR() {
     setSelectedReq(null);
   };
 
+  const exportEmployees = () => {
+    const headers = ["الاسم", "الاسم بالإنجليزية", "الرقم الوظيفي", "الإيميل", "الهاتف", "القسم", "المنصب", "تاريخ التعيين", "الحالة"];
+    const rows = wsEmployees.map(e => [
+      e.name, e.nameEn ?? "", e.employeeNo ?? "", e.email ?? "", e.phone ?? "",
+      departments.find(d => d.id === e.departmentId)?.name ?? "",
+      positions.find(p => p.id === e.positionId)?.name ?? "",
+      e.hireDate ?? "", e.status
+    ]);
+    downloadCsv("employees.csv", [headers, ...rows]);
+  };
+
+  const exportRequests = () => {
+    const headers = ["النوع", "الموظف", "الحالة", "التاريخ", "ملاحظات"];
+    const rows = filteredRequests.map(r => [
+      requestTypes.find(t => t.id === r.typeId)?.nameAr ?? "",
+      employees.find(e => e.id === r.employeeId)?.name ?? "",
+      r.status, r.createdAt.slice(0, 10), r.notes ?? ""
+    ]);
+    downloadCsv("requests.csv", [headers, ...rows]);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -372,6 +404,14 @@ export default function HR() {
                 onChange={setEmpDeptFilter}
               />
               <StatusFilterSelect value={empStatusFilter} onChange={setEmpStatusFilter} />
+              <button
+                onClick={exportEmployees}
+                className="flex items-center gap-1.5 rounded-xl border border-border/50 bg-secondary/60 px-3 py-2 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                title="تصدير CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                تصدير CSV
+              </button>
               {(isHrAdmin) && (
                 <button
                   onClick={() => { setSelectedEmp(null); setEmpFormOpen(true); }}
@@ -647,6 +687,15 @@ export default function HR() {
                   )}
                 >
                   {calendarView ? <List className="h-4 w-4" /> : <CalendarDays className="h-4 w-4" />}
+                </button>
+
+                <button
+                  onClick={exportRequests}
+                  className="flex items-center gap-1.5 rounded-xl border border-border/50 bg-secondary/60 px-3 py-2 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                  title="تصدير CSV"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  تصدير CSV
                 </button>
 
                 {/* زر "طلب جديد" يظهر لأي مستخدم مسجّل — يختار الموظف داخل النموذج */}

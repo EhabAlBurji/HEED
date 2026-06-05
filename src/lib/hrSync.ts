@@ -6,7 +6,7 @@
 // =========================================================================
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { getSupabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "./supabase";
 import { showNotification } from "./notifications";
 
 // HR tables are not yet in the generated Database types, so we use a typed
@@ -411,6 +411,24 @@ export async function createHRRequest(
   return req;
 }
 
+// Fire-and-forget: notify the HR request employee via Edge Function (email).
+function notifyHRStatus(
+  employeeId: string,
+  requestTypeName: string,
+  status: string
+): void {
+  const appUrl = window.location.origin;
+  fetch(`${supabaseUrl}/functions/v1/notify-hr`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": supabaseAnonKey,
+      "Authorization": `Bearer ${supabaseAnonKey}`,
+    },
+    body: JSON.stringify({ employeeId, requestTypeName, status, appUrl }),
+  }).catch((err) => console.warn("[hrSync] notifyHRStatus:", err));
+}
+
 export async function reviewHRRequest(
   id: string,
   status: "approved" | "rejected",
@@ -424,6 +442,15 @@ export async function reviewHRRequest(
     await hrTable("hr_requests")
       .update({ status, notes, reviewed_by: reviewedBy, reviewed_at: now })
       .eq("id", id);
+  }
+
+  // Notify the employee by email (fire-and-forget)
+  const store = useHRStore.getState();
+  const req = store.requests.find((r) => r.id === id);
+  if (req?.employeeId) {
+    const requestType = store.requestTypes.find((rt) => rt.id === req.typeId);
+    const typeName = requestType?.nameAr ?? requestType?.nameEn ?? "طلب HR";
+    void notifyHRStatus(req.employeeId, typeName, status);
   }
 }
 

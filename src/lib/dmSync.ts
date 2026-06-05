@@ -1,5 +1,5 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { getSupabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "./supabase";
 import { useAuthStore } from "../stores/authStore";
 
 // =========================================================================
@@ -224,6 +224,20 @@ export async function uploadDmAttachment(
   }
 }
 
+// Fire-and-forget: notify the DM receiver via Edge Function (email).
+function notifyDm(receiverId: string, senderName: string, preview: string): void {
+  const appUrl = window.location.origin;
+  fetch(`${supabaseUrl}/functions/v1/notify-dm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": supabaseAnonKey,
+      "Authorization": `Bearer ${supabaseAnonKey}`,
+    },
+    body: JSON.stringify({ receiverId, senderName, preview, appUrl }),
+  }).catch((err) => console.warn("[dmSync] notifyDm:", err));
+}
+
 // Send a message (optionally with attachment).
 // Returns the persisted message or throws so the caller can show an error.
 export async function sendDm(
@@ -249,6 +263,8 @@ export async function sendDm(
     console.error("[dmSync] sendDm:", error);
     throw error;
   }
+  // After successful send, notify receiver (don't await, don't block)
+  void notifyDm(receiverId, me.name ?? me.email ?? "Someone", content.slice(0, 100));
   return data ? rowToMsg(data as Record<string, unknown>) : null;
 }
 
