@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Link2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Link2, RefreshCw, Trash2 } from "lucide-react";
 import {
   useTasksStore,
   type Task,
   type VideoStage,
+  type Recurrence,
 } from "../../stores/tasksStore";
 import { useScheduleStore } from "../../stores/scheduleStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
@@ -197,6 +198,17 @@ export function TaskDetailDrawer({
               value={draft.deadline ?? ""}
               onChange={(e) => setDraft({ ...draft, deadline: e.target.value || null })}
               className="w-full bg-transparent text-sm text-foreground outline-none [color-scheme:dark]"
+            />
+          </FieldCard>
+        </div>
+
+        {/* ── Recurrence ── */}
+        <div className="grid grid-cols-1 gap-2">
+          <FieldCard label={isAr ? "تكرار" : "Recurrence"}>
+            <RecurrencePicker
+              value={draft.recurrence ?? "none"}
+              onChange={(v) => setDraft({ ...draft, recurrence: v })}
+              isAr={isAr}
             />
           </FieldCard>
         </div>
@@ -473,6 +485,65 @@ function AssigneePicker({
               </p>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Recurrence picker ─────────────────────────────────────────────────────────
+const RECURRENCE_OPTIONS: Array<{ value: Recurrence; arLabel: string; enLabel: string }> = [
+  { value: "none",    arLabel: "لا يوجد",  enLabel: "None"    },
+  { value: "daily",   arLabel: "يومي",     enLabel: "Daily"   },
+  { value: "weekly",  arLabel: "أسبوعي",   enLabel: "Weekly"  },
+  { value: "monthly", arLabel: "شهري",     enLabel: "Monthly" },
+];
+
+function RecurrencePicker({
+  value,
+  onChange,
+  isAr,
+}: {
+  value: Recurrence;
+  onChange: (v: Recurrence) => void;
+  isAr: boolean;
+}) {
+  const current = RECURRENCE_OPTIONS.find((o) => o.value === value) ?? RECURRENCE_OPTIONS[0];
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-sm"
+      >
+        <RefreshCw className={cn("h-3.5 w-3.5 shrink-0", value !== "none" ? "text-primary" : "text-muted-foreground/50")} />
+        <span className={cn("flex-1 text-start", value === "none" ? "text-muted-foreground/60" : "font-medium")}>
+          {isAr ? current.arLabel : current.enLabel}
+        </span>
+        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute start-0 top-full z-30 mt-1 w-44 rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
+          {RECURRENCE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              onClick={() => { onChange(o.value); setOpen(false); }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm hover:bg-secondary",
+                o.value === value && "bg-secondary font-medium"
+              )}
+            >
+              {isAr ? o.arLabel : o.enLabel}
+            </button>
+          ))}
         </div>
       )}
     </div>

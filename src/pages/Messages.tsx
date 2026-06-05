@@ -5,7 +5,7 @@ import {
   Search, Edit3, Phone, Video, MoreVertical,
   Smile, Paperclip, Mic, ArrowUp, Check, CheckCheck,
   MessageSquare, ChevronLeft, Filter, X, FileText,
-  Image as ImageIcon, AlertCircle, Users, Loader2,
+  Image as ImageIcon, AlertCircle, Users, Loader2, Pin, PinOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as Popover from "@radix-ui/react-popover";
@@ -16,13 +16,14 @@ import { cn } from "../lib/utils";
 import {
   fetchDmPartners, fetchThread, fetchLastMessages, fetchUnreadCounts,
   sendDm, markThreadRead, subscribeDms, searchProfiles, uploadDmAttachment,
-  fetchPartnerProfile, toggleReaction, subscribePresence,
+  fetchPartnerProfile, toggleReaction, subscribePresence, editDm, deleteDm,
+  getPinnedMessage, pinMessage, unpinMessage,
   type DmMessage, type DmPartner,
 } from "../lib/dmSync";
 import {
   fetchGroups, fetchGroupMembers, fetchGroupThread, sendGroupMessage,
   createGroup, subscribeGroup, toggleGroupReaction,
-  getGroupLastRead, markGroupRead,
+  getGroupLastRead, markGroupRead, editGroupMessage, deleteGroupMessage,
   type DmGroup, type GroupMessage,
 } from "../lib/groupSync";
 import { showNotification, canNotify } from "../lib/notifications";
@@ -218,6 +219,19 @@ export default function Messages() {
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Pinned message (per-partner, localStorage)
+  const [pinnedMsgId, setPinnedMsgId] = useState<string | null>(null);
+
+  // Edit / delete state for DMs
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [deletingMsgId, setDeletingMsgId] = useState<string | null>(null);
+
+  // Edit / delete state for group messages
+  const [groupEditingMsgId, setGroupEditingMsgId] = useState<string | null>(null);
+  const [groupEditingText, setGroupEditingText] = useState("");
+  const [groupDeletingMsgId, setGroupDeletingMsgId] = useState<string | null>(null);
+
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
@@ -359,7 +373,11 @@ export default function Messages() {
           if (!thread) return prev;
           return {
             ...prev,
-            [updated.groupId]: thread.map((m) => m.id === updated.id ? { ...m, reactions: updated.reactions } : m),
+            [updated.groupId]: thread.map((m) =>
+              m.id === updated.id
+                ? { ...m, content: updated.content, editedAt: updated.editedAt, reactions: updated.reactions }
+                : m
+            ),
           };
         });
       }
@@ -466,6 +484,7 @@ export default function Messages() {
       senderId: me.id,
       content: groupText.trim(),
       createdAt: new Date().toISOString(),
+      editedAt: null,
       attachmentUrl: attachment?.url ?? null,
       attachmentName: attachment?.name ?? null,
       attachmentType: attachment?.type ?? null,
@@ -536,14 +555,18 @@ export default function Messages() {
         }
       },
       (updated) => {
-        // UPDATE: patch the message in threads (reactions changed)
+        // UPDATE: patch the message in threads (reactions, edits)
         setThreads((prev) => {
           const partner = updated.senderId === me?.id ? updated.receiverId : updated.senderId;
           const thread = prev[partner];
           if (!thread) return prev;
           return {
             ...prev,
-            [partner]: thread.map((m) => m.id === updated.id ? { ...m, reactions: updated.reactions } : m),
+            [partner]: thread.map((m) =>
+              m.id === updated.id
+                ? { ...m, content: updated.content, editedAt: updated.editedAt, reactions: updated.reactions }
+                : m
+            ),
           };
         });
       }
@@ -561,6 +584,8 @@ export default function Messages() {
     });
     setUnread((prev) => ({ ...prev, [activeId]: 0 }));
     void markThreadRead(activeId);
+    // Load persisted pinned message for this partner
+    setPinnedMsgId(getPinnedMessage(activeId));
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Polling fallback (every 15s) for missed realtime events ──────────────
@@ -737,6 +762,7 @@ export default function Messages() {
         receiverId: activeId,
         content: "",
         createdAt: new Date().toISOString(),
+        editedAt: null,
         readAt: null,
         attachmentUrl: attachment.url,
         attachmentName: attachment.name,
@@ -785,6 +811,7 @@ export default function Messages() {
         senderId: me.id,
         content: "",
         createdAt: new Date().toISOString(),
+        editedAt: null,
         attachmentUrl: attachment.url,
         attachmentName: attachment.name,
         attachmentType: attachment.type,
@@ -907,6 +934,7 @@ export default function Messages() {
       receiverId: activeId,
       content: text.trim(),
       createdAt: new Date().toISOString(),
+      editedAt: null,
       readAt: null,
       attachmentUrl: attachment?.url ?? null,
       attachmentName: attachment?.name ?? null,
@@ -1305,6 +1333,49 @@ export default function Messages() {
         )}
       </AnimatePresence>
 
+      {/* Pinned message bar */}
+      <AnimatePresence>
+        {pinnedMsgId && (() => {
+          const pinnedMsg = activeThread.find((m) => m.id === pinnedMsgId);
+          if (!pinnedMsg) return null;
+          const preview = pinnedMsg.attachmentName
+            ? `📎 ${pinnedMsg.attachmentName}`
+            : pinnedMsg.content.slice(0, 80);
+          return (
+            <motion.div
+              key="pin-bar"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden border-b border-amber-500/20 bg-amber-500/[0.06]"
+            >
+              <div className="flex items-center gap-2 px-4 py-1.5">
+                <Pin className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <button
+                  className="flex-1 truncate text-start text-[12px] text-foreground/80 hover:text-foreground transition-colors"
+                  onClick={() => {
+                    const el = msgRefsMap.current.get(pinnedMsgId);
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  {isAr ? `رسالة مثبتة: ${preview}` : `Pinned: ${preview}`}
+                </button>
+                <button
+                  title={isAr ? "إلغاء التثبيت" : "Unpin"}
+                  onClick={() => {
+                    if (activeId) { unpinMessage(activeId); setPinnedMsgId(null); }
+                  }}
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground/50 transition hover:bg-secondary hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* Messages */}
       <div
         className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none"
@@ -1354,6 +1425,8 @@ export default function Messages() {
             const isCurrentSearchMatch = searchMatches[searchMatchIdx] === i;
             const reactionEntries = Object.entries(msg.reactions ?? {}).filter(([, users]) => users.length > 0);
             const isPickerOpen = hoveredMsgId === msg.id;
+            const isEditing = editingMsgId === msg.id;
+            const isDeleting = deletingMsgId === msg.id;
             return (
               <div key={msg.id} ref={(el) => { if (el) msgRefsMap.current.set(msg.id, el); else msgRefsMap.current.delete(msg.id); }}>
                 {showDay && (
@@ -1401,7 +1474,7 @@ export default function Messages() {
                         if (longPressTimer.current) clearTimeout(longPressTimer.current);
                       }}
                     >
-                      {/* Reaction quick-pick */}
+                      {/* Reaction quick-pick + pin action */}
                       <AnimatePresence>
                         {isPickerOpen && (
                           <motion.div
@@ -1410,10 +1483,37 @@ export default function Messages() {
                             exit={{ opacity: 0, scale: 0.85, y: 4 }}
                             transition={{ duration: 0.12 }}
                             className={cn(
-                              "absolute -top-10 z-20 flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-1 shadow-xl",
-                              mine ? "end-0" : "start-0"
+                              "absolute z-20 flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-1 shadow-xl",
+                              mine ? "end-0" : "start-0",
+                              mine ? "-top-[84px]" : "-top-10"
                             )}
                           >
+                            {mine && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setHoveredMsgId(null);
+                                    setEditingMsgId(msg.id);
+                                    setEditingText(msg.content);
+                                  }}
+                                  className="flex items-center rounded-full px-1.5 py-1 text-base transition hover:scale-110 touch-manipulation"
+                                  title={isAr ? "تعديل" : "Edit"}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setHoveredMsgId(null);
+                                    setDeletingMsgId(msg.id);
+                                  }}
+                                  className="flex items-center rounded-full px-1.5 py-1 text-base transition hover:scale-110 touch-manipulation"
+                                  title={isAr ? "حذف" : "Delete"}
+                                >
+                                  🗑️
+                                </button>
+                                <span className="h-4 w-px bg-border/60" />
+                              </>
+                            )}
                             {["❤️","😂","👍","😮","😢","🙏"].map((emoji) => (
                               <button
                                 key={emoji}
@@ -1445,6 +1545,29 @@ export default function Messages() {
                                 {emoji}
                               </button>
                             ))}
+                            {/* Pin / unpin */}
+                            <button
+                              title={pinnedMsgId === msg.id ? (isAr ? "إلغاء التثبيت" : "Unpin") : (isAr ? "تثبيت" : "Pin")}
+                              onClick={() => {
+                                setHoveredMsgId(null);
+                                if (!activeId) return;
+                                if (pinnedMsgId === msg.id) {
+                                  unpinMessage(activeId);
+                                  setPinnedMsgId(null);
+                                } else {
+                                  pinMessage(activeId, msg.id);
+                                  setPinnedMsgId(msg.id);
+                                }
+                              }}
+                              className={cn(
+                                "grid h-7 w-7 place-items-center rounded-full text-sm transition hover:scale-110 active:scale-90 touch-manipulation",
+                                pinnedMsgId === msg.id ? "text-amber-500" : "text-muted-foreground/60 hover:text-amber-500"
+                              )}
+                            >
+                              {pinnedMsgId === msg.id
+                                ? <PinOff className="h-4 w-4" />
+                                : <Pin className="h-4 w-4" />}
+                            </button>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -1477,16 +1600,120 @@ export default function Messages() {
                         )
                       )}
 
-                      {/* Text */}
-                      {msg.content && (
-                        <p className="whitespace-pre-wrap leading-[1.45]">
-                          {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
-                        </p>
+                      {/* Inline delete confirm */}
+                      <AnimatePresence>
+                        {isDeleting && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.1 }}
+                            className="absolute end-0 -top-10 z-20 flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-card px-3 py-1.5 shadow-xl"
+                          >
+                            <span className="text-xs font-medium text-rose-500">{isAr ? "حذف؟" : "Delete?"}</span>
+                            <button
+                              onClick={async () => {
+                                setDeletingMsgId(null);
+                                setThreads((prev) => ({
+                                  ...prev,
+                                  [activeId!]: (prev[activeId!] ?? []).filter((m) => m.id !== msg.id),
+                                }));
+                                try { await deleteDm(msg.id); }
+                                catch { toast.error(isAr ? "فشل الحذف" : "Delete failed"); }
+                              }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600"
+                              title={isAr ? "تأكيد" : "Confirm"}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingMsgId(null)}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-muted-foreground transition hover:bg-secondary/80"
+                              title={isAr ? "إلغاء" : "Cancel"}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Text / inline edit */}
+                      {isEditing ? (
+                        <div className="flex flex-col gap-1.5">
+                          <textarea
+                            autoFocus
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                e.preventDefault();
+                                const newContent = editingText.trim();
+                                if (!newContent) return;
+                                setEditingMsgId(null);
+                                setThreads((prev) => ({
+                                  ...prev,
+                                  [activeId!]: (prev[activeId!] ?? []).map((m) =>
+                                    m.id === msg.id ? { ...m, content: newContent, editedAt: new Date().toISOString() } : m
+                                  ),
+                                }));
+                                try { await editDm(msg.id, newContent); }
+                                catch { toast.error(isAr ? "فشل التعديل" : "Edit failed"); }
+                              }
+                              if (e.key === "Escape") { setEditingMsgId(null); setEditingText(""); }
+                            }}
+                            rows={1}
+                            dir="auto"
+                            style={{ maxHeight: 120, fontSize: "14px" }}
+                            className="w-full resize-none rounded-lg bg-white/20 px-2 py-1 text-sm outline-none leading-relaxed"
+                            onInput={(e) => {
+                              const el = e.currentTarget;
+                              el.style.height = "auto";
+                              el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                            }}
+                          />
+                          <div className="flex items-center gap-1 justify-end">
+                            <button
+                              onClick={async () => {
+                                const newContent = editingText.trim();
+                                if (!newContent) return;
+                                setEditingMsgId(null);
+                                setThreads((prev) => ({
+                                  ...prev,
+                                  [activeId!]: (prev[activeId!] ?? []).map((m) =>
+                                    m.id === msg.id ? { ...m, content: newContent, editedAt: new Date().toISOString() } : m
+                                  ),
+                                }));
+                                try { await editDm(msg.id, newContent); }
+                                catch { toast.error(isAr ? "فشل التعديل" : "Edit failed"); }
+                              }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-white/30 text-white transition hover:bg-white/50"
+                              title={isAr ? "حفظ" : "Save"}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => { setEditingMsgId(null); setEditingText(""); }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-white/70 transition hover:bg-white/40"
+                              title={isAr ? "إلغاء" : "Cancel"}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.content && (
+                          <p className="whitespace-pre-wrap leading-[1.45]">
+                            {searchQuery.trim() ? highlightText(msg.content, searchQuery) : msg.content}
+                          </p>
+                        )
                       )}
 
                       {/* Time + tick */}
                       <div className={cn("mt-1 flex items-center justify-end gap-1", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
                         {failed && <AlertCircle className="h-3 w-3 text-white" />}
+                        {msg.editedAt && (
+                          <span className="text-[10px] opacity-70">{isAr ? "(معدّل)" : "(edited)"}</span>
+                        )}
                         <span className="text-[10px] tabular-nums">{hhmm(msg.createdAt)}</span>
                         <MsgTick msg={msg} isMine={mine} />
                       </div>
@@ -1980,6 +2207,8 @@ export default function Messages() {
             const senderName = senderProfile?.name ?? msg.senderId.slice(0, 8);
             const isGroupSearchMatch = groupSearchMatches.includes(i);
             const isCurrentGroupSearchMatch = groupSearchMatches[groupSearchMatchIdx] === i;
+            const isGroupEditing = groupEditingMsgId === msg.id;
+            const isGroupDeleting = groupDeletingMsgId === msg.id;
 
             return (
               <div key={msg.id} ref={(el) => { if (el) groupMsgRefsMap.current.set(msg.id, el); else groupMsgRefsMap.current.delete(msg.id); }}>
@@ -1995,6 +2224,8 @@ export default function Messages() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.14 }}
                   className={cn("group/msg flex", mine ? "justify-end" : "justify-start", isLast ? "mb-2" : "mb-0.5")}
+                  onMouseEnter={() => !isMobile && setHoveredMsgId(msg.id)}
+                  onMouseLeave={() => !isMobile && setHoveredMsgId(null)}
                 >
                   {!mine && (
                     <div className={cn("me-2 mt-auto shrink-0", isLast ? "opacity-100" : "opacity-0 pointer-events-none")}>
@@ -2020,7 +2251,127 @@ export default function Messages() {
                         isCurrentGroupSearchMatch && "ring-2 ring-yellow-400"
                       )}
                       dir="auto"
+                      onTouchStart={() => {
+                        longPressTimer.current = setTimeout(() => setHoveredMsgId(msg.id), 500);
+                      }}
+                      onTouchEnd={() => {
+                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                      }}
+                      onTouchMove={() => {
+                        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                      }}
                     >
+                      {/* Edit/delete + reaction quick-pick for group messages */}
+                      <AnimatePresence>
+                        {hoveredMsgId === msg.id && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.85, y: 4 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, y: 4 }}
+                            transition={{ duration: 0.12 }}
+                            className={cn(
+                              "absolute z-20 flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-1 shadow-xl",
+                              mine ? "end-0" : "start-0",
+                              mine ? "-top-[84px]" : "-top-10"
+                            )}
+                          >
+                            {mine && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setHoveredMsgId(null);
+                                    setGroupEditingMsgId(msg.id);
+                                    setGroupEditingText(msg.content);
+                                  }}
+                                  className="flex items-center rounded-full px-1.5 py-1 text-base transition hover:scale-110 touch-manipulation"
+                                  title={isAr ? "تعديل" : "Edit"}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setHoveredMsgId(null);
+                                    setGroupDeletingMsgId(msg.id);
+                                  }}
+                                  className="flex items-center rounded-full px-1.5 py-1 text-base transition hover:scale-110 touch-manipulation"
+                                  title={isAr ? "حذف" : "Delete"}
+                                >
+                                  🗑️
+                                </button>
+                                <span className="h-4 w-px bg-border/60" />
+                              </>
+                            )}
+                            {["❤️","😂","👍","😮","😢","🙏"].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => {
+                                  setHoveredMsgId(null);
+                                  setGroupThreads((prev) => {
+                                    const thread = prev[activeGroupId!] ?? [];
+                                    return {
+                                      ...prev,
+                                      [activeGroupId!]: thread.map((m) => {
+                                        if (m.id !== msg.id) return m;
+                                        const current = m.reactions ?? {};
+                                        const users = current[emoji] ?? [];
+                                        const newUsers = users.includes(me!.id)
+                                          ? users.filter((id) => id !== me!.id)
+                                          : [...users, me!.id];
+                                        const newReactions = { ...current };
+                                        if (newUsers.length === 0) delete newReactions[emoji];
+                                        else newReactions[emoji] = newUsers;
+                                        return { ...m, reactions: newReactions };
+                                      }),
+                                    };
+                                  });
+                                  void toggleGroupReaction(msg.id, emoji);
+                                }}
+                                className="text-lg transition hover:scale-125 active:scale-90 touch-manipulation"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Inline group delete confirm */}
+                      <AnimatePresence>
+                        {isGroupDeleting && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.1 }}
+                            className="absolute end-0 -top-10 z-20 flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-card px-3 py-1.5 shadow-xl"
+                          >
+                            <span className="text-xs font-medium text-rose-500">{isAr ? "حذف؟" : "Delete?"}</span>
+                            <button
+                              onClick={async () => {
+                                setGroupDeletingMsgId(null);
+                                setGroupThreads((prev) => ({
+                                  ...prev,
+                                  [activeGroupId!]: (prev[activeGroupId!] ?? []).filter((m) => m.id !== msg.id),
+                                }));
+                                try { await deleteGroupMessage(msg.id); }
+                                catch { toast.error(isAr ? "فشل الحذف" : "Delete failed"); }
+                              }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600"
+                              title={isAr ? "تأكيد" : "Confirm"}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setGroupDeletingMsgId(null)}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-muted-foreground transition hover:bg-secondary/80"
+                              title={isAr ? "إلغاء" : "Cancel"}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       {/* Attachment */}
                       {msg.attachmentUrl && (
                         msg.attachmentType?.startsWith("audio/") ? (
@@ -2049,16 +2400,83 @@ export default function Messages() {
                         )
                       )}
 
-                      {/* Text */}
-                      {msg.content && (
-                        <p className="whitespace-pre-wrap leading-[1.45]">
-                          {groupSearchQuery.trim() ? highlightText(msg.content, groupSearchQuery) : msg.content}
-                        </p>
+                      {/* Text / inline edit */}
+                      {isGroupEditing ? (
+                        <div className="flex flex-col gap-1.5">
+                          <textarea
+                            autoFocus
+                            value={groupEditingText}
+                            onChange={(e) => setGroupEditingText(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                e.preventDefault();
+                                const newContent = groupEditingText.trim();
+                                if (!newContent) return;
+                                setGroupEditingMsgId(null);
+                                setGroupThreads((prev) => ({
+                                  ...prev,
+                                  [activeGroupId!]: (prev[activeGroupId!] ?? []).map((m) =>
+                                    m.id === msg.id ? { ...m, content: newContent, editedAt: new Date().toISOString() } : m
+                                  ),
+                                }));
+                                try { await editGroupMessage(msg.id, newContent); }
+                                catch { toast.error(isAr ? "فشل التعديل" : "Edit failed"); }
+                              }
+                              if (e.key === "Escape") { setGroupEditingMsgId(null); setGroupEditingText(""); }
+                            }}
+                            rows={1}
+                            dir="auto"
+                            style={{ maxHeight: 120, fontSize: "14px" }}
+                            className="w-full resize-none rounded-lg bg-white/20 px-2 py-1 text-sm outline-none leading-relaxed"
+                            onInput={(e) => {
+                              const el = e.currentTarget;
+                              el.style.height = "auto";
+                              el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                            }}
+                          />
+                          <div className="flex items-center gap-1 justify-end">
+                            <button
+                              onClick={async () => {
+                                const newContent = groupEditingText.trim();
+                                if (!newContent) return;
+                                setGroupEditingMsgId(null);
+                                setGroupThreads((prev) => ({
+                                  ...prev,
+                                  [activeGroupId!]: (prev[activeGroupId!] ?? []).map((m) =>
+                                    m.id === msg.id ? { ...m, content: newContent, editedAt: new Date().toISOString() } : m
+                                  ),
+                                }));
+                                try { await editGroupMessage(msg.id, newContent); }
+                                catch { toast.error(isAr ? "فشل التعديل" : "Edit failed"); }
+                              }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-white/30 text-white transition hover:bg-white/50"
+                              title={isAr ? "حفظ" : "Save"}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => { setGroupEditingMsgId(null); setGroupEditingText(""); }}
+                              className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-white/70 transition hover:bg-white/40"
+                              title={isAr ? "إلغاء" : "Cancel"}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.content && (
+                          <p className="whitespace-pre-wrap leading-[1.45]">
+                            {groupSearchQuery.trim() ? highlightText(msg.content, groupSearchQuery) : msg.content}
+                          </p>
+                        )
                       )}
 
                       {/* Time */}
                       <div className={cn("mt-1 flex items-center justify-end gap-1", mine ? "text-primary-foreground/60" : "text-muted-foreground/50")}>
                         {failed && <AlertCircle className="h-3 w-3 text-white" />}
+                        {msg.editedAt && (
+                          <span className="text-[10px] opacity-70">{isAr ? "(معدّل)" : "(edited)"}</span>
+                        )}
                         <span className="text-[10px] tabular-nums">{hhmm(msg.createdAt)}</span>
                       </div>
                     </div>

@@ -9,6 +9,7 @@ import {
   Workflow,
   Moon,
   Sun,
+  Monitor,
   ChevronDown,
   Plus,
   Users,
@@ -29,6 +30,7 @@ import {
   LogIn,
   Gem,
   BriefcaseBusiness,
+  Keyboard,
 } from "lucide-react";
 import { HeedLogo } from "../HeedLogo";
 import { cn } from "../../lib/utils";
@@ -639,31 +641,41 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* ── Bottom: theme + language toggles ────────────── */}
       <div className="border-t border-border/30 p-3 space-y-1.5">
-        {/* Theme pill toggle */}
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="flex w-full items-center justify-between rounded-full border border-border/40 bg-background/40 px-3 py-1.5 transition hover:border-primary/30"
-        >
-          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            {theme === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-            <span className="font-micro">{theme === "dark" ? "داكن" : "فاتح"}</span>
-          </span>
-          {/* dir="ltr" keeps the knob sliding L→R regardless of page direction */}
-          <span
-            dir="ltr"
-            className={cn(
-              "relative inline-block h-4 w-7 shrink-0 rounded-full transition-colors",
-              theme === "dark" ? "bg-primary" : "bg-secondary"
-            )}
+        {/* Theme cycle button: dark → light → system */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const next = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
+              setTheme(next);
+            }}
+            className="flex flex-1 items-center justify-between rounded-full border border-border/40 bg-background/40 px-3 py-1.5 transition hover:border-primary/30"
           >
-            <span
-              className={cn(
-                "absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-[left] duration-200",
-                theme === "dark" ? "left-3.5" : "left-0.5"
-              )}
-            />
-          </span>
-        </button>
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              {theme === "dark" ? <Moon className="h-3 w-3" /> : theme === "light" ? <Sun className="h-3 w-3" /> : <Monitor className="h-3 w-3" />}
+              <span className="font-micro">{theme === "dark" ? "داكن" : theme === "light" ? "فاتح" : "تلقائي"}</span>
+            </span>
+            {/* 3-segment indicator */}
+            <span dir="ltr" className="flex items-center gap-0.5">
+              {(["dark", "light", "system"] as const).map((t) => (
+                <span
+                  key={t}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-200",
+                    theme === t ? "w-3 bg-primary" : "w-1.5 bg-muted-foreground/25"
+                  )}
+                />
+              ))}
+            </span>
+          </button>
+          {/* Keyboard shortcuts button */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("heed:open-shortcuts"))}
+            title={isAr ? "اختصارات لوحة المفاتيح" : "Keyboard shortcuts"}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border/40 bg-background/40 text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+          >
+            <Keyboard className="h-3.5 w-3.5" />
+          </button>
+        </div>
 
         <button
           onClick={toggleLang}

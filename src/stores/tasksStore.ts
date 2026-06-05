@@ -50,6 +50,8 @@ export type Project = {
   shared_workspace_ids?: string[]; // workspaces this project is shared/synced to
 };
 
+export type Recurrence = "none" | "daily" | "weekly" | "monthly";
+
 export type Task = {
   id: string;
   title: string;
@@ -61,6 +63,7 @@ export type Task = {
   status: Status;
   workflow_status?: string; // Wrike-style workflow status id (see WORKFLOW_STATUSES)
   assignee_id?: string | null;
+  recurrence?: Recurrence | null;
   column: KanbanColumn;
   position: number;
   estimated_minutes: number | null;
@@ -183,6 +186,7 @@ export const useTasksStore = create<TasksState>()(
           created_at: nowIso(),
           updated_at: nowIso(),
           workspace_id: input.workspace_id ?? activeWs(),
+          recurrence: input.recurrence ?? "none",
         };
         set((s) => ({ tasks: [task, ...s.tasks] }));
         pushTask(task);
@@ -198,7 +202,36 @@ export const useTasksStore = create<TasksState>()(
             return updated;
           }),
         }));
-        if (updated) pushTask(updated);
+        if (updated) {
+          pushTask(updated);
+          // Recurring task: when marked done, spawn next occurrence
+          const rec = updated.recurrence ?? "none";
+          if (patch.status === "done" && rec && rec !== "none") {
+            const daysMap: Record<Exclude<Recurrence, "none">, number> = {
+              daily: 1,
+              weekly: 7,
+              monthly: 30,
+            };
+            const days = daysMap[rec as Exclude<Recurrence, "none">];
+            const base = updated.deadline
+              ? new Date(updated.deadline)
+              : new Date();
+            base.setDate(base.getDate() + days);
+            const nextDeadline = isoDate(base);
+            const next: Task = {
+              ...updated,
+              id: uid(),
+              status: "todo",
+              column: updated.column === "done" ? "today" : updated.column,
+              deadline: nextDeadline,
+              completed_at: null,
+              created_at: nowIso(),
+              updated_at: nowIso(),
+            };
+            set((s) => ({ tasks: [next, ...s.tasks] }));
+            pushTask(next);
+          }
+        }
       },
 
       toggleDone: (id) => {

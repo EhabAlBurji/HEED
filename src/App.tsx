@@ -54,7 +54,16 @@ export default function App() {
 
   useEffect(() => {
     // Light is now the default (defined on :root); .dark class flips to dark variant
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const apply = (dark: boolean) => document.documentElement.classList.toggle("dark", dark);
+      apply(mq.matches);
+      const handler = (e: MediaQueryListEvent) => apply(e.matches);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    } else {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
   }, [theme]);
 
   useEffect(() => {

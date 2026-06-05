@@ -2,6 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useTranslation } from "react-i18next";
 import type { KanbanColumn as KanbanColType, Task } from "../../stores/tasksStore";
+import type { WorkspaceMember } from "../../stores/workspaceStore";
 import { KanbanCard } from "./KanbanCard";
 import { cn } from "../../lib/utils";
 import { quickTaskDates } from "../../lib/taskDateShortcuts";
@@ -42,11 +43,17 @@ export function KanbanColumn({
   tasks,
   onOpen,
   projectId,
+  members,
+  selectedIds,
+  onToggleSelect,
 }: {
   column: KanbanColType;
   tasks: Task[];
   onOpen: (id: string) => void;
   projectId: string;
+  members?: WorkspaceMember[];
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }) {
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
@@ -85,7 +92,15 @@ export function KanbanColumn({
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} onOpen={onOpen} />
+            <KanbanCard
+              key={task.id}
+              task={task}
+              onOpen={onOpen}
+              members={members}
+              isSelected={selectedIds?.has(task.id)}
+              selectionActive={(selectedIds?.size ?? 0) > 0}
+              onToggleSelect={onToggleSelect}
+            />
           ))}
         </SortableContext>
 

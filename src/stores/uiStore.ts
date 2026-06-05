@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type FontSize = "sm" | "md" | "lg" | "xl" | "2xl";
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "system";
 
 export const fontSizePx: Record<FontSize, string> = {
   sm: "13px",

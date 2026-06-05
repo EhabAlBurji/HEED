@@ -22,6 +22,7 @@ export type GroupMessage = {
   senderId: string;
   content: string;
   createdAt: string;
+  editedAt: string | null;
   attachmentUrl: string | null;
   attachmentName: string | null;
   attachmentType: string | null;
@@ -55,11 +56,46 @@ function rowToGroupMsg(r: Record<string, unknown>): GroupMessage {
     senderId: r.sender_id as string,
     content: (r.content as string) ?? "",
     createdAt: r.created_at as string,
+    editedAt: (r.edited_at as string) ?? null,
     attachmentUrl: (r.attachment_url as string) ?? null,
     attachmentName: (r.attachment_name as string) ?? null,
     attachmentType: (r.attachment_type as string) ?? null,
     reactions: (r.reactions as Record<string, string[]>) ?? {},
   };
+}
+
+// Edit the content of a group message (only sender can edit their own message).
+export async function editGroupMessage(messageId: string, newContent: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    const { error } = await sb()
+      .from("dm_group_messages")
+      .update({ content: newContent, edited_at: new Date().toISOString() })
+      .eq("id", messageId)
+      .eq("sender_id", me.id);
+    if (error) throw error;
+  } catch (err) {
+    console.error("[groupSync] editGroupMessage:", err);
+    throw err;
+  }
+}
+
+// Delete a group message (only sender can delete their own message).
+export async function deleteGroupMessage(messageId: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    const { error } = await sb()
+      .from("dm_group_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("sender_id", me.id);
+    if (error) throw error;
+  } catch (err) {
+    console.error("[groupSync] deleteGroupMessage:", err);
+    throw err;
+  }
 }
 
 // Fetch all groups I'm a member of in a given workspace.

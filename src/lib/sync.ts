@@ -55,6 +55,7 @@ const taskToDb = (t: Task): Tables["tasks"]["Insert"] => ({
   start_date: t.start_date ?? null,
   workflow_status: t.workflow_status ?? null,
   assignee_id: t.assignee_id ?? null,
+  recurrence: (t.recurrence ?? "none") as Tables["tasks"]["Insert"]["recurrence"],
   video_stage: t.video_stage,
   links: t.links,
   completed_at: t.completed_at,
@@ -80,6 +81,7 @@ const taskFromDb = (r: Tables["tasks"]["Row"]): Task => ({
   start_date: r.start_date ?? null,
   workflow_status: r.workflow_status ?? undefined,
   assignee_id: r.assignee_id ?? null,
+  recurrence: (r.recurrence as Task["recurrence"]) ?? "none",
   video_stage: r.video_stage,
   links: r.links ?? [],
   completed_at: r.completed_at,
@@ -311,6 +313,7 @@ export const pushTask = (t: Task) => {
         delete legacy.start_date;
         delete legacy.workflow_status;
         delete legacy.assignee_id;
+        delete legacy.recurrence;
         const r2 = await getSupabase().from("tasks").upsert(legacy as typeof row);
         if (r2.error) swallow("pushTask")(r2.error);
         return r2;

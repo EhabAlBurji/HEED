@@ -348,6 +348,7 @@ export type Database = {
           start_date: string | null;      // ISO date (YYYY-MM-DD)
           workflow_status: string | null; // Wrike-style workflow status id
           assignee_id: string | null;
+          recurrence: "none" | "daily" | "weekly" | "monthly" | null;
           video_stage:
             | "idea" | "script" | "filming" | "editing" | "scheduled" | "published"
             | null;
@@ -374,6 +375,7 @@ export type Database = {
           start_date?: string | null;
           workflow_status?: string | null;
           assignee_id?: string | null;
+          recurrence?: "none" | "daily" | "weekly" | "monthly" | null;
           video_stage?:
             | "idea" | "script" | "filming" | "editing" | "scheduled" | "published"
             | null;

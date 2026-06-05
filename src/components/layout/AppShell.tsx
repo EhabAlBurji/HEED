@@ -6,6 +6,7 @@ import { MiniRail } from "./MiniRail";
 import { GlobalSearch } from "../search/GlobalSearch";
 import { PwaInstallBanner } from "../PwaInstallBanner";
 import { OnboardingModal, useOnboarding } from "../OnboardingModal";
+import { KeyboardShortcuts } from "../KeyboardShortcuts";
 import { useAuthStore } from "../../stores/authStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cn } from "../../lib/utils";
@@ -68,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {isLoggedIn && showOnboarding && (
         <OnboardingModal onDone={completeOnboarding} />
       )}
+      <KeyboardShortcuts />
     </div>
   );
 }

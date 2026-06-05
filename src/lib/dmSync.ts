@@ -12,6 +12,7 @@ export type DmMessage = {
   receiverId: string;
   content: string;
   createdAt: string;
+  editedAt: string | null;
   readAt: string | null;
   attachmentUrl: string | null;
   attachmentName: string | null;
@@ -42,12 +43,47 @@ function rowToMsg(r: Record<string, unknown>): DmMessage {
     receiverId: r.receiver_id as string,
     content: (r.content as string) ?? "",
     createdAt: r.created_at as string,
+    editedAt: (r.edited_at as string) ?? null,
     readAt: (r.read_at as string) ?? null,
     attachmentUrl: (r.attachment_url as string) ?? null,
     attachmentName: (r.attachment_name as string) ?? null,
     attachmentType: (r.attachment_type as string) ?? null,
     reactions: (r.reactions as Record<string, string[]>) ?? {},
   };
+}
+
+// Edit the content of a DM (only sender can edit their own message).
+export async function editDm(messageId: string, newContent: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    const { error } = await sb()
+      .from("dm_messages")
+      .update({ content: newContent, edited_at: new Date().toISOString() })
+      .eq("id", messageId)
+      .eq("sender_id", me.id);
+    if (error) throw error;
+  } catch (err) {
+    console.error("[dmSync] editDm:", err);
+    throw err;
+  }
+}
+
+// Delete a DM (only sender can delete their own message).
+export async function deleteDm(messageId: string): Promise<void> {
+  if (!canSync()) return;
+  const me = useAuthStore.getState().user!;
+  try {
+    const { error } = await sb()
+      .from("dm_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("sender_id", me.id);
+    if (error) throw error;
+  } catch (err) {
+    console.error("[dmSync] deleteDm:", err);
+    throw err;
+  }
 }
 
 // Toggle a reaction emoji on a message.
@@ -456,4 +492,26 @@ export function subscribePresence(
       }
     });
   return () => { supabase.removeChannel(channel); };
+}
+
+// ── Pinned messages (localStorage, no migration needed) ──────────────────────
+
+export function getPinnedMessage(partnerId: string): string | null {
+  try {
+    return localStorage.getItem(`heed-pin-${partnerId}`);
+  } catch {
+    return null;
+  }
+}
+
+export function pinMessage(partnerId: string, messageId: string): void {
+  try {
+    localStorage.setItem(`heed-pin-${partnerId}`, messageId);
+  } catch { /* best-effort */ }
+}
+
+export function unpinMessage(partnerId: string): void {
+  try {
+    localStorage.removeItem(`heed-pin-${partnerId}`);
+  } catch { /* best-effort */ }
 }

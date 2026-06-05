@@ -9,7 +9,11 @@
       try {
         var s = localStorage.getItem("heed-ui-store");
         var t = s ? JSON.parse(s)?.state?.theme : "dark";
-        if (t === "dark" || !t) document.documentElement.classList.add("dark");
+        if (t === "system") {
+          if (window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
+        } else if (t === "dark" || !t) {
+          document.documentElement.classList.add("dark");
+        }
       } catch(e) { document.documentElement.classList.add("dark"); }
     </script>
     <!-- App icon: browser-tab favicon + iOS/Android home-screen shortcut -->
