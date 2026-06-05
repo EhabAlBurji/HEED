@@ -298,11 +298,17 @@
     "shared": "Shared"
   },
   "search": {
-    "placeholder": "Search tasks or projects…",
+    "placeholder": "Search tasks, projects, people…",
     "noResults": "No results",
-    "hint": "Type to search tasks and projects · ⌘K",
+    "hint": "Type to search tasks, projects, people · ⌘K",
     "project": "Project",
-    "noProject": "No project"
+    "noProject": "No project",
+    "sectionDm": "Conversations",
+    "sectionEmployees": "Employees",
+    "sectionRequests": "Requests",
+    "kindDm": "DM",
+    "kindEmployee": "Employee",
+    "kindRequest": "Request"
   },
   "comments": {
     "title": "Comments & activity",

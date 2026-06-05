@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckSquare, FolderKanban, Search } from "lucide-react";
+import { CheckSquare, FileText, FolderKanban, MessageSquare, Search, Users } from "lucide-react";
 import { useTasksStore } from "../../stores/tasksStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useHRStore } from "../../stores/hrStore";
+import { fetchDmPartners, type DmPartner } from "../../lib/dmSync";
 import { cn } from "../../lib/utils";
 
 type Result =
   | { kind: "task"; id: string; title: string; sub: string; projectId: string | null; score: number }
-  | { kind: "project"; id: string; title: string; sub: string; score: number };
+  | { kind: "project"; id: string; title: string; sub: string; score: number }
+  | { kind: "dm"; id: string; title: string; sub: string; score: number }
+  | { kind: "hr-employee"; id: string; title: string; sub: string; score: number }
+  | { kind: "hr-request"; id: string; title: string; sub: string; score: number };
 
 // Normalize for matching: lowercase, strip Arabic diacritics & tatweel, and
 // unify alef/hamza/yaa/taa-marbuta variants so search is forgiving of how
@@ -60,6 +65,8 @@ function score(query: string, text: string): number {
   return Math.max(overlap, subseqScore(q.replace(/ /g, ""), t.replace(/ /g, "")));
 }
 
+const MAX_PER_SECTION = 3;
+
 export function GlobalSearch() {
   const { t: tr } = useTranslation();
   const navigate = useNavigate();
@@ -68,9 +75,14 @@ export function GlobalSearch() {
   const tags = useTasksStore((s) => s.tags);
   const activeWs = useWorkspaceStore((s) => s.activeWorkspaceId);
 
+  const hrEmployees = useHRStore((s) => s.employees);
+  const hrRequests = useHRStore((s) => s.requests);
+  const hrRequestTypes = useHRStore((s) => s.requestTypes);
+
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [dmPartners, setDmPartners] = useState<DmPartner[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -91,6 +103,11 @@ export function GlobalSearch() {
     };
   }, []);
 
+  // Fetch DM partners once on mount.
+  useEffect(() => {
+    fetchDmPartners().then(setDmPartners).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (open) {
       setQuery("");
@@ -99,9 +116,11 @@ export function GlobalSearch() {
     }
   }, [open]);
 
-  const results = useMemo<Result[]>(() => {
+  // Grouped results: projects + tasks (existing), then dm, hr-employee, hr-request.
+  const { projResults, taskResults, dmResults, hrEmployeeResults, hrRequestResults } = useMemo(() => {
     const q = query.trim();
-    if (!q) return [];
+    if (!q) return { projResults: [], taskResults: [], dmResults: [], hrEmployeeResults: [], hrRequestResults: [] };
+
     const tagName = (id: string) => tags.find((t) => t.id === id)?.name ?? "";
     const projName = (id: string | null) => projects.find((p) => p.id === id)?.name ?? "";
 
@@ -131,14 +150,89 @@ export function GlobalSearch() {
       }))
       .filter((r) => r.score > 0);
 
-    return [...projResults, ...taskResults].sort((a, b) => b.score - a.score).slice(0, 12);
-  }, [query, tasks, projects, tags, activeWs]);
+    const dmResults: Result[] = dmPartners
+      .map((p) => ({
+        kind: "dm" as const,
+        id: p.id,
+        title: p.name,
+        sub: p.email,
+        score: Math.max(score(q, p.name), score(q, p.email)),
+      }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_PER_SECTION);
+
+    const hrEmployeeResults: Result[] = hrEmployees
+      .map((e) => {
+        const hay = `${e.name} ${e.nameEn ?? ""} ${e.email ?? ""}`;
+        return {
+          kind: "hr-employee" as const,
+          id: e.id,
+          title: e.name,
+          sub: e.email ?? e.nameEn ?? "",
+          score: Math.max(score(q, e.name), score(q, hay)),
+        };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_PER_SECTION);
+
+    const hrRequestResults: Result[] = hrRequests
+      .map((r) => {
+        const typeName = hrRequestTypes.find((rt) => rt.id === r.typeId)?.nameAr ?? "";
+        return {
+          kind: "hr-request" as const,
+          id: r.id,
+          title: typeName,
+          sub: r.status,
+          score: score(q, typeName),
+        };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_PER_SECTION);
+
+    return { projResults, taskResults, dmResults, hrEmployeeResults, hrRequestResults };
+  }, [query, tasks, projects, tags, activeWs, dmPartners, hrEmployees, hrRequests, hrRequestTypes, tr]);
+
+  // Flat list for keyboard navigation, keeping section order.
+  const results = useMemo<Result[]>(() => {
+    const topTasksProjects = [...projResults, ...taskResults]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
+    return [...topTasksProjects, ...dmResults, ...hrEmployeeResults, ...hrRequestResults];
+  }, [projResults, taskResults, dmResults, hrEmployeeResults, hrRequestResults]);
 
   const choose = (r: Result) => {
     setOpen(false);
-    if (r.kind === "project") navigate(`/projects/${r.id}`);
-    else if (r.projectId) navigate(`/projects/${r.projectId}`);
-    else navigate("/");
+    if (r.kind === "project") {
+      navigate(`/projects/${r.id}`);
+    } else if (r.kind === "task") {
+      if (r.projectId) navigate(`/projects/${r.projectId}`);
+      else navigate("/");
+    } else if (r.kind === "dm") {
+      navigate("/messages");
+      window.dispatchEvent(new CustomEvent("heed:open-dm", { detail: { partnerId: r.id } }));
+    } else if (r.kind === "hr-employee" || r.kind === "hr-request") {
+      navigate("/hr");
+    }
+  };
+
+  // Section divider logic: detect where a new group starts in the flat results list.
+  const getSectionLabel = (r: Result, i: number): string | null => {
+    const prev = i > 0 ? results[i - 1] : null;
+    if (r.kind === "dm" && prev?.kind !== "dm") return tr("search.sectionDm");
+    if (r.kind === "hr-employee" && prev?.kind !== "hr-employee") return tr("search.sectionEmployees");
+    if (r.kind === "hr-request" && prev?.kind !== "hr-request") return tr("search.sectionRequests");
+    return null;
+  };
+
+  const getKindBadge = (r: Result): string => {
+    if (r.kind === "dm") return tr("search.kindDm");
+    if (r.kind === "hr-employee") return tr("search.kindEmployee");
+    if (r.kind === "hr-request") return tr("search.kindRequest");
+    if (r.kind === "project") return tr("search.project");
+    return tr("search.noProject");
   };
 
   if (!open) return null;
@@ -173,25 +267,42 @@ export function GlobalSearch() {
           {query && results.length === 0 && (
             <p className="px-3 py-6 text-center font-micro text-xs text-muted-foreground/50">{tr("search.noResults")}</p>
           )}
-          {results.map((r, i) => (
-            <button
-              key={`${r.kind}-${r.id}`}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => choose(r)}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-start transition",
-                i === active ? "bg-primary/10" : "hover:bg-secondary"
-              )}
-            >
-              {r.kind === "project" ? (
-                <FolderKanban className="h-4 w-4 shrink-0 text-primary" />
-              ) : (
-                <CheckSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-              <span className="min-w-0 flex-1 truncate text-sm">{r.title}</span>
-              <span className="shrink-0 font-micro text-[10px] text-muted-foreground/60">{r.sub}</span>
-            </button>
-          ))}
+          {results.map((r, i) => {
+            const sectionLabel = getSectionLabel(r, i);
+            return (
+              <div key={`${r.kind}-${r.id}`}>
+                {sectionLabel && (
+                  <p className="px-3 pb-0.5 pt-2 font-micro text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                    {sectionLabel}
+                  </p>
+                )}
+                <button
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => choose(r)}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-start transition",
+                    i === active ? "bg-primary/10" : "hover:bg-secondary"
+                  )}
+                >
+                  {r.kind === "project" ? (
+                    <FolderKanban className="h-4 w-4 shrink-0 text-primary" />
+                  ) : r.kind === "dm" ? (
+                    <MessageSquare className="h-4 w-4 shrink-0 text-blue-500" />
+                  ) : r.kind === "hr-employee" ? (
+                    <Users className="h-4 w-4 shrink-0 text-emerald-500" />
+                  ) : r.kind === "hr-request" ? (
+                    <FileText className="h-4 w-4 shrink-0 text-orange-500" />
+                  ) : (
+                    <CheckSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm">{r.title}</span>
+                  <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 font-micro text-[10px] text-muted-foreground/70">
+                    {getKindBadge(r)}
+                  </span>
+                </button>
+              </div>
+            );
+          })}
           {!query && (
             <p className="px-3 py-6 text-center font-micro text-xs text-muted-foreground/50">
               {tr("search.hint")}

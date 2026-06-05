@@ -1,40 +1,14 @@
-// =========================================================================
-// Image generation — Pollinations (keyless), Cloudflare Workers AI, and
-// Hugging Face Inference API. All free; CF and HF require a free API key.
-// =========================================================================
+// Image generation via Gemini (server-side proxy holds the key).
 
-// ── Pollinations (keyless) ────────────────────────────────────────────────
-
-/** Available Pollinations models — ordered best→fastest. */
-export type ImageModel = "flux" | "flux-realism" | "flux-anime" | "flux-3d" | "flux-cablyai" | "turbo" | "sana";
-
-export function imagePromptUrl(prompt: string, seed?: number, model: ImageModel = "flux"): string {
-  const clean = prompt.trim().slice(0, 500);
-  const s = seed ?? Math.floor((Date.now() % 100000));
-  const params = new URLSearchParams({
-    model,
-    width: "1024",
-    height: "1024",
-    nologo: "true",
-    enhance: "true",
-    seed: String(s),
-  });
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?${params.toString()}`;
-}
-
-// ── Heed proxy (Cloudflare AI + Hugging Face via Edge Function) ───────────
-
-/** Call the Heed image proxy for CF / HF models. Returns a data URL. */
+/** Call the Heed image proxy → Gemini image generation. Returns a data URL. */
 export async function generateImageViaProxy(
   prompt: string,
-  model: string,
   signal?: AbortSignal
 ): Promise<string> {
   const { getSupabase, supabaseUrl, supabaseAnonKey } = await import("./supabase");
   const { data } = await getSupabase().auth.getSession();
   const token = data.session?.access_token || supabaseAnonKey;
 
-  // 90-second client-side timeout so the message never stays pending forever.
   const localController = new AbortController();
   const timeoutId = setTimeout(() => localController.abort(), 90_000);
   const combined = signal
@@ -49,7 +23,7 @@ export async function generateImageViaProxy(
         apikey: supabaseAnonKey,
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ model, prompt: prompt.trim().slice(0, 1000) }),
+      body: JSON.stringify({ prompt: prompt.trim().slice(0, 1000) }),
       signal: combined,
     });
 
@@ -67,7 +41,6 @@ export async function generateImageViaProxy(
   }
 }
 
-/** Merge multiple AbortSignals — fires when any one of them aborts. */
 function anySignal(signals: AbortSignal[]): AbortSignal {
   const controller = new AbortController();
   for (const s of signals) {
@@ -76,8 +49,6 @@ function anySignal(signals: AbortSignal[]): AbortSignal {
   }
   return controller.signal;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

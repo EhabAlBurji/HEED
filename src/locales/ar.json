@@ -235,11 +235,17 @@
     "shared": "مُشارَك"
   },
   "search": {
-    "placeholder": "ابحث عن مهمة أو مشروع…",
+    "placeholder": "ابحث عن مهمة أو مشروع أو شخص…",
     "noResults": "لا نتائج",
-    "hint": "اكتب للبحث في المهام والمشاريع · ⌘K",
+    "hint": "اكتب للبحث في المهام والمشاريع والأشخاص · ⌘K",
     "project": "مشروع",
-    "noProject": "بدون مشروع"
+    "noProject": "بدون مشروع",
+    "sectionDm": "المحادثات",
+    "sectionEmployees": "الموظفون",
+    "sectionRequests": "الطلبات",
+    "kindDm": "محادثة",
+    "kindEmployee": "موظف",
+    "kindRequest": "طلب"
   },
   "comments": {
     "title": "التعليقات والنشاط",
