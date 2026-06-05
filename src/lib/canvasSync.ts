@@ -230,6 +230,7 @@ function applyBoard(p: { eventType: string; new: unknown; old: unknown }) {
 
 // ─── Pull + subscribe (call on login / workspace change) ─────────────
 let chan: RealtimeChannel | null = null;
+let canvasReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 export async function startCanvasSync() {
   if (!canSync()) return;
@@ -267,6 +268,11 @@ export async function startCanvasSync() {
     /* ignore */
   }
 
+  // Guard: if the workspace changed while the async pull was in flight, bail out
+  // to avoid creating a channel for a stale workspace that would overwrite the
+  // channel already created by the new workspace's startCanvasSync() call.
+  if (activeWs() !== ws) return;
+
   stopCanvasSync();
   chan = sb
     .channel("canvas:" + ws)
@@ -275,13 +281,20 @@ export async function startCanvasSync() {
     .on("postgres_changes", { event: "*", schema: "public", table: "boards", filter: `workspace_id=eq.${ws}` }, applyBoard)
     .subscribe((status) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        // Re-pull canvas data on error so changes aren't missed.
-        setTimeout(() => void startCanvasSync(), 5_000);
+        if (canvasReconnectTimer) clearTimeout(canvasReconnectTimer);
+        canvasReconnectTimer = setTimeout(() => {
+          canvasReconnectTimer = null;
+          void startCanvasSync();
+        }, 5_000);
       }
     });
 }
 
 export function stopCanvasSync() {
+  if (canvasReconnectTimer) {
+    clearTimeout(canvasReconnectTimer);
+    canvasReconnectTimer = null;
+  }
   if (chan) {
     try {
       getSupabase().removeChannel(chan);

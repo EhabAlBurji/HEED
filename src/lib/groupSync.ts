@@ -289,11 +289,17 @@ export async function toggleGroupReaction(messageId: string, emoji: string): Pro
 // unread badges without a server round-trip.
 
 export function getGroupLastRead(groupId: string): string {
-  return localStorage.getItem(`heed-group-read-${groupId}`) ?? "";
+  try {
+    return localStorage.getItem(`heed-group-read-${groupId}`) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 export function markGroupRead(groupId: string, latestMsgCreatedAt: string): void {
-  localStorage.setItem(`heed-group-read-${groupId}`, latestMsgCreatedAt);
+  try {
+    localStorage.setItem(`heed-group-read-${groupId}`, latestMsgCreatedAt);
+  } catch { /* best-effort */ }
 }
 
 export function getGroupUnreadCount(groupId: string, messages: GroupMessage[]): number {

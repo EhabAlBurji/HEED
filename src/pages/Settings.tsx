@@ -824,11 +824,13 @@ function NotificationsSection() {
     setNotifPrefs(next);
   }
 
-  const rows: { key: keyof NotifPrefs; labelAr: string; labelEn: string }[] = [
-    { key: "dms",   labelAr: "رسائل مباشرة جديدة",        labelEn: "New direct messages" },
-    { key: "hr",    labelAr: "طلبات HR",                  labelEn: "HR requests" },
-    { key: "tasks", labelAr: "مهام مُسندة إليك",           labelEn: "Tasks assigned to you" },
-    { key: "email", labelAr: "إشعارات البريد الإلكتروني",  labelEn: "Email notifications" },
+  const rows: { key: keyof NotifPrefs; labelAr: string; labelEn: string; descAr: string; descEn: string }[] = [
+    { key: "dms",      labelAr: "الرسائل",                    labelEn: "Messages",            descAr: "الرسائل المباشرة ورسائل المجموعات",     descEn: "Direct messages & group chats" },
+    { key: "tasks",    labelAr: "المهام المُسندة",              labelEn: "Task assignments",    descAr: "عند إسناد مهمة إليك",                   descEn: "When a task is assigned to you" },
+    { key: "mentions", labelAr: "الإشارات",                   labelEn: "Mentions",            descAr: "عند ذكر اسمك في تعليق",                 descEn: "When someone mentions you" },
+    { key: "invites",  labelAr: "دعوات الانضمام",              labelEn: "Workspace invites",   descAr: "عند دعوتك لمساحة عمل",                  descEn: "When you're invited to a workspace" },
+    { key: "hr",       labelAr: "طلبات الموارد البشرية",        labelEn: "HR requests",         descAr: "تحديثات طلبات HR",                       descEn: "HR request updates" },
+    { key: "email",    labelAr: "البريد الإلكتروني",           labelEn: "Email notifications", descAr: "إشعارات عبر البريد الإلكتروني",          descEn: "Receive notifications by email" },
   ];
 
   return (
@@ -838,9 +840,12 @@ function NotificationsSection() {
       icon="🔔"
     >
       <div className="divide-y divide-border/30">
-        {rows.map(({ key, labelAr, labelEn }) => (
+        {rows.map(({ key, labelAr, labelEn, descAr, descEn }) => (
           <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-            <span className="text-sm">{isAr ? labelAr : labelEn}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">{isAr ? labelAr : labelEn}</span>
+              <span className="text-xs text-muted-foreground">{isAr ? descAr : descEn}</span>
+            </div>
             <ToggleSwitch checked={prefs[key]} onChange={() => toggle(key)} />
           </div>
         ))}
@@ -1176,7 +1181,7 @@ function ResetSection() {
 
 // ── Main Settings page ────────────────────────────────────────────────────────
 // Build-time app version (kept in sync with package.json / tauri.conf.json).
-const APP_VERSION = "0.1.39";
+const APP_VERSION = "0.1.52";
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 function AboutSection() {
@@ -1202,9 +1207,14 @@ function AboutSection() {
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
-      if (!update) { setPhase("latest"); return; }
+      if (!update) {
+        setPhase("latest");
+        toast.success(tr("إنت على آخر إصدار 🎉", "You're on the latest version 🎉"));
+        return;
+      }
       setPending(update as unknown as typeof pending);
       setPhase("available");
+      toast.message(tr(`تحديث جديد متاح: v${(update as { version?: string }).version ?? ""}`, `Update available: v${(update as { version?: string }).version ?? ""}`));
     } catch (e) {
       toast.error(tr("تعذّر فحص التحديثات", "Couldn't check for updates") + ": " + (e as Error).message);
       setPhase("idle");

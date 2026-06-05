@@ -370,7 +370,7 @@ export default function Messages() {
             setGroupMembers((mems) => {
               const sender = mems[msg.groupId]?.find((m) => m.id === msg.senderId);
               const senderName = sender?.name ?? "Someone";
-              showNotification(`${senderName} → ${groupName}`, msg.content || "📎 Attachment", { tag: msg.groupId });
+              showNotification(`${senderName} → ${groupName}`, msg.content || "📎 Attachment", { tag: msg.groupId, kind: "dm" });
               return mems;
             });
             return cur;

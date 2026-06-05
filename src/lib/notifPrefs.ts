@@ -8,10 +8,12 @@ export type NotifPrefs = {
   dms: boolean;
   hr: boolean;
   tasks: boolean;
+  mentions: boolean;
+  invites: boolean;
   email: boolean;
 };
 
-const DEFAULT: NotifPrefs = { dms: true, hr: true, tasks: true, email: true };
+const DEFAULT: NotifPrefs = { dms: true, hr: true, tasks: true, mentions: true, invites: true, email: true };
 
 export function getNotifPrefs(): NotifPrefs {
   try {

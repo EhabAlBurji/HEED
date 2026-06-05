@@ -12,6 +12,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useNotificationsStore, type AppNotification } from "../stores/notificationsStore";
 import { useTasksStore, type TaskComment } from "../stores/tasksStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
+import { showNotification, canNotify } from "./notifications";
 
 const canSync = () => {
   if (!isSupabaseConfigured()) return false;
@@ -308,6 +309,7 @@ export async function removeNotificationServer(id: string) {
 
 // ─── Pull + realtime subscribe (call on login) ───────────────────────
 let channel: RealtimeChannel | null = null;
+let notifReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 export async function startNotifications() {
   if (!canSync()) return;
@@ -343,13 +345,37 @@ export async function startNotifications() {
           const row = fromRow(p.new as Row);
           const rest = s.notifications.filter((n) => n.id !== row.id);
           useNotificationsStore.setState({ notifications: [row, ...rest] });
+          // Browser popup for new (INSERT) notifications only
+          if (p.eventType === "INSERT" && canNotify()) {
+            const kindMap: Record<string, "task" | "mention" | "invite"> = {
+              assignment: "task",
+              mention: "mention",
+              workspace_invite: "invite",
+            };
+            const kind = kindMap[row.type];
+            if (kind) {
+              showNotification(row.title, row.body ?? "", { kind, tag: row.id });
+            }
+          }
         }
       }
     )
-    .subscribe();
+    .subscribe((status: string) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        if (notifReconnectTimer) clearTimeout(notifReconnectTimer);
+        notifReconnectTimer = setTimeout(() => {
+          notifReconnectTimer = null;
+          void startNotifications();
+        }, 5_000);
+      }
+    });
 }
 
 export function stopNotifications() {
+  if (notifReconnectTimer) {
+    clearTimeout(notifReconnectTimer);
+    notifReconnectTimer = null;
+  }
   if (channel) {
     try {
       getSupabase().removeChannel(channel);

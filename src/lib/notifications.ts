@@ -30,23 +30,28 @@ export async function requestNotificationPermission(): Promise<void> {
  * Falls back silently when permission is denied or the API is unavailable.
  *
  * Pass `kind` to respect per-type notification preferences:
- *   "dm"  → checks prefs.dms
- *   "hr"  → checks prefs.hr
- *   (omit for other kinds — always shown when permission is granted)
+ *   "dm"      → checks prefs.dms
+ *   "hr"      → checks prefs.hr
+ *   "task"    → checks prefs.tasks
+ *   "mention" → checks prefs.mentions
+ *   "invite"  → checks prefs.invites
  */
 export function showNotification(
   title: string,
   body: string,
-  opts?: { icon?: string; tag?: string; onClick?: () => void; kind?: "dm" | "hr" }
+  opts?: { icon?: string; tag?: string; onClick?: () => void; kind?: "dm" | "hr" | "task" | "mention" | "invite" }
 ): void {
   if (!canNotify()) return;
   if (document.visibilityState === "visible") return;
 
-  // Respect per-type preference
+  // Respect per-type preference — every kind is gated; unknown kinds are silently shown
   if (opts?.kind) {
     const prefs = getNotifPrefs();
     if (opts.kind === "dm" && !prefs.dms) return;
     if (opts.kind === "hr" && !prefs.hr) return;
+    if (opts.kind === "task" && !prefs.tasks) return;
+    if (opts.kind === "mention" && !prefs.mentions) return;
+    if (opts.kind === "invite" && !prefs.invites) return;
   }
 
   const n = new Notification(title, {

@@ -129,6 +129,18 @@ export const useAuthStore = create<AuthState>()(
                 },
                 isLoading: false,
               });
+              // Ensure the profile row exists and is up-to-date (fire-and-forget).
+              // This is a safety net for users whose trigger-created profile was
+              // lost, and also keeps name/avatar in sync with the auth metadata.
+              void supabase.from("profiles").upsert({
+                id: u.id,
+                email: u.email ?? null,
+                name: (u.user_metadata?.full_name as string) ?? (u.user_metadata?.name as string) ?? null,
+                avatar_url: (u.user_metadata?.avatar_url as string) ?? null,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "id", ignoreDuplicates: false }).then(({ error }) => {
+                if (error) console.warn("[auth] profile upsert:", error.message);
+              });
             }
           }
         });

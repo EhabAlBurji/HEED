@@ -583,11 +583,22 @@ async function migrateLocalPersonalId(realId: string): Promise<void> {
 // REALTIME — apply remote changes to local store
 // =========================================================================
 
-export function subscribeRealtime(): () => void {
-  if (!canSync()) return () => {};
-  const sb = getSupabase();
+let mainChannel: RealtimeChannel | null = null;
+let mainReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const ch: RealtimeChannel = sb
+function stopMainChannel() {
+  if (mainReconnectTimer) { clearTimeout(mainReconnectTimer); mainReconnectTimer = null; }
+  if (mainChannel) {
+    try { getSupabase().removeChannel(mainChannel); } catch { /* ignore */ }
+    mainChannel = null;
+  }
+}
+
+function connectMainChannel() {
+  if (!canSync()) return;
+  const sb = getSupabase();
+  stopMainChannel();
+  mainChannel = sb
     .channel("heed-sync")
     // ─── tasks ──────────────────────────────────────────────────────
     .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, (p) => {
@@ -701,12 +712,20 @@ export function subscribeRealtime(): () => void {
     })
     .subscribe((status) => {
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        // Re-pull from server so no changes are missed during the gap.
-        setTimeout(() => void pullAll().catch(() => {}), 5_000);
+        // Re-pull from server so no changes are missed during the gap, then
+        // recreate the subscription so realtime resumes (not just a one-time pull).
+        void pullAll().catch(() => {});
+        if (mainReconnectTimer) clearTimeout(mainReconnectTimer);
+        mainReconnectTimer = setTimeout(() => {
+          mainReconnectTimer = null;
+          connectMainChannel();
+        }, 5_000);
       }
     });
+}
 
-  return () => {
-    void sb.removeChannel(ch);
-  };
+export function subscribeRealtime(): () => void {
+  if (!canSync()) return () => {};
+  connectMainChannel();
+  return stopMainChannel;
 }
