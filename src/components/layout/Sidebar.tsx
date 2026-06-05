@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -20,7 +20,6 @@ import {
   Crown,
   ZoomIn,
   ZoomOut,
-  AlertTriangle,
   Search,
   LogOut,
   Activity,
@@ -37,7 +36,6 @@ import { cn } from "../../lib/utils";
 import { useUIStore, type FontSize } from "../../stores/uiStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthStore } from "../../stores/authStore";
-import { useTasksStore, isoDate } from "../../stores/tasksStore";
 import { useNotificationsStore } from "../../stores/notificationsStore";
 import {
   inviteMember,
@@ -636,9 +634,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </NavSection>
       </nav>
 
-      {/* ── Attention Needed card ────────────────────────── */}
-      <AttentionCard />
-
       {/* ── Bottom: theme + language toggles ────────────── */}
       <div className="border-t border-border/30 p-3 space-y-1.5">
         {/* Theme cycle button: dark → light → system */}
@@ -751,41 +746,3 @@ function NavSection({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-// ── Attention Needed footer card ─────────────────────────────────────────────
-function AttentionCard() {
-  const navigate = useNavigate();
-  const allTasks = useTasksStore((s) => s.tasks);
-  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-
-  const todayStr = isoDate(new Date());
-  const urgentToday = allTasks.filter(
-    (t) =>
-      (t.workspace_id ?? "personal") === activeWorkspaceId &&
-      t.status !== "done" &&
-      (t.priority === "urgent" || t.priority === "high") &&
-      (t.column === "today" || t.deadline === todayStr),
-  );
-
-  if (urgentToday.length === 0) return null;
-
-  return (
-    <div className="mx-3 mb-3 rounded-2xl border border-border bg-secondary/60 p-3 text-center">
-      <div className="relative mx-auto mb-2 grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg shadow-amber-500/20">
-        <AlertTriangle className="h-5 w-5 text-white" strokeWidth={2.5} />
-      </div>
-      <p className="font-display text-sm font-bold leading-tight">
-        Attention Needed
-      </p>
-      <p className="mt-1 font-micro text-[10px] text-muted-foreground leading-snug">
-        {urgentToday.length} {urgentToday.length === 1 ? "مهمة عاجلة" : "مهام عاجلة"}
-        <br />تحتاج اهتمامك
-      </p>
-      <button
-        onClick={() => navigate("/projects")}
-        className="mt-2.5 w-full rounded-full bg-primary py-2 text-xs font-semibold text-white shadow-[0_4px_12px_hsl(var(--primary)/0.3)] transition hover:opacity-95"
-      >
-        View Alerts
-      </button>
-    </div>
-  );
-}
