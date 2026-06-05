@@ -9,7 +9,11 @@
       try {
         var s = localStorage.getItem("heed-ui-store");
         var t = s ? JSON.parse(s)?.state?.theme : "dark";
-        if (t === "dark" || !t) document.documentElement.classList.add("dark");
+        if (t === "system") {
+          if (window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
+        } else if (t === "dark" || !t) {
+          document.documentElement.classList.add("dark");
+        }
       } catch(e) { document.documentElement.classList.add("dark"); }
     </script>
     <!-- App icon: browser-tab favicon + iOS/Android home-screen shortcut -->
@@ -20,12 +24,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Heed" />
-    <script type="module" crossorigin src="/app/assets/index-Bj1Aapfj.js"></script>
+    <script type="module" crossorigin src="/app/assets/index-6IfkVhER.js"></script>
     <link rel="modulepreload" crossorigin href="/app/assets/vendor-CFcIu4iD.js">
     <link rel="modulepreload" crossorigin href="/app/assets/motion-DKltL3s8.js">
     <link rel="modulepreload" crossorigin href="/app/assets/supabase-Btrk44BY.js">
     <link rel="modulepreload" crossorigin href="/app/assets/recharts-DA8pPs7F.js">
-    <link rel="stylesheet" crossorigin href="/app/assets/index-D_JGq_2t.css">
+    <link rel="stylesheet" crossorigin href="/app/assets/index-CmKUC7zs.css">
   </head>
   <body class="bg-background text-foreground">
     <div id="root"></div>
