@@ -427,29 +427,45 @@ export default function ProjectBoard() {
         </div>
       ) : view === "board" ? (
         <>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-              {COLUMNS.map((col) => (
-                <KanbanCol
-                  key={col}
-                  column={col}
-                  tasks={tasksByColumn[col]}
-                  onOpen={setOpenTaskId}
-                  projectId={project.id}
-                />
-              ))}
-            </div>
-
-            <DragOverlay>
-              {draggingTask && <KanbanCardOverlay task={draggingTask} />}
-            </DragOverlay>
-          </DndContext>
+          {groupBy !== "none" ? (
+            <GroupedBoard
+              projectTasks={projectTasks}
+              groupBy={groupBy}
+              projectId={project.id}
+              projectWorkspaceId={project.workspace_id}
+              categories={categories}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onOpen={setOpenTaskId}
+              isAr={isAr}
+              updateTask={updateTask}
+            />
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+                {COLUMNS.map((col) => (
+                  <KanbanCol
+                    key={col}
+                    column={col}
+                    tasks={tasksByColumn[col]}
+                    onOpen={setOpenTaskId}
+                    projectId={project.id}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                  />
+                ))}
+              </div>
+              <DragOverlay>
+                {draggingTask && <KanbanCardOverlay task={draggingTask} />}
+              </DragOverlay>
+            </DndContext>
+          )}
 
           {/* Overlay drawer in board mode */}
           <TaskDetailDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
