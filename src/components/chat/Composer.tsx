@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles, Wand2, Camera, Layers, Paintbrush, Cloud, Globe, Bot } from "lucide-react";
+import { ArrowUp, Square, Plus, Mic, X, FileText, Loader2, Image as ImageIcon, ChevronDown, Check, Settings2, Zap, Brain, Sparkles, Wand2, Bot } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useChatStore, type ChatAttachment } from "../../stores/chatStore";
 import { transcribeAudio } from "../../lib/chatProviders";
@@ -22,29 +22,19 @@ const MODEL_PRESETS = [
   { id: "llama-3.1-8b-instant",    icon: Zap,      group: "heed", label: { ar: "سريع",        en: "Fast"       }, hint: { ar: "أسرع رد",                   en: "Fastest reply"                  } },
   { id: "openai/gpt-oss-120b",     icon: Brain,    group: "heed", label: { ar: "تفكير",       en: "Thinking"   }, hint: { ar: "يفكر أطول لإجابات أعمق",   en: "Thinks longer for deeper answers" } },
   // ── Google Gemini ─────────────────────────────────────────────────────────
-  { id: "gemini-2.0-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini Flash",    en: "Gemini Flash"    }, hint: { ar: "جوجل · جودة عالية · مجاني", en: "Google · high quality · free" } },
-  { id: "gemini-2.0-flash-lite",   icon: Bot,      group: "gemini", label: { ar: "Gemini Flash Lite", en: "Gemini Flash Lite" }, hint: { ar: "جوجل · أسرع · مجاني",      en: "Google · fastest · free"     } },
-  { id: "gemini-1.5-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini 1.5 Flash",  en: "Gemini 1.5 Flash"  }, hint: { ar: "جوجل · كلاسيك",           en: "Google · classic"            } },
+  { id: "gemini-2.5-pro",          icon: Brain,    group: "gemini", label: { ar: "Gemini 2.5 Pro",    en: "Gemini 2.5 Pro"    }, hint: { ar: "جوجل · الأقوى · مجاني",     en: "Google · most powerful · free"  } },
+  { id: "gemini-2.5-flash",        icon: Sparkles, group: "gemini", label: { ar: "Gemini 2.5 Flash",  en: "Gemini 2.5 Flash"  }, hint: { ar: "جوجل · أحدث وأسرع · مجاني", en: "Google · latest & fast · free"  } },
+  { id: "gemini-2.0-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini 2.0 Flash",  en: "Gemini 2.0 Flash"  }, hint: { ar: "جوجل · جودة عالية · مجاني", en: "Google · high quality · free"   } },
+  { id: "gemini-2.0-flash-lite",   icon: Zap,      group: "gemini", label: { ar: "Gemini Flash Lite", en: "Gemini Flash Lite" }, hint: { ar: "جوجل · الأسرع · مجاني",    en: "Google · fastest · free"        } },
+  { id: "gemini-1.5-flash",        icon: Bot,      group: "gemini", label: { ar: "Gemini 1.5 Flash",  en: "Gemini 1.5 Flash"  }, hint: { ar: "جوجل · كلاسيك · مجاني",   en: "Google · classic · free"        } },
 ];
 
-// Image generation presets — grouped by provider.
-// needsKey: false = no key (Pollinations), "cf" = Cloudflare key, "hf" = HF token.
-const IMAGE_PRESETS = [
-  // ── Pollinations — keyless ──────────────────────────────────────────────
-  { id: "flux",           icon: Wand2,      needsKey: false as const, label: { ar: "FLUX — جودة عالية",   en: "FLUX — Quality"      }, hint: { ar: "Pollinations · أعلى جودة",      en: "Pollinations · best quality"   } },
-  { id: "flux-realism",   icon: Camera,     needsKey: false as const, label: { ar: "FLUX — واقعي",         en: "FLUX — Realistic"    }, hint: { ar: "Pollinations · فوتوغرافي",      en: "Pollinations · photorealistic" } },
-  { id: "flux-anime",     icon: Sparkles,   needsKey: false as const, label: { ar: "FLUX — أنمي",          en: "FLUX — Anime"        }, hint: { ar: "Pollinations · أنمي وكرتون",   en: "Pollinations · anime style"    } },
-  { id: "flux-3d",        icon: Layers,     needsKey: false as const, label: { ar: "FLUX — ثلاثي الأبعاد", en: "FLUX — 3D"           }, hint: { ar: "Pollinations · رندر 3D",        en: "Pollinations · 3D renders"     } },
-  { id: "flux-cablyai",   icon: Paintbrush, needsKey: false as const, label: { ar: "FLUX — فني",           en: "FLUX — Artistic"     }, hint: { ar: "Pollinations · فن إبداعي",     en: "Pollinations · artistic"       } },
-  { id: "sana",           icon: Brain,      needsKey: false as const, label: { ar: "Sana — NVIDIA",        en: "Sana — NVIDIA"       }, hint: { ar: "Pollinations · معمارية مختلفة", en: "Pollinations · different arch" } },
-  { id: "turbo",          icon: Zap,        needsKey: false as const, label: { ar: "Turbo — سريع",         en: "Turbo — Fast"        }, hint: { ar: "Pollinations · SDXL Turbo",     en: "Pollinations · SDXL Turbo"     } },
-  // ── Cloudflare Workers AI — free with CF account ────────────────────────
-  { id: "cf:flux-schnell", icon: Cloud,     needsKey: "cf" as const,  label: { ar: "CF — FLUX Schnell",   en: "CF — FLUX Schnell"   }, hint: { ar: "Cloudflare AI · مفتاح مجاني",  en: "Cloudflare AI · free key"      } },
-  // ── Hugging Face — free token ────────────────────────────────────────────
-  { id: "hf:sd21",  icon: Globe, needsKey: "hf" as const, label: { ar: "HF — SD 2.1",  en: "HF — SD 2.1"  }, hint: { ar: "Stable Diffusion 2.1",  en: "Stable Diffusion 2.1"  } },
-  { id: "hf:sd15",  icon: Globe, needsKey: "hf" as const, label: { ar: "HF — SD 1.5",  en: "HF — SD 1.5"  }, hint: { ar: "Stable Diffusion 1.5",  en: "Stable Diffusion 1.5"  } },
-  { id: "hf:sdxl",  icon: Globe, needsKey: "hf" as const, label: { ar: "HF — SDXL",    en: "HF — SDXL"    }, hint: { ar: "Stable Diffusion XL",   en: "Stable Diffusion XL"   } },
-];
+const GEMINI_IMAGE_PRESET = {
+  id: "gemini-image",
+  icon: Bot,
+  label: { ar: "Gemini — توليد صور", en: "Gemini — Image Gen" },
+  hint:  { ar: "جوجل · مجاني · مدعوم بـ AI",  en: "Google · free · AI-powered" },
+};
 
 export function Composer({
   streaming,
@@ -58,7 +48,7 @@ export function Composer({
   onSend: (text: string, attachments?: ChatAttachment[]) => void;
   onStop: () => void;
   onOpenSettings: () => void;
-  onImage?: (prompt: string, model?: string) => void;
+  onImage?: (prompt: string) => void;
   placeholder?: string;
 }) {
   const [text, setText] = useState("");
@@ -67,14 +57,8 @@ export function Composer({
   const [transcribing, setTranscribing] = useState(false);
   const [attMenu, setAttMenu] = useState(false);
   const [modelMenu, setModelMenu] = useState(false);
-  // null = chat mode; string = image mode with that model id.
-  const [imageModel, setImageModel] = useState<string | null>(null);
-  // Keep in sync when default changes in settings.
-  const activateImageMode = (id?: string) => {
-    const m = id ?? defaultImageModel;
-    setImageModel(m);
-    setSettings({ defaultImageModel: m });
-  };
+  const [imageMode, setImageMode] = useState(false);
+  const activateImageMode = () => setImageMode(true);
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
 
@@ -89,14 +73,12 @@ export function Composer({
   const heedModel = useChatStore((s) => s.heedModel);
   const groqModel = useChatStore((s) => s.groqModel);
   const ollamaModel = useChatStore((s) => s.ollamaModel);
-  const defaultImageModel = useChatStore((s) => s.defaultImageModel ?? "flux");
   const setSettings = useChatStore((s) => s.setSettings);
 
   const lang = isAr ? "ar" : "en";
   const currentModel = provider === "heed" ? heedModel : provider === "groq" ? groqModel : ollamaModel;
   const activePreset = MODEL_PRESETS.find((m) => m.id === currentModel);
   const isGeminiActive = activePreset?.group === "gemini";
-  const activeImagePreset = imageModel ? IMAGE_PRESETS.find((m) => m.id === imageModel) ?? IMAGE_PRESETS[0] : null;
   const setModel = (id: string) => {
     if (provider === "heed") setSettings({ heedModel: id });
     else if (provider === "groq") setSettings({ groqModel: id });
@@ -113,10 +95,10 @@ export function Composer({
   const submit = () => {
     const v = text.trim();
     if ((!v && atts.length === 0) || streaming) return;
-    if (imageModel && v) {
-      onImage?.(v, imageModel);
+    if (imageMode && v) {
+      onImage?.(v);
       setText("");
-    } else if (!imageModel) {
+    } else if (!imageMode) {
       onSend(v, atts.length ? atts : undefined);
       setText("");
       setAtts([]);
@@ -229,8 +211,8 @@ export function Composer({
 
       <div className={cn(
         "rounded-2xl border bg-card/60 p-2 shadow-sm",
-        imageModel
-          ? "border-violet-500/50 focus-within:border-violet-500/70"
+        imageMode
+          ? "border-blue-500/50 focus-within:border-blue-500/70"
           : "border-border/60 focus-within:border-primary/40"
       )}>
         {/* Text row */}
@@ -250,7 +232,7 @@ export function Composer({
           placeholder={
             transcribing ? (isAr ? "بفرّغ الصوت…" : "Transcribing…")
             : recording ? (isAr ? "بسجّل… دوس الميكروفون تاني للإيقاف" : "Recording… tap the mic again to stop")
-            : imageModel ? (isAr ? "صف الصورة اللي عايزها… مثلاً: غروب شمس على البحر" : "Describe the image you want… e.g. sunset over the ocean")
+            : imageMode ? (isAr ? "صف الصورة اللي عايزها… مثلاً: غروب شمس على البحر" : "Describe the image you want… e.g. sunset over the ocean")
             : placeholder ?? (isAr ? "اكتب رسالتك…" : "Ask anything…")
           }
           className="max-h-[200px] w-full resize-none bg-transparent px-2 py-1.5 text-start text-sm outline-none placeholder:text-muted-foreground/50"
@@ -300,49 +282,45 @@ export function Composer({
               onClick={() => setModelMenu((v) => !v)}
               className={cn(
                 "flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition hover:bg-secondary",
-                activeImagePreset ? "text-violet-400 hover:text-violet-300" : "text-muted-foreground hover:text-foreground"
+                imageMode ? "text-blue-400 hover:text-blue-300" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {activeImagePreset
-                ? <activeImagePreset.icon className="h-3.5 w-3.5" />
+              {imageMode
+                ? <Bot className="h-3.5 w-3.5" />
                 : activePreset
                   ? <activePreset.icon className={cn("h-3.5 w-3.5", isGeminiActive && "text-blue-400")} />
                   : <Sparkles className="h-3.5 w-3.5" />}
-              <span>{activeImagePreset ? activeImagePreset.label[lang] : activePreset ? activePreset.label[lang] : isAr ? "مخصّص" : "Custom"}</span>
+              <span>{imageMode ? GEMINI_IMAGE_PRESET.label[lang] : activePreset ? activePreset.label[lang] : isAr ? "مخصّص" : "Custom"}</span>
               <ChevronDown className={cn("h-3 w-3 transition", modelMenu && "rotate-180")} />
             </button>
             {modelMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setModelMenu(false)} />
                 <div className="absolute bottom-full z-50 mb-1.5 w-64 rounded-xl border border-border/60 bg-card p-1.5 shadow-2xl">
-                  {imageModel ? (
-                    // ── IMAGE MODE: show only image models ─────────────────
+                  {imageMode ? (
+                    // ── IMAGE MODE ─────────────────────────────────────────
                     <>
                       <button
-                        onClick={() => { setImageModel(null); setModelMenu(false); }}
+                        onClick={() => { setImageMode(false); setModelMenu(false); }}
                         className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-start text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
                       >
                         <span className="text-sm leading-none">←</span>
                         {isAr ? "الرجوع للشات" : "Back to chat"}
                       </button>
                       <div className="my-1 h-px bg-border/40" />
-                      <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Pollinations</p>
-                      {IMAGE_PRESETS.filter((m) => !m.needsKey).map((m) => (
-                        <ImagePresetBtn key={m.id} m={m} lang={lang} active={imageModel === m.id} onSelect={() => { activateImageMode(m.id); setModelMenu(false); }} />
-                      ))}
-                      <div className="my-1 h-px bg-border/40" />
-                      <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Cloudflare AI</p>
-                      {IMAGE_PRESETS.filter((m) => m.needsKey === "cf").map((m) => (
-                        <ImagePresetBtn key={m.id} m={m} lang={lang} active={imageModel === m.id} onSelect={() => { activateImageMode(m.id); setModelMenu(false); }} />
-                      ))}
-                      <div className="my-1 h-px bg-border/40" />
-                      <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Hugging Face</p>
-                      {IMAGE_PRESETS.filter((m) => m.needsKey === "hf").map((m) => (
-                        <ImagePresetBtn key={m.id} m={m} lang={lang} active={imageModel === m.id} onSelect={() => { activateImageMode(m.id); setModelMenu(false); }} />
-                      ))}
+                      <button
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition bg-secondary/50"
+                      >
+                        <Bot className="h-4 w-4 shrink-0 text-blue-400" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium leading-tight">{GEMINI_IMAGE_PRESET.label[lang]}</span>
+                          <span className="block font-micro text-[10px] text-muted-foreground">{GEMINI_IMAGE_PRESET.hint[lang]}</span>
+                        </span>
+                        <Check className="h-3.5 w-3.5 shrink-0 text-blue-400" />
+                      </button>
                     </>
                   ) : (
-                    // ── CHAT MODE: show only chat models ───────────────────
+                    // ── CHAT MODE ──────────────────────────────────────────
                     <>
                       <p className="px-2.5 py-1 font-micro text-[9px] uppercase tracking-wider text-muted-foreground/60">Heed</p>
                       {MODEL_PRESETS.filter((m) => m.group === "heed").map((m) => (
@@ -380,10 +358,10 @@ export function Composer({
                         onClick={() => { activateImageMode(); setModelMenu(false); }}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition hover:bg-secondary"
                       >
-                        <Wand2 className="h-4 w-4 shrink-0 text-violet-400" />
+                        <Wand2 className="h-4 w-4 shrink-0 text-blue-400" />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium leading-tight text-violet-300">{isAr ? "توليد الصور" : "Image Generation"}</span>
-                          <span className="block font-micro text-[10px] text-muted-foreground">{isAr ? "11 نموذج · مجاني" : "11 models · free"}</span>
+                          <span className="block text-sm font-medium leading-tight text-blue-300">{isAr ? "توليد الصور — Gemini" : "Image Gen — Gemini"}</span>
+                          <span className="block font-micro text-[10px] text-muted-foreground">{isAr ? "جوجل · مجاني" : "Google · free"}</span>
                         </span>
                       </button>
                     </>
@@ -440,28 +418,6 @@ export function Composer({
   );
 }
 
-function ImagePresetBtn({
-  m, lang, active, onSelect,
-}: {
-  m: { id: string; icon: React.ElementType; label: { ar: string; en: string }; hint: { ar: string; en: string } };
-  lang: "ar" | "en";
-  active: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start transition hover:bg-secondary"
-    >
-      <m.icon className={cn("h-4 w-4 shrink-0", active ? "text-violet-400" : "text-muted-foreground")} />
-      <span className="min-w-0 flex-1">
-        <span className={cn("block text-sm font-medium leading-tight", active && "text-violet-300")}>{m.label[lang]}</span>
-        <span className="block font-micro text-[10px] text-muted-foreground">{m.hint[lang]}</span>
-      </span>
-      {active && <Check className="h-3.5 w-3.5 shrink-0 text-violet-400" />}
-    </button>
-  );
-}
 
 function MenuItem({ icon, onClick, children }: { icon: React.ReactNode; onClick: () => void; children: React.ReactNode }) {
   return (

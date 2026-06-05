@@ -1,5 +1,5 @@
 import i18n from "./i18n";
-import { imagePromptUrl, generateImageViaProxy, type ImageModel } from "./imageGen";
+import { generateImageViaProxy } from "./imageGen";
 import { useChatStore, uidChat, type ChatMsg, type ChatAttachment } from "../stores/chatStore";
 import {
   streamChat,
@@ -202,10 +202,8 @@ export async function sendChat(
   }
 }
 
-/** Generate an image from a prompt and add it as an assistant reply.
- *  model can be a Pollinations model id ("flux", "turbo"…),
- *  or a prefixed id for other providers ("cf:flux-schnell", "hf:sdxl"…). */
-export async function generateImage(convId: string, prompt: string, model: string = "flux"): Promise<void> {
+/** Generate an image from a prompt via Gemini and add it as an assistant reply. */
+export async function generateImage(convId: string, prompt: string): Promise<void> {
   const body = prompt.trim();
   if (!body) return;
   const store = useChatStore.getState();
@@ -216,45 +214,11 @@ export async function generateImage(convId: string, prompt: string, model: strin
   store.addMessage(convId, { id: uidChat(), role: "user", content: body, createdAt: Date.now() });
   if (isFirst) store.renameConversation(convId, stripEmoji(body).slice(0, 40));
 
-  const isCF = model.startsWith("cf:");
-  const isHF = model.startsWith("hf:");
-
   const replyId = uidChat();
-
-  if (!isCF && !isHF) {
-    // Pollinations — URL is ready immediately, but the image takes time to render.
-    // Show a pending bubble until the browser finishes loading the image.
-    const imageUrl = imagePromptUrl(body, undefined, model as ImageModel);
-    const attId = uidChat();
-    store.addMessage(convId, {
-      id: replyId,
-      role: "assistant",
-      content: "",
-      imageGen: true,
-      pending: true,
-      attachments: [{ id: attId, kind: "image", name: body, mime: "image/png", url: imageUrl }],
-      createdAt: Date.now(),
-    });
-    // Pre-load: clear pending once the browser has the image (or fails).
-    const img = new Image();
-    img.onload  = () => useChatStore.getState().updateMessage(convId, replyId, { pending: false });
-    img.onerror = () => useChatStore.getState().updateMessage(convId, replyId, {
-      pending: false,
-      error: true,
-      content: i18n.language === "en"
-        ? "⚠️ Image failed to load — Pollinations may be busy. Try again."
-        : "⚠️ تعذّر تحميل الصورة — Pollinations مشغولة. جرّب تاني.",
-      attachments: undefined,
-    });
-    img.src = imageUrl;
-    return;
-  }
-
-  // CF / HF — async fetch; show a pending bubble while it loads.
   store.addMessage(convId, { id: replyId, role: "assistant", content: "", imageGen: true, pending: true, createdAt: Date.now() });
 
   try {
-    const dataUrl = await generateImageViaProxy(body, model);
+    const dataUrl = await generateImageViaProxy(body);
     store.updateMessage(convId, replyId, {
       pending: false,
       attachments: [{ id: uidChat(), kind: "image", name: body, mime: "image/png", url: dataUrl }],

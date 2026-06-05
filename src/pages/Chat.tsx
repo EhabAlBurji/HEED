@@ -154,13 +154,12 @@ export default function Chat() {
     }
   };
 
-  const handleImage = (prompt: string, model?: string) => {
-    const imgModel = model ?? "flux";
+  const handleImage = (prompt: string) => {
     if (active) {
-      void generateImage(active.id, prompt, imgModel);
+      void generateImage(active.id, prompt);
     } else {
       const id = newConversation(draftAssistantId);
-      void generateImage(id, prompt, imgModel);
+      void generateImage(id, prompt);
     }
   };
 

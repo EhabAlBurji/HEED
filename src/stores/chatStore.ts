@@ -269,10 +269,11 @@ export const useChatStore = create<ChatState>()(
         const missingBuiltins = BUILTIN_ASSISTANTS.filter(
           (b) => !saved.some((a) => a.id === b.id)
         );
-        // Migrate: if user had the old llama default, switch to Gemini Flash.
+        // Migrate: always upgrade to Gemini 2.5 Pro if user had an older default.
+        const oldDefaults = new Set(["llama-3.3-70b-versatile", "gemini-2.0-flash", "gemini-2.5-flash"]);
         const heedModel =
-          p.heedModel === "llama-3.3-70b-versatile" || !p.heedModel
-            ? "gemini-2.0-flash"
+          !p.heedModel || oldDefaults.has(p.heedModel)
+            ? "gemini-2.5-pro"
             : p.heedModel;
         return {
           ...current,

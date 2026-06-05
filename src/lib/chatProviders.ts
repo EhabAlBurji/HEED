@@ -46,6 +46,8 @@ const HOSTED_MODELS = [
   "qwen/qwen3-32b",
   "deepseek-r1-distill-llama-70b",
   // Google Gemini
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
   "gemini-1.5-flash",
@@ -58,7 +60,7 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     label: "Heed — جاهز · مجاني",
     online: true,
     models: HOSTED_MODELS,
-    defaultModel: "gemini-2.0-flash",
+    defaultModel: "gemini-2.5-pro",
   },
   groq: {
     id: "groq",

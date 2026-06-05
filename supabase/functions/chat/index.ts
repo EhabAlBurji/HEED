@@ -31,6 +31,8 @@ const ALLOWED_MODELS = new Set([
   "meta-llama/llama-4-scout-17b-16e-instruct",
   "meta-llama/llama-4-maverick-17b-128e-instruct",
   // ── Google Gemini ─────────────────────────────────────────────────────────
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
   "gemini-1.5-flash",
@@ -62,29 +64,30 @@ Deno.serve(async (req) => {
 
   // ── Route to the right provider ───────────────────────────────────────────
   const isGemini = model.startsWith("gemini-");
-  const apiUrl   = isGemini ? GEMINI_URL : GROQ_URL;
-  const apiKey   = isGemini
-    ? Deno.env.get("GOOGLE_AI_KEY")
-    : Deno.env.get("GROQ_API_KEY");
 
-  if (!apiKey) {
-    return json({
-      error: isGemini
-        ? "Server missing GOOGLE_AI_KEY secret"
-        : "Server missing GROQ_API_KEY secret",
-    }, 500);
+  async function callProvider(useModel: string, useGemini: boolean): Promise<Response> {
+    const apiUrl = useGemini ? GEMINI_URL : GROQ_URL;
+    const apiKey = useGemini
+      ? Deno.env.get("GOOGLE_AI_KEY")
+      : Deno.env.get("GROQ_API_KEY");
+
+    if (!apiKey) throw new Error(useGemini ? "missing GOOGLE_AI_KEY" : "missing GROQ_API_KEY");
+
+    return fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: useModel, messages, temperature, stream: true }),
+    });
   }
 
   let upstream: Response;
   try {
-    upstream = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model, messages, temperature, stream: true }),
-    });
+    upstream = await callProvider(model, isGemini);
+
+    // Any Gemini error → fall back to Llama silently.
+    if (isGemini && !upstream.ok) {
+      upstream = await callProvider(DEFAULT_MODEL, false);
+    }
   } catch (e) {
     return json({ error: "upstream fetch failed", detail: String(e) }, 502);
   }
@@ -92,7 +95,7 @@ Deno.serve(async (req) => {
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => "");
     return json(
-      { error: `${isGemini ? "Gemini" : "Groq"} error ${upstream.status}`, detail: detail.slice(0, 300) },
+      { error: `upstream error ${upstream.status}`, detail: detail.slice(0, 300) },
       upstream.status
     );
   }
