@@ -22,6 +22,7 @@ import {
 import {
   fetchGroups, fetchGroupMembers, fetchGroupThread, sendGroupMessage,
   createGroup, subscribeGroup, toggleGroupReaction,
+  getGroupLastRead, markGroupRead,
   type DmGroup, type GroupMessage,
 } from "../lib/groupSync";
 import { showNotification, canNotify } from "../lib/notifications";
@@ -158,6 +159,7 @@ export default function Messages() {
   const [groupThreads, setGroupThreads] = useState<Record<string, GroupMessage[]>>({});
   const [groupMembers, setGroupMembers] = useState<Record<string, DmPartner[]>>({});
   const [groupLastMsgs, setGroupLastMsgs] = useState<Record<string, GroupMessage>>({});
+  const [groupUnread, setGroupUnread] = useState<Record<string, number>>({});
   const [groupText, setGroupText] = useState("");
   const [groupSending, setGroupSending] = useState(false);
   const [groupFailedIds, setGroupFailedIds] = useState<Set<string>>(new Set());
@@ -198,12 +200,19 @@ export default function Messages() {
   const recChunksRef = useRef<Blob[]>([]);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Thread search
+  // Thread search (DM)
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const msgRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
   const threadSearchRef = useRef<HTMLInputElement>(null);
+
+  // Group thread search
+  const [groupSearchOpen, setGroupSearchOpen] = useState(false);
+  const [groupSearchQuery, setGroupSearchQuery] = useState("");
+  const [groupSearchMatchIdx, setGroupSearchMatchIdx] = useState(0);
+  const groupMsgRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
+  const groupThreadSearchRef = useRef<HTMLInputElement>(null);
 
   // Reactions hover (desktop) / long-press (mobile)
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
@@ -263,11 +272,16 @@ export default function Messages() {
       const wsId = (wsData as { workspace_id: string }).workspace_id;
       const g = await fetchGroups(wsId);
       setGroups(g);
-      // Fetch last message for each group
+      // Fetch last message for each group and compute unread counts
       for (const group of g) {
         const msgs = await fetchGroupThread(group.id, 1);
         if (msgs.length > 0) {
-          setGroupLastMsgs((prev) => ({ ...prev, [group.id]: msgs[msgs.length - 1] }));
+          const lastMsg = msgs[msgs.length - 1];
+          setGroupLastMsgs((prev) => ({ ...prev, [group.id]: lastMsg }));
+          // Unread = has there been a message after our last read timestamp?
+          const lastRead = getGroupLastRead(group.id);
+          const unreadCount = lastRead ? (lastMsg.createdAt > lastRead ? 1 : 0) : 1;
+          setGroupUnread((prev) => ({ ...prev, [group.id]: unreadCount }));
         }
       }
     })();
@@ -276,9 +290,15 @@ export default function Messages() {
   // ── Load group thread + members on group change ───────────────────────────
   useEffect(() => {
     if (!activeGroupId) return;
-    void fetchGroupThread(activeGroupId).then((msgs) =>
-      setGroupThreads((prev) => ({ ...prev, [activeGroupId]: msgs }))
-    );
+    void fetchGroupThread(activeGroupId).then((msgs) => {
+      setGroupThreads((prev) => ({ ...prev, [activeGroupId]: msgs }));
+      // Mark group as read when we open it
+      if (msgs.length > 0) {
+        const latest = msgs[msgs.length - 1];
+        markGroupRead(activeGroupId, latest.createdAt);
+        setGroupUnread((prev) => ({ ...prev, [activeGroupId]: 0 }));
+      }
+    });
     if (!groupMembers[activeGroupId]) {
       void fetchGroupMembers(activeGroupId).then((members) =>
         setGroupMembers((prev) => ({ ...prev, [activeGroupId]: members }))
@@ -300,6 +320,13 @@ export default function Messages() {
           return { ...prev, [msg.groupId]: [...existing, msg] };
         });
         setGroupLastMsgs((prev) => ({ ...prev, [msg.groupId]: msg }));
+        // Bump unread count for groups we're not currently viewing
+        if (msg.groupId !== activeGroupId) {
+          setGroupUnread((prev) => ({ ...prev, [msg.groupId]: (prev[msg.groupId] ?? 0) + 1 }));
+        } else {
+          // Currently open: mark as read immediately
+          markGroupRead(msg.groupId, msg.createdAt);
+        }
         // Ensure we have member info for the sender
         if (msg.groupId === activeGroupId) {
           setGroupMembers((prev) => {
@@ -828,6 +855,17 @@ export default function Messages() {
     setSearchQuery("");
   }, [activeId]);
 
+  // Group thread search effects (helpers are defined after activeGroupThread is derived)
+  useEffect(() => {
+    if (groupSearchOpen) setTimeout(() => groupThreadSearchRef.current?.focus(), 60);
+    else setGroupSearchQuery("");
+  }, [groupSearchOpen]);
+
+  useEffect(() => {
+    setGroupSearchOpen(false);
+    setGroupSearchQuery("");
+  }, [activeGroupId]);
+
   // ── Jitsi helpers ─────────────────────────────────────────────────────────
   const jitsiRoom = activePartner && me
     ? `heed-${[me.id, activePartner.id].sort().join("-").slice(0, 32)}`
@@ -1112,6 +1150,7 @@ export default function Messages() {
                 const isActive = activeGroupId === g.id;
                 const members = groupMembers[g.id] ?? [];
                 const memberCount = members.length;
+                const u = groupUnread[g.id] ?? 0;
                 return (
                   <button
                     key={g.id}
@@ -1124,17 +1163,20 @@ export default function Messages() {
                   >
                     {isActive && <span className="absolute start-0 top-2 bottom-2 w-[3px] rounded-e-full bg-primary" />}
                     {/* Group avatar */}
-                    <div className={cn("shrink-0 grid h-11 w-11 place-items-center rounded-full font-bold text-white text-[13px]", avatarColor(g.name))}>
-                      {initials(g.name)}
+                    <div className="relative shrink-0">
+                      <div className={cn("grid h-11 w-11 place-items-center rounded-full font-bold text-white text-[13px]", avatarColor(g.name))}>
+                        {initials(g.name)}
+                      </div>
+                      {u > 0 && <span className="absolute -bottom-0.5 -end-0.5 h-3 w-3 rounded-full border-2 border-card bg-primary" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-1">
-                        <span className="flex-1 truncate text-sm font-medium">{g.name}</span>
-                        {last && <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/50">{relativeTime(last.createdAt, isAr)}</span>}
+                        <span className={cn("flex-1 truncate text-sm", u > 0 ? "font-semibold" : "font-medium")}>{g.name}</span>
+                        {last && <span className={cn("shrink-0 text-[11px] tabular-nums", u > 0 ? "font-medium text-primary" : "text-muted-foreground/50")}>{relativeTime(last.createdAt, isAr)}</span>}
                       </div>
                       <div className="mt-0.5 flex items-center justify-between gap-1">
                         {last ? (
-                          <p dir="auto" className="flex-1 truncate text-[13px] leading-snug text-muted-foreground/60">
+                          <p dir="auto" className={cn("flex-1 truncate text-[13px] leading-snug", u > 0 ? "font-medium text-foreground/80" : "text-muted-foreground/60")}>
                             {last.content || (last.attachmentName ? `📎 ${last.attachmentName}` : "")}
                           </p>
                         ) : (
@@ -1143,6 +1185,11 @@ export default function Messages() {
                               ? (isAr ? `${memberCount} أعضاء` : `${memberCount} members`)
                               : (isAr ? "مجموعة جديدة" : "New group")}
                           </p>
+                        )}
+                        {u > 0 && (
+                          <span className="shrink-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[11px] font-bold text-white">
+                            {u > 99 ? "99+" : u}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1767,6 +1814,39 @@ export default function Messages() {
   const activeGroupThread = activeGroupId ? (groupThreads[activeGroupId] ?? []) : [];
   const activeGroupMemberList = activeGroupId ? (groupMembers[activeGroupId] ?? []) : [];
 
+  // ── Group search computed values (needs activeGroupThread) ────────────────
+  const groupSearchMatches = activeGroupThread.reduce<number[]>((acc, msg, i) => {
+    if (groupSearchQuery.trim() && msg.content.toLowerCase().includes(groupSearchQuery.toLowerCase())) acc.push(i);
+    return acc;
+  }, []);
+
+  const scrollToGroupMatch = (idx: number) => {
+    const msgIdx = groupSearchMatches[idx];
+    if (msgIdx === undefined) return;
+    const msg = activeGroupThread[msgIdx];
+    if (!msg) return;
+    const el = groupMsgRefsMap.current.get(msg.id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const navigateGroupSearch = (dir: 1 | -1) => {
+    if (!groupSearchMatches.length) return;
+    const next = (groupSearchMatchIdx + dir + groupSearchMatches.length) % groupSearchMatches.length;
+    setGroupSearchMatchIdx(next);
+    scrollToGroupMatch(next);
+  };
+
+  // Keep first group search match in view when query changes
+  // NOTE: this effect is declared after groupSearchMatches/scrollToGroupMatch
+  // which is fine since hooks must not be called conditionally but CAN be called
+  // after non-hook code in the same render scope.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    setGroupSearchMatchIdx(0);
+    if (groupSearchMatches.length > 0) scrollToGroupMatch(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSearchQuery]);
+
   const groupThreadView = activeGroup ? (
     <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
@@ -1790,13 +1870,80 @@ export default function Messages() {
               : (isAr ? "جاري تحميل الأعضاء…" : "Loading members…")}
           </p>
         </div>
-        <button
-          title={isAr ? "المزيد" : "More options"}
-          className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground touch-manipulation"
-        >
-          <MoreVertical className="h-[18px] w-[18px]" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            title={isAr ? "بحث" : "Search in group"}
+            onClick={() => setGroupSearchOpen((o) => !o)}
+            className={cn(
+              "grid h-9 w-9 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground touch-manipulation",
+              groupSearchOpen && "bg-primary/10 text-primary"
+            )}
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </button>
+          <button
+            title={isAr ? "المزيد" : "More options"}
+            className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground/70 transition hover:bg-secondary hover:text-foreground touch-manipulation"
+          >
+            <MoreVertical className="h-[18px] w-[18px]" />
+          </button>
+        </div>
       </div>
+
+      {/* Group thread search bar */}
+      <AnimatePresence>
+        {groupSearchOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden border-b border-border/40 bg-card/60"
+          >
+            <div className="flex items-center gap-2 px-4 py-2">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+              <input
+                ref={groupThreadSearchRef}
+                value={groupSearchQuery}
+                onChange={(e) => setGroupSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") navigateGroupSearch(e.shiftKey ? -1 : 1);
+                  if (e.key === "Escape") setGroupSearchOpen(false);
+                }}
+                placeholder={isAr ? "بحث في المجموعة…" : "Search in group…"}
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
+              />
+              {groupSearchQuery.trim() && (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">
+                  {groupSearchMatches.length > 0 ? `${groupSearchMatchIdx + 1} / ${groupSearchMatches.length}` : "0 / 0"}
+                </span>
+              )}
+              <button
+                onClick={() => navigateGroupSearch(-1)}
+                disabled={!groupSearchMatches.length}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary disabled:opacity-30"
+                title="Previous"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 10l4-4 4 4"/></svg>
+              </button>
+              <button
+                onClick={() => navigateGroupSearch(1)}
+                disabled={!groupSearchMatches.length}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary disabled:opacity-30"
+                title="Next"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6l4 4 4-4"/></svg>
+              </button>
+              <button
+                onClick={() => setGroupSearchOpen(false)}
+                className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground/60 transition hover:bg-secondary"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div
@@ -1831,9 +1978,11 @@ export default function Messages() {
             const reactionEntries = Object.entries(msg.reactions ?? {}).filter(([, users]) => users.length > 0);
             const senderProfile = activeGroupMemberList.find((m) => m.id === msg.senderId);
             const senderName = senderProfile?.name ?? msg.senderId.slice(0, 8);
+            const isGroupSearchMatch = groupSearchMatches.includes(i);
+            const isCurrentGroupSearchMatch = groupSearchMatches[groupSearchMatchIdx] === i;
 
             return (
-              <div key={msg.id}>
+              <div key={msg.id} ref={(el) => { if (el) groupMsgRefsMap.current.set(msg.id, el); else groupMsgRefsMap.current.delete(msg.id); }}>
                 {showDay && (
                   <div className="my-4 flex items-center justify-center">
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-muted-foreground/70 shadow-sm">
@@ -1866,7 +2015,9 @@ export default function Messages() {
                         mine && isFirst ? "rounded-2xl rounded-ee-sm"
                           : mine ? "rounded-2xl rounded-e-sm"
                           : !mine && isFirst ? "rounded-2xl rounded-ss-sm"
-                          : "rounded-2xl rounded-s-sm"
+                          : "rounded-2xl rounded-s-sm",
+                        isGroupSearchMatch && !isCurrentGroupSearchMatch && "ring-1 ring-yellow-400/60",
+                        isCurrentGroupSearchMatch && "ring-2 ring-yellow-400"
                       )}
                       dir="auto"
                     >
@@ -1900,7 +2051,9 @@ export default function Messages() {
 
                       {/* Text */}
                       {msg.content && (
-                        <p className="whitespace-pre-wrap leading-[1.45]">{msg.content}</p>
+                        <p className="whitespace-pre-wrap leading-[1.45]">
+                          {groupSearchQuery.trim() ? highlightText(msg.content, groupSearchQuery) : msg.content}
+                        </p>
                       )}
 
                       {/* Time */}

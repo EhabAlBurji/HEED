@@ -14,7 +14,7 @@
 // =========================================================================
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { getSupabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "./supabase";
 import { useAuthStore } from "../stores/authStore";
 import { useTasksStore, type Task, type Project, type Category, type Tag } from "../stores/tasksStore";
 import { useWorkspaceStore, type Workspace, type WorkspaceMember } from "../stores/workspaceStore";
@@ -278,6 +278,25 @@ const track = <T extends { error: unknown }>(op: string, p: PromiseLike<T>) => {
     })
   );
 };
+
+// ─── notify-task fire-and-forget helper ──────────────────────────────────────
+export function notifyTaskAssigned(
+  assigneeId: string,
+  assignerName: string,
+  taskTitle: string,
+  taskId: string
+): void {
+  if (!supabaseUrl || !supabaseAnonKey) return;
+  void fetch(`${supabaseUrl}/functions/v1/notify-task`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": supabaseAnonKey,
+      "Authorization": `Bearer ${supabaseAnonKey}`,
+    },
+    body: JSON.stringify({ assigneeId, assignerName, taskTitle, taskId }),
+  }).catch((err) => console.warn("[sync] notify-task failed:", err));
+}
 
 export const pushTask = (t: Task) => {
   if (!canSync()) return;

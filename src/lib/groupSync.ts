@@ -248,6 +248,24 @@ export async function toggleGroupReaction(messageId: string, emoji: string): Pro
   }
 }
 
+// ─── localStorage-based group read tracking ───────────────────────────────────
+// Keeps track of the last-read message timestamp per group so we can show
+// unread badges without a server round-trip.
+
+export function getGroupLastRead(groupId: string): string {
+  return localStorage.getItem(`heed-group-read-${groupId}`) ?? "";
+}
+
+export function markGroupRead(groupId: string, latestMsgCreatedAt: string): void {
+  localStorage.setItem(`heed-group-read-${groupId}`, latestMsgCreatedAt);
+}
+
+export function getGroupUnreadCount(groupId: string, messages: GroupMessage[]): number {
+  const lastRead = getGroupLastRead(groupId);
+  if (!lastRead) return messages.length > 0 ? messages.length : 0;
+  return messages.filter((m) => m.createdAt > lastRead).length;
+}
+
 // Realtime subscription for a single group's messages.
 const groupChannels = new Map<string, RealtimeChannel>();
 

@@ -272,7 +272,7 @@ export const useTasksStore = create<TasksState>()(
           }),
         }));
         syncDeleteCategory(id);
-        affected.forEach(pushTask);
+        affected.forEach((t) => pushTask(t));
       },
 
       addTag: (input) => {
@@ -305,7 +305,7 @@ export const useTasksStore = create<TasksState>()(
           }),
         }));
         syncDeleteTag(id);
-        affected.forEach(pushTask);
+        affected.forEach((t) => pushTask(t));
       },
 
       addProject: (input) => {
@@ -348,7 +348,7 @@ export const useTasksStore = create<TasksState>()(
           }),
         }));
         syncDeleteProject(id);
-        affected.forEach(pushTask);
+        affected.forEach((t) => pushTask(t));
       },
       reorderProjects: (orderedIds) => {
         let toPush: Project[] = [];
