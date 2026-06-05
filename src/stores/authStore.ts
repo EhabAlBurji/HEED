@@ -94,10 +94,10 @@ export const useAuthStore = create<AuthState>()(
             .eq("id", user.id)
             .maybeSingle();
           if (error) { set({ accessStatus: "unknown" }); return; }
-          const status = (data?.access_status as AccessStatus) ?? "early_access";
+          const status = (data?.access_status as AccessStatus) ?? "approved";
           set({
             accessStatus:
-              status === "approved" ? "approved" : status === "rejected" ? "rejected" : "early_access",
+              status === "rejected" ? "rejected" : "approved",
           });
         } catch {
           set({ accessStatus: "unknown" });

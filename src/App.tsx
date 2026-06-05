@@ -210,13 +210,12 @@ export default function App() {
     );
   }
 
-  // Early-access gate: signed-in, non-admin, non-guest users await approval — or
-  // were rejected/revoked by an admin. "unknown" (offline/unconfigured) fails
-  // open so the app is never bricked.
+  // Access gate: only block users explicitly rejected by an admin.
+  // "unknown" (offline/unconfigured) fails open so the app is never bricked.
   if (
     user.id !== "guest" &&
     !isAdmin(user.email) &&
-    (accessStatus === "early_access" || accessStatus === "rejected")
+    accessStatus === "rejected"
   ) {
     return (
       <ErrorBoundary>
